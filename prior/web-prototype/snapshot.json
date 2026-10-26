@@ -1,0 +1,303 @@
+{
+ "as_of": "2026-10-26",
+ "shop": "Sample shop",
+ "source": "skus_master.csv",
+ "totals": {
+  "skus": 3000,
+  "stock_at_cost": 2438302,
+  "dead": {
+   "n": 444,
+   "cap": 323575
+  },
+  "slow": {
+   "n": 429,
+   "cap": 702865
+  },
+  "at_risk": {
+   "n": 873,
+   "cap": 1026440
+  },
+  "new": {
+   "n": 151,
+   "cap": 188087
+  },
+  "insufficient": {
+   "n": 10,
+   "cap": 26924
+  },
+  "zero_qty": 97
+ },
+ "by_category": [
+  {
+   "key": "tv",
+   "label": "TVs",
+   "n": 75,
+   "cap": 331742,
+   "pct": 100
+  },
+  {
+   "key": "phone",
+   "label": "Phones",
+   "n": 87,
+   "cap": 223311,
+   "pct": 67
+  },
+  {
+   "key": "accessory",
+   "label": "Accessories",
+   "n": 625,
+   "cap": 147925,
+   "pct": 45
+  },
+  {
+   "key": "refrigerator",
+   "label": "Fridges",
+   "n": 12,
+   "cap": 121534,
+   "pct": 37
+  },
+  {
+   "key": "laptop",
+   "label": "Laptops",
+   "n": 29,
+   "cap": 109991,
+   "pct": 33
+  },
+  {
+   "key": "tablet",
+   "label": "Tablets",
+   "n": 27,
+   "cap": 47320,
+   "pct": 14
+  },
+  {
+   "key": "washer",
+   "label": "Washers",
+   "n": 12,
+   "cap": 24133,
+   "pct": 7
+  },
+  {
+   "key": "washer_dryer",
+   "label": "Washer-dryers",
+   "n": 6,
+   "cap": 20484,
+   "pct": 6
+  }
+ ],
+ "top_items": [
+  {
+   "name": "Samsung QN85QN85D",
+   "category": "TV",
+   "qty": 40,
+   "dsls": 0,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 81196
+  },
+  {
+   "name": "Whirlpool 36in 25 cu ft French Door Stainless",
+   "category": "Fridge",
+   "qty": 40,
+   "dsls": 0,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 73996
+  },
+  {
+   "name": "Apple MacBook Pro 14 M3 16GB/1TB",
+   "category": "Laptop",
+   "qty": 40,
+   "dsls": 0,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 54606
+  },
+  {
+   "name": "Samsung QN77S90D",
+   "category": "TV",
+   "qty": 9,
+   "dsls": 4,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 25634
+  },
+  {
+   "name": "Apple iPhone 15 128GB Black",
+   "category": "Phone",
+   "qty": 40,
+   "dsls": 0,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 19779
+  },
+  {
+   "name": "Maytag 25 cu ft French Door Black",
+   "category": "Fridge",
+   "qty": 7,
+   "dsls": 22,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 13463
+  },
+  {
+   "name": "Sony K-85XR70",
+   "category": "TV",
+   "qty": 4,
+   "dsls": 205,
+   "status": "dead",
+   "why": "No sale in 205 days",
+   "cap": 11303
+  },
+  {
+   "name": "Hisense 75QD7N",
+   "category": "TV",
+   "qty": 12,
+   "dsls": 12,
+   "status": "slow",
+   "why": "Too much stock for its sales pace",
+   "cap": 10271
+  }
+ ],
+ "launch": {
+  "label": "Samsung TVs",
+  "brand": "Samsung",
+  "cat": "TVs",
+  "n": 19,
+  "cap": 165302,
+  "top": [
+   {
+    "name": "Samsung QN85QN85D",
+    "shelf": 40,
+    "cap": 81196
+   },
+   {
+    "name": "Samsung QN77S90D",
+    "shelf": 9,
+    "cap": 25634
+   },
+   {
+    "name": "Samsung QN75Q70D",
+    "shelf": 7,
+    "cap": 6404
+   }
+  ],
+  "rest_n": 16,
+  "rest_cap": 52068,
+  "top3_cap": 113234,
+  "plans": [
+   {
+    "id": "TV-SAM-QN85QN85D",
+    "name": "Samsung QN85QN85D",
+    "shelf": 40,
+    "tied": 81196,
+    "option": "Discount 5%",
+    "reasons": [
+     "You still make $3,839 across the 40. The discount gives up about $4,476.",
+     "Your price is close to the estimated market price of $2,140."
+    ],
+    "chips": [
+     "SKU TV-SAM-QN85QN85D",
+     "Days of stock 1200",
+     "Market price: estimate",
+     "Source: [outlet], [date]"
+    ]
+   },
+   {
+    "id": "TV-SAM-QN77S90D",
+    "name": "Samsung QN77S90D",
+    "shelf": 9,
+    "tied": 25634,
+    "option": "Bundle",
+    "reasons": [
+     "A 5% discount would sell below your cost: about $148 lost across the 9.",
+     "202 days of stock at the current pace, against the 120 Loreg allows for a TV."
+    ],
+    "chips": [
+     "SKU TV-SAM-QN77S90D",
+     "Days of stock 202",
+     "Market price: estimate",
+     "Source: [outlet], [date]"
+    ]
+   },
+   {
+    "id": "TV-SAM-QN75Q70D-L3",
+    "name": "Samsung QN75Q70D",
+    "shelf": 7,
+    "tied": 6404,
+    "option": "Bundle",
+    "reasons": [
+     "A 5% discount would sell below your cost: about $142 lost across the 7.",
+     "No sales in the last 90 days."
+    ],
+    "chips": [
+     "SKU TV-SAM-QN75Q70D-L3",
+     "Days of stock no sales in 90 days",
+     "Market price: estimate",
+     "Source: [outlet], [date]"
+    ]
+   }
+  ]
+ },
+ "upload": {
+  "file": "skus_master.csv",
+  "rows": 3000,
+  "ok": 2998,
+  "look": 2,
+  "blocked": 0,
+  "zero_qty": 97,
+  "issues": [
+   {
+    "code": "VELOCITY_OUTLIER",
+    "n": 2,
+    "level": "warning",
+    "text": "2 item(s) sold unusually fast. Check the counts."
+   }
+  ]
+ },
+ "bill": {
+  "lines": [
+   {
+    "on_bill": "QN85QN85D",
+    "qty": 40,
+    "each": 2029.89,
+    "line": 81195.6,
+    "matched": "Samsung QN85QN85D",
+    "unclear": false
+   },
+   {
+    "on_bill": "36in 25 cu ft French Door Stainless",
+    "qty": 40,
+    "each": 1849.9,
+    "line": 73996.0,
+    "matched": "Whirlpool 36in 25 cu ft French Door Stainless",
+    "unclear": false
+   },
+   {
+    "on_bill": "MacBook Pro 14 M3 16GB/1TB",
+    "qty": 40,
+    "each": 1365.15,
+    "line": 54606.0,
+    "matched": "Apple MacBook Pro 14 M3 16GB/1TB",
+    "unclear": false
+   },
+   {
+    "on_bill": "QN77S90D",
+    "qty": 9,
+    "each": 2848.22,
+    "line": 25633.98,
+    "matched": "Samsung QN77S90D",
+    "unclear": false
+   },
+   {
+    "on_bill": "iPhone 15 128GB Blac?",
+    "qty": 40,
+    "each": 494.47,
+    "line": 19778.8,
+    "matched": "Apple iPhone 15 128GB Black",
+    "unclear": true
+   }
+  ],
+  "sum": 255210.38
+ }
+}

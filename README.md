@@ -32,7 +32,18 @@ TVs, washing machines, washer-dryers, refrigerators, phones and laptops, for US 
 
 Built solo for the Meta Global AI Developer Hackathon (indie developer track, "Build for Your World").
 
-> **Prior work disclosure:** the planning and the early synthetic dataset generators predate the event. *(Marker for where hackathon work starts: to be added.)*
+## Prior work vs built during the hackathon
+
+Hackathon work starts at the git tag **`hackathon-start`**. Everything in the commit with that tag is prior work, made before the event. Everything after it was built during the hackathon.
+
+**Prior work** (all under [`prior/`](prior/), untouched since the tag; `prior/MANIFEST.sha256` lists a SHA-256 for every file):
+- [`prior/dataset_v2/`](prior/dataset_v2/): the earlier synthetic dataset generator (`generate_dataset_v2.py`), its validator (`validate_dataset.py`), the classification and data-quality rules (`loreg_rules.py`), the price anchor table (`market_price_reference.csv`) and a 200-row demo upload.
+- [`prior/web-prototype/`](prior/web-prototype/): a static frontend prototype (Bootstrap, five screens). It renders from a `snapshot.json` that `snapshot.py` computes from a product database CSV. It has no backend and no file upload. It was made before this repo existed.
+- [`prior/docs/`](prior/docs/): the base context documents (`CONTEXT.md`, `LOREG_BASE_CONTEXT.md`).
+
+**Built during the hackathon** (everything after `hackathon-start` is new work):
+- The deterministic core, the API and storage, the model client, the agents, the 3,000-product catalog table and its generator, and the tests. Prior files are reference only; anything needed from them is reimplemented, not imported.
+- [`web/`](web/) is the real frontend. Its markup, styles and layout are **derived from** `prior/web-prototype/`. All of its wiring is new work: API calls, real data, file upload, purchase bills, and state that comes from the backend.
 
 ## Status
 

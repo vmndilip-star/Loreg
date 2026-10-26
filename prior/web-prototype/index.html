@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loreg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="styles.css" rel="stylesheet">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 10v10h12V10"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17h12l-1.5-2V11a4.5 4.5 0 0 0-9 0v4L6 17zM10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+</svg>
+
+<div class="blobs" aria-hidden="true"><div class="blob amber"></div><div class="blob blue"></div><div class="blob gray"></div><div class="blob amber2"></div></div>
+<div id="live" class="visually-hidden" aria-live="polite"></div>
+
+<div class="container-xxl app">
+  <header class="top glass d-flex align-items-center gap-3 mb-3">
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="2" width="24" height="24" rx="7" fill="#3FB68B"/><path d="M9 8v11h8" stroke="#0B0F14" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand">Loreg</span>
+    <span id="viewName" class="fw-bold soft">Home</span>
+    <span class="ms-auto soft small d-none d-md-inline"><span data-bind="asOfLong"></span>. <span data-bind="shop"></span>, synthetic data</span>
+  </header>
+
+  <div id="loadError" class="tile glass" hidden>Could not load snapshot.json. Run <code>python snapshot.py</code> and serve this folder over http.</div>
+
+  <main id="main" hidden>
+    <!-- HOME -->
+    <section class="view" data-view="home" hidden>
+      <h1 class="visually-hidden vh" tabindex="-1">Home: Loreg Daily</h1>
+      <div class="row g-3">
+        <div class="col-12 col-lg-6">
+          <section class="tile tile-amber tile-hero d-flex flex-column justify-content-between h-100" aria-label="Money at risk">
+            <div class="label">Money at risk, no plan yet</div>
+            <div class="num num-hero" data-kpi></div>
+            <div>
+              <div class="label"><span data-bind="atRiskN"></span> items are dead or slow</div>
+              <div class="label" data-kpi-note hidden></div>
+            </div>
+          </section>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="row g-3 h-100">
+            <div class="col-6"><section class="tile glass h-100 d-flex flex-column justify-content-center" aria-label="Dead items"><div class="num num-lg"><span data-bind="deadN"></span> dead</div><div class="soft fw-semibold" data-bind="deadCap"></div></section></div>
+            <div class="col-6"><section class="tile glass h-100 d-flex flex-column justify-content-center" aria-label="Slow items"><div class="num num-lg"><span data-bind="slowN"></span> slow</div><div class="soft fw-semibold" data-bind="slowCap"></div></section></div>
+            <div class="col-12" data-needs="launch">
+              <a href="#watch" class="tile tile-blue d-flex align-items-center gap-3 text-decoration-none h-100">
+                <svg class="ico" style="width:2.2rem;height:2.2rem" aria-hidden="true"><use href="#i-bell"/></svg>
+                <span class="flex-grow-1"><span class="d-block fs-4 fw-bolder">1 new alert</span><span class="d-block fw-semibold"><span data-bind="launchBrand"></span> may affect <span data-bind="launchN"></span> of your <span data-bind="launchCat"></span></span></span>
+                <svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6" data-needs="launch">
+          <section class="tile glass h-100 d-flex flex-column gap-2" aria-label="One question">
+            <div id="qAsk">
+              <div class="fs-3 fw-bolder lh-sm">Plan the <span data-bind="launchLabel"></span>?</div>
+              <div class="soft mt-2"><span data-bind="launchN"></span> items, <span data-bind="launchCap"></span> tied up. Nothing happens until you say yes.</div>
+              <div class="d-flex gap-2 mt-4">
+                <button type="button" class="btn-pill btn-go flex-fill" data-action="help" data-go="ask">Yes, help me</button>
+                <button type="button" class="btn-pill btn-soft flex-fill" data-action="home-later">Not now</button>
+              </div>
+            </div>
+            <div id="qLater" hidden>
+              <div class="fs-3 fw-bolder lh-sm">Okay, nothing planned</div>
+              <div class="soft mt-2">Loreg won’t plan anything until you ask.</div>
+              <button type="button" class="btn-pill btn-soft mt-4" data-action="home-undo">Ask me again</button>
+            </div>
+          </section>
+        </div>
+        <div class="col-12 col-md-6">
+          <section class="tile glass h-100" aria-label="How we got this number">
+            <div class="fs-5 fw-bolder">How we got <span data-bind="atRiskCap"></span></div>
+            <dl class="row g-2 mt-1 mb-2 small">
+              <dt class="col-8 fw-normal soft"><span data-bind="deadN"></span> dead items</dt><dd class="col-4 text-end fw-bold mb-0" data-bind="deadCap"></dd>
+              <dt class="col-8 fw-normal soft"><span data-bind="slowN"></span> slow items</dt><dd class="col-4 text-end fw-bold mb-0" data-bind="slowCap"></dd>
+              <dt class="col-8 border-top pt-2" style="border-color:rgba(255,255,255,.3)!important">Total</dt><dd class="col-4 text-end fw-bolder mb-0 border-top pt-2" style="border-color:rgba(255,255,255,.3)!important" data-bind="atRiskCap"></dd>
+            </dl>
+            <div class="soft small">Out of <span data-bind="skus"></span> products and <span data-bind="stockCap"></span> of stock at cost. Worked out by code: number on the shelf times what you paid. The AI only writes the words.</div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section class="view" data-view="stock" hidden>
+      <h1 class="visually-hidden vh" tabindex="-1">Stock</h1>
+      <div class="row g-3">
+        <div class="col-12">
+          <section class="tile tile-amber d-flex flex-wrap align-items-center justify-content-between gap-2" aria-label="Money at risk">
+            <span class="label">Money at risk, no plan yet<br><span class="fw-bold" data-kpi-note hidden></span></span>
+            <span class="num num-lg" style="font-size:clamp(2rem,5vw,3.25rem)" data-kpi></span>
+          </section>
+        </div>
+        <div class="col-12 col-xl-5">
+          <div id="pills" class="row g-3 row-cols-2 row-cols-sm-3 row-cols-xl-2 row-cols-xxl-3 h-100"></div>
+        </div>
+        <div class="col-12 col-xl-7">
+          <section class="tile glass h-100" aria-label="Biggest amounts tied up">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h2 class="fs-5 fw-bolder m-0">Biggest amounts tied up</h2><span class="soft small">Sorted by money tied up</span></div>
+            <div class="table-responsive">
+              <table class="table table-glass table-hover">
+                <thead><tr><th scope="col">Item</th><th scope="col" class="text-end">On shelf</th><th scope="col" class="text-end d-none d-md-table-cell">Days since sold</th><th scope="col">Status</th><th scope="col" class="d-none d-lg-table-cell">Why flagged</th><th scope="col" class="text-end">Tied up</th></tr></thead>
+                <tbody id="topRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- WATCH -->
+    <section class="view" data-view="watch" hidden>
+      <h1 class="visually-hidden vh" tabindex="-1">Loreg Watch</h1>
+      <div class="row g-3">
+        <div class="col-12 col-xl-8" data-needs="launch">
+          <article class="tile glass h-100 d-flex flex-column gap-3" aria-label="New alert with a stated launch date">
+            <div class="d-flex flex-wrap gap-2"><span class="chip chip-blue">New</span><span class="chip chip-green">Launch date stated</span></div>
+            <h2 class="fs-3 fw-bolder lh-sm m-0">[Headline from the source]</h2>
+            <dl class="row row-cols-2 row-cols-md-4 g-3 m-0 small">
+              <div class="col"><dt class="fw-normal soft">Source</dt><dd class="m-0 fw-semibold"><span data-bind="launchBrand"></span> Newsroom [link]</dd></div>
+              <div class="col"><dt class="fw-normal soft">Published</dt><dd class="m-0 fw-semibold">[date]</dd></div>
+              <div class="col"><dt class="fw-normal soft">Checked by Loreg</dt><dd class="m-0 fw-semibold" data-bind="asOfShort"></dd></div>
+              <div class="col"><dt class="fw-normal soft">Launch date</dt><dd class="m-0 fw-semibold">[date in the article]</dd></div>
+            </dl>
+            <div class="rounded-4 p-3" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)">
+              <div class="fw-bolder mb-2">Your stock that may be affected: <span data-bind="launchN"></span> items, <span data-bind="launchCap"></span> tied up</div>
+              <ul id="affected" class="list-unstyled m-0 small" style="font-variant-numeric:tabular-nums"></ul>
+              <p class="soft small mt-2 mb-0">These are the items in the affected product lines that are dead or slow. Once the article’s launch date is attached, Loreg will also check which ones have more stock than will sell before it. Those figures are worked out by code from your sales.</p>
+            </div>
+            <div id="watchActions" class="d-flex flex-wrap align-items-center gap-2 mt-auto">
+              <button type="button" class="btn-pill btn-go" data-action="help" data-go="ask">Help me with this</button>
+              <button type="button" class="btn-pill btn-soft" data-action="watch-dismiss">Not now</button>
+              <span class="soft small">Nothing is planned until you ask.</span>
+            </div>
+            <div id="watchDismissed" class="d-flex flex-wrap align-items-center gap-2 mt-auto" hidden>
+              <span class="soft">Dismissed. It stays under “Not now”.</span>
+              <button type="button" class="btn-pill btn-soft" data-action="watch-undo">Undo</button>
+            </div>
+          </article>
+        </div>
+        <div class="col-12 col-xl-4">
+          <div class="row g-3">
+            <div class="col-12 col-md-6 col-xl-12">
+              <article class="tile glass h-100 d-flex flex-column gap-2" aria-label="Announced, no launch date">
+                <div class="d-flex flex-wrap gap-2"><span class="chip chip-blue">New</span><span class="chip chip-amber">Announced, no date</span></div>
+                <h2 class="fs-5 fw-bolder lh-sm m-0">[Headline from another source]</h2>
+                <p class="soft small m-0">Source: [outlet and link]. Published [date]. The article gives no date, so Loreg shows it as announced, not as launching on a day.</p>
+              </article>
+            </div>
+            <div class="col-12 col-md-6 col-xl-12">
+              <article class="tile glass h-100 d-flex flex-column gap-2" aria-label="Source flagged">
+                <div><span class="chip chip-red">Check this source</span></div>
+                <p class="small m-0">The text of [source name] contained suspicious instructions. Loreg treated it as plain data and did not act on it.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ASK -->
+    <section class="view" data-view="ask" hidden>
+      <h1 class="visually-hidden vh" tabindex="-1">Ask Loreg</h1>
+      <div class="row g-3">
+        <div class="col-12 col-lg-4 order-lg-2">
+          <div class="row g-3">
+            <div class="col-12 col-md-6 col-lg-12">
+              <section class="tile tile-amber h-100 d-flex flex-column gap-1" aria-label="Money at risk">
+                <div class="label">Money at risk, no plan yet</div>
+                <div class="num num-hero" style="font-size:clamp(2.25rem,4.5vw,3.5rem)" data-kpi></div>
+                <div class="label" data-kpi-note hidden></div>
+              </section>
+            </div>
+            <div class="col-12 col-md-6 col-lg-12">
+              <section class="tile glass h-100 soft small">Loreg shows one option per item. Nothing happens until you accept, and you can decline any of them. Money at risk is worked out by code.</section>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-8 order-lg-1">
+          <div id="chat" class="d-flex flex-column gap-3">
+            <div class="bubble-user">What should I clear before the launch?</div>
+            <ol class="steps glass" aria-label="What Loreg checked">
+              <li><svg class="ico" style="color:#5FD0A3" aria-hidden="true"><use href="#i-check"/></svg>Checked launch news: 1 source with a date</li>
+              <li><svg class="ico" style="color:#5FD0A3" aria-hidden="true"><use href="#i-check"/></svg>Looked at <span data-bind="launchN"></span> <span data-bind="launchLabel"></span> in your stock</li>
+              <li><svg class="ico" style="color:#5FD0A3" aria-hidden="true"><use href="#i-check"/></svg>Worked out days of stock and what each would earn</li>
+            </ol>
+            <div class="bubble-bot glass">
+              <p class="m-0 mb-2">A <span data-bind="launchBrand"></span> announcement may affect <span data-bind="launchN"></span> of your <span data-bind="launchCat"></span>. Source: [outlet and link], published [date], launch date [date in the article].</p>
+              <p class="m-0 mb-2">The 3 with the most money tied up hold <span data-bind="top3Cap"></span> between them. The date in the article decides which of them can still sell in time.</p>
+              <p class="m-0 fw-bold">Want me to plan what to do with them?</p>
+              <div id="askButtons" class="d-flex flex-wrap gap-2 mt-3">
+                <button type="button" class="btn-pill btn-go" data-action="help">Yes, plan it</button>
+                <button type="button" class="btn-pill btn-soft" data-action="ask-later">Not now</button>
+              </div>
+            </div>
+            <div id="askLater" class="bubble-bot glass" hidden>Okay. I won’t plan anything until you ask. <button type="button" class="btn-pill btn-soft ms-2" data-action="ask-undo">Plan it now</button></div>
+            <div id="askPlan" class="d-flex flex-column gap-3" hidden>
+              <div class="bubble-user">Yes, plan it</div>
+              <div class="bubble-bot glass">Here is one option for each of the three. You decide.</div>
+              <div id="cards" class="row g-3"></div>
+            </div>
+          </div>
+          <form id="composer" class="composer glass d-flex align-items-center gap-2 mt-3" aria-label="Ask a question">
+            <label for="q" class="visually-hidden">Ask about your stock</label>
+            <input id="q" class="flex-grow-1" type="text" placeholder="Ask about your stock" autocomplete="off">
+            <button type="submit" class="send" aria-label="Send"><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg></button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- UPLOAD -->
+    <section class="view" data-view="upload" hidden>
+      <h1 class="visually-hidden vh" tabindex="-1">Upload and purchase bills</h1>
+      <div class="row g-3">
+        <div class="col-12 col-xl-5">
+          <div class="row g-3">
+            <div class="col-12">
+              <section class="tile glass d-flex align-items-center gap-3" aria-label="Stock list file">
+                <span class="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width:72px;height:72px;background:var(--blue)"><svg class="ico" style="width:2.2rem;height:2.2rem" aria-hidden="true"><use href="#i-upload"/></svg></span>
+                <span><span class="d-block fs-5 fw-bolder">Stock list</span><span class="d-block soft small" data-bind="upFile"></span><span class="d-block soft small"><span data-bind="upRows"></span> rows read. Dates and prices understood.</span></span>
+              </section>
+            </div>
+            <div class="col-12 col-sm-6"><section class="tile tile-green h-100 d-flex align-items-center gap-3" aria-label="Rows OK"><span class="num num-lg" data-bind="upOk"></span><span class="fw-bold">rows OK</span></section></div>
+            <div class="col-6 col-sm-3"><section class="tile glass h-100 d-flex flex-column align-items-center justify-content-center text-center px-2" aria-label="To look at"><span class="num num-lg" data-bind="upLook"></span><span class="small fw-bold">to look at</span></section></div>
+            <div class="col-6 col-sm-3"><section id="blockedTile" class="tile tile-red h-100 d-flex flex-column align-items-center justify-content-center text-center px-2" aria-label="Blocked"><span class="num num-lg" data-bind="upBlocked"></span><span class="small fw-bold">blocked</span></section></div>
+            <div class="col-12">
+              <section class="tile glass" aria-label="Problems found">
+                <div id="issuesTitle" class="fw-bolder mb-2"></div>
+                <ul id="issues" class="list-unstyled m-0 small d-flex flex-column gap-2"></ul>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-xl-7">
+          <section class="tile glass h-100 d-flex flex-column gap-3" aria-label="Purchase bill">
+            <div class="d-flex flex-wrap align-items-center gap-2"><h2 class="fs-5 fw-bolder m-0">Purchase bill</h2><span class="chip">Optional</span><span class="chip">Sample bill</span><span class="soft small ms-md-auto">Nothing is saved until you check it.</span></div>
+            <div class="row g-3">
+              <div class="col-12 col-md-4 col-xl-3"><div class="photo" role="img" aria-label="Photo of the bill being read"><div class="soft small">Bill photo</div><i style="width:70%"></i><i style="width:90%"></i><i style="width:85%"></i><i style="width:88%"></i><i style="width:60%"></i><i style="width:80%"></i></div></div>
+              <div class="col-12 col-md-8 col-xl-9">
+                <dl class="d-flex flex-wrap gap-4 small mb-2"><div><dt class="fw-normal soft">Supplier</dt><dd class="m-0">[read from the bill]</dd></div><div><dt class="fw-normal soft">Invoice number</dt><dd class="m-0">[read from the bill]</dd></div><div><dt class="fw-normal soft">Bill date</dt><dd class="m-0">[read from the bill]</dd></div></dl>
+                <div class="table-responsive">
+                  <table class="table table-glass table-sm">
+                    <thead><tr><th scope="col">On the bill</th><th scope="col" class="text-end">Qty</th><th scope="col" class="text-end">You paid each</th><th scope="col" class="text-end">Line total</th><th scope="col">Matched to</th></tr></thead>
+                    <tbody id="billRows"></tbody>
+                  </table>
+                </div>
+                <p class="soft small mb-0">The <span data-bind="billN"></span> lines add up to <span data-bind="billSum"></span>. Loreg checks this against the total printed on the bill, and checks that each quantity times price equals its line total.</p>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-auto">
+              <button type="button" class="btn-pill btn-go">Save the <span data-bind="billOkN"></span> checked lines</button>
+              <button type="button" class="btn-pill btn-soft">Check the unclear line</button>
+              <a href="#stock" class="btn-pill btn-blue d-inline-flex align-items-center text-decoration-none ms-md-auto">Continue with <span class="mx-1" data-bind="upContinue"></span> items</a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<nav class="dock glass" aria-label="Main">
+  <a href="#home" data-nav="home"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span>Home</a>
+  <a href="#stock" data-nav="stock"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg></span>Stock</a>
+  <a href="#watch" data-nav="watch"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></span>Watch</a>
+  <a href="#ask" data-nav="ask"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></span>Ask</a>
+  <a href="#upload" data-nav="upload"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg></span>Upload</a>
+</nav>
+
+<script type="application/json" id="snapshot"></script>
+<script src="app.js"></script>
+</body>
+</html>
