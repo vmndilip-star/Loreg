@@ -1,0 +1,5455 @@
+# Loreg product-line table. One entry per product LINE; variants expand into SKUs.
+#
+# Phase A draft: awaiting approval. Nothing here has been verified against a catalogue.
+#   - Names are real brand and product-line names written from memory. Model numbers are
+#     never invented. Appliance lines use descriptive names (brand + type) on purpose.
+#   - name_verified is false on every line. See data/names_to_verify.csv.
+#   - name_confidence is my own estimate (high|medium|low) that the line exists as named
+#     in that release year. Variant lists (sizes, storage, colors, capacities) are the
+#     part most likely to contain errors.
+#   - Variant count per line = product of its dimension lengths.
+#   - launch_family marks the Samsung 2024 TV lines used for the launch-risk demo.
+# Prices, costs, quantities and sales are NOT in this file; they are generated later.
+version: 1
+targets: {"tv": 800, "phone": 800, "laptop": 450, "washer": 300, "washer_dryer": 150, "refrigerator": 500}
+categories:
+  tv:
+    target_skus: 800
+    line_count: 175
+    lines:
+      - id: "tv-samsung-qn90f-neo-qled-2025"
+        brand: "Samsung"
+        line: "QN90F Neo QLED"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-qn85f-neo-qled-2025"
+        brand: "Samsung"
+        line: "QN85F Neo QLED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-qn80f-neo-qled-2025"
+        brand: "Samsung"
+        line: "QN80F Neo QLED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 85]
+        variant_count: 5
+      - id: "tv-samsung-s95f-oled-2025"
+        brand: "Samsung"
+        line: "S95F OLED"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-samsung-s90f-oled-2025"
+        brand: "Samsung"
+        line: "S90F OLED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [48, 55, 65, 77, 83]
+        variant_count: 5
+      - id: "tv-samsung-s85f-oled-2025"
+        brand: "Samsung"
+        line: "S85F OLED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-samsung-qn900d-neo-qled-8k-2024"
+        brand: "Samsung"
+        line: "QN900D Neo QLED 8K"
+        tier: flagship
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-samsung-qn800d-neo-qled-8k-2024"
+        brand: "Samsung"
+        line: "QN800D Neo QLED 8K"
+        tier: flagship
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-samsung-qn90d-neo-qled-2024"
+        brand: "Samsung"
+        line: "QN90D Neo QLED"
+        tier: flagship
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-qn85d-neo-qled-2024"
+        brand: "Samsung"
+        line: "QN85D Neo QLED"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 85]
+        variant_count: 5
+      - id: "tv-samsung-q80d-qled-2024"
+        brand: "Samsung"
+        line: "Q80D QLED"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-q70d-qled-2024"
+        brand: "Samsung"
+        line: "Q70D QLED"
+        tier: mainstream
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-q60d-qled-2024"
+        brand: "Samsung"
+        line: "Q60D QLED"
+        tier: mainstream
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-s95d-oled-2024"
+        brand: "Samsung"
+        line: "S95D OLED"
+        tier: flagship
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-samsung-s90d-oled-2024"
+        brand: "Samsung"
+        line: "S90D OLED"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-samsung-s85d-oled-2024"
+        brand: "Samsung"
+        line: "S85D OLED"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-samsung-crystal-uhd-du8000-2024"
+        brand: "Samsung"
+        line: "Crystal UHD DU8000"
+        tier: mainstream
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-crystal-uhd-du7200-2024"
+        brand: "Samsung"
+        line: "Crystal UHD DU7200"
+        tier: budget
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-the-frame-2024"
+        brand: "Samsung"
+        line: "The Frame"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [32, 43, 50, 55, 65, 75, 85]
+        variant_count: 7
+      - id: "tv-samsung-qn900c-neo-qled-8k-2023"
+        brand: "Samsung"
+        line: "QN900C Neo QLED 8K"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-samsung-qn800c-neo-qled-8k-2023"
+        brand: "Samsung"
+        line: "QN800C Neo QLED 8K"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-samsung-qn95c-neo-qled-2023"
+        brand: "Samsung"
+        line: "QN95C Neo QLED"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-qn90c-neo-qled-2023"
+        brand: "Samsung"
+        line: "QN90C Neo QLED"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-qn85c-neo-qled-2023"
+        brand: "Samsung"
+        line: "QN85C Neo QLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-q80c-qled-2023"
+        brand: "Samsung"
+        line: "Q80C QLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [50, 55, 65, 75, 85]
+        variant_count: 5
+      - id: "tv-samsung-q70c-qled-2023"
+        brand: "Samsung"
+        line: "Q70C QLED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-q60c-qled-2023"
+        brand: "Samsung"
+        line: "Q60C QLED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-s95c-oled-2023"
+        brand: "Samsung"
+        line: "S95C OLED"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-samsung-s90c-oled-2023"
+        brand: "Samsung"
+        line: "S90C OLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-samsung-s85c-oled-2023"
+        brand: "Samsung"
+        line: "S85C OLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-samsung-crystal-uhd-cu8000-2023"
+        brand: "Samsung"
+        line: "Crystal UHD CU8000"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-crystal-uhd-cu7000-2023"
+        brand: "Samsung"
+        line: "Crystal UHD CU7000"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-the-frame-2023"
+        brand: "Samsung"
+        line: "The Frame"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [32, 43, 50, 55, 65, 75, 85]
+        variant_count: 7
+      - id: "tv-samsung-qn90b-neo-qled-2022"
+        brand: "Samsung"
+        line: "QN90B Neo QLED"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-qn85b-neo-qled-2022"
+        brand: "Samsung"
+        line: "QN85B Neo QLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-q80b-qled-2022"
+        brand: "Samsung"
+        line: "Q80B QLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-q70b-qled-2022"
+        brand: "Samsung"
+        line: "Q70B QLED"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-samsung-q60b-qled-2022"
+        brand: "Samsung"
+        line: "Q60B QLED"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-s95b-oled-2022"
+        brand: "Samsung"
+        line: "S95B OLED"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65]
+        variant_count: 2
+      - id: "tv-samsung-crystal-uhd-bu8000-2022"
+        brand: "Samsung"
+        line: "Crystal UHD BU8000"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-crystal-uhd-bu7000-2022"
+        brand: "Samsung"
+        line: "Crystal UHD BU7000"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-the-frame-2022"
+        brand: "Samsung"
+        line: "The Frame"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-lg-c5-oled-evo-2025"
+        brand: "LG"
+        line: "C5 OLED evo"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [42, 48, 55, 65, 77, 83]
+        variant_count: 6
+      - id: "tv-lg-g5-oled-evo-2025"
+        brand: "LG"
+        line: "G5 OLED evo"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77, 83, 97]
+        variant_count: 5
+      - id: "tv-lg-b5-oled-2025"
+        brand: "LG"
+        line: "B5 OLED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-lg-qned90-2025"
+        brand: "LG"
+        line: "QNED90"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-c4-oled-evo-2024"
+        brand: "LG"
+        line: "C4 OLED evo"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [42, 48, 55, 65, 77, 83]
+        variant_count: 6
+      - id: "tv-lg-g4-oled-evo-2024"
+        brand: "LG"
+        line: "G4 OLED evo"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83, 97]
+        variant_count: 5
+      - id: "tv-lg-b4-oled-2024"
+        brand: "LG"
+        line: "B4 OLED"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [48, 55, 65, 77]
+        variant_count: 4
+      - id: "tv-lg-qned90-2024"
+        brand: "LG"
+        line: "QNED90"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 86]
+        variant_count: 4
+      - id: "tv-lg-qned85-2024"
+        brand: "LG"
+        line: "QNED85"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-qned80-2024"
+        brand: "LG"
+        line: "QNED80"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-ut9000-2024"
+        brand: "LG"
+        line: "UT9000"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-ut8000-2024"
+        brand: "LG"
+        line: "UT8000"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-ut7000-2024"
+        brand: "LG"
+        line: "UT7000"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 70, 75]
+        variant_count: 6
+      - id: "tv-lg-c3-oled-evo-2023"
+        brand: "LG"
+        line: "C3 OLED evo"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [42, 48, 55, 65, 77, 83]
+        variant_count: 6
+      - id: "tv-lg-g3-oled-evo-2023"
+        brand: "LG"
+        line: "G3 OLED evo"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-lg-b3-oled-2023"
+        brand: "LG"
+        line: "B3 OLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-lg-z3-oled-8k-2023"
+        brand: "LG"
+        line: "Z3 OLED 8K"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [77, 88]
+        variant_count: 2
+      - id: "tv-lg-qned90-2023"
+        brand: "LG"
+        line: "QNED90"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 86]
+        variant_count: 3
+      - id: "tv-lg-qned85-2023"
+        brand: "LG"
+        line: "QNED85"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-qned80-2023"
+        brand: "LG"
+        line: "QNED80"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-ur9000-2023"
+        brand: "LG"
+        line: "UR9000"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-ur8000-2023"
+        brand: "LG"
+        line: "UR8000"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-c2-oled-evo-2022"
+        brand: "LG"
+        line: "C2 OLED evo"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [42, 48, 55, 65, 77, 83]
+        variant_count: 6
+      - id: "tv-lg-g2-oled-evo-2022"
+        brand: "LG"
+        line: "G2 OLED evo"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-lg-b2-oled-2022"
+        brand: "LG"
+        line: "B2 OLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-lg-a2-oled-2022"
+        brand: "LG"
+        line: "A2 OLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [48, 55, 65, 77]
+        variant_count: 4
+      - id: "tv-lg-qned90-2022"
+        brand: "LG"
+        line: "QNED90"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 86]
+        variant_count: 3
+      - id: "tv-lg-qned85-2022"
+        brand: "LG"
+        line: "QNED85"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-uq9000-2022"
+        brand: "LG"
+        line: "UQ9000"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-uq8000-2022"
+        brand: "LG"
+        line: "UQ8000"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 86]
+        variant_count: 6
+      - id: "tv-lg-uq7570-2022"
+        brand: "LG"
+        line: "UQ7570"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 70, 75]
+        variant_count: 6
+      - id: "tv-sony-bravia-5-2025"
+        brand: "Sony"
+        line: "Bravia 5"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-sony-bravia-8-ii-oled-2025"
+        brand: "Sony"
+        line: "Bravia 8 II OLED"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65]
+        variant_count: 2
+      - id: "tv-sony-bravia-7-ii-2025"
+        brand: "Sony"
+        line: "Bravia 7 II"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-sony-bravia-2-ii-2025"
+        brand: "Sony"
+        line: "Bravia 2 II"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65]
+        variant_count: 4
+      - id: "tv-sony-bravia-9-2024"
+        brand: "Sony"
+        line: "Bravia 9"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-sony-bravia-8-oled-2024"
+        brand: "Sony"
+        line: "Bravia 8 OLED"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-sony-bravia-7-2024"
+        brand: "Sony"
+        line: "Bravia 7"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-sony-bravia-3-2024"
+        brand: "Sony"
+        line: "Bravia 3"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-sony-a95l-oled-2023"
+        brand: "Sony"
+        line: "A95L OLED"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65]
+        variant_count: 2
+      - id: "tv-sony-a80l-oled-2023"
+        brand: "Sony"
+        line: "A80L OLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77, 83]
+        variant_count: 4
+      - id: "tv-sony-x95l-2023"
+        brand: "Sony"
+        line: "X95L"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-sony-x93l-2023"
+        brand: "Sony"
+        line: "X93L"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-sony-x90l-2023"
+        brand: "Sony"
+        line: "X90L"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-sony-x80l-2023"
+        brand: "Sony"
+        line: "X80L"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-sony-x77l-2023"
+        brand: "Sony"
+        line: "X77L"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-sony-a95k-oled-2022"
+        brand: "Sony"
+        line: "A95K OLED"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65]
+        variant_count: 2
+      - id: "tv-sony-a80k-oled-2022"
+        brand: "Sony"
+        line: "A80K OLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 77]
+        variant_count: 3
+      - id: "tv-sony-x95k-2022"
+        brand: "Sony"
+        line: "X95K"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-sony-x90k-2022"
+        brand: "Sony"
+        line: "X90K"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [50, 55, 65, 75, 85]
+        variant_count: 5
+      - id: "tv-sony-x85k-2022"
+        brand: "Sony"
+        line: "X85K"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-sony-x80k-2022"
+        brand: "Sony"
+        line: "X80K"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-sony-x75k-2022"
+        brand: "Sony"
+        line: "X75K"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-tcl-qm9k-qd-mini-led-2025"
+        brand: "TCL"
+        line: "QM9K QD-Mini LED"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85, 98]
+        variant_count: 4
+      - id: "tv-tcl-qm8k-qd-mini-led-2025"
+        brand: "TCL"
+        line: "QM8K QD-Mini LED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85, 98]
+        variant_count: 4
+      - id: "tv-tcl-qm7k-qd-mini-led-2025"
+        brand: "TCL"
+        line: "QM7K QD-Mini LED"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-tcl-qm8-qd-mini-led-2024"
+        brand: "TCL"
+        line: "QM8 QD-Mini LED"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75, 85, 98, 115]
+        variant_count: 5
+      - id: "tv-tcl-qm7-qd-mini-led-2024"
+        brand: "TCL"
+        line: "QM7 QD-Mini LED"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85, 98]
+        variant_count: 5
+      - id: "tv-tcl-qm6-qled-2024"
+        brand: "TCL"
+        line: "QM6 QLED"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-tcl-q6-qled-2024"
+        brand: "TCL"
+        line: "Q6 QLED"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-tcl-s5-2024"
+        brand: "TCL"
+        line: "S5"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [32, 40, 43, 50, 55, 65]
+        variant_count: 6
+      - id: "tv-tcl-s4-2024"
+        brand: "TCL"
+        line: "S4"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-tcl-6-series-mini-led-qled-2023"
+        brand: "TCL"
+        line: "6-Series Mini-LED QLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-tcl-q7-qled-2023"
+        brand: "TCL"
+        line: "Q7 QLED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-tcl-q6-qled-2023"
+        brand: "TCL"
+        line: "Q6 QLED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-tcl-5-series-qled-2023"
+        brand: "TCL"
+        line: "5-Series QLED"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-tcl-4-series-2023"
+        brand: "TCL"
+        line: "4-Series"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [32, 40, 43, 50, 55, 65, 75, 85]
+        variant_count: 8
+      - id: "tv-tcl-6-series-mini-led-qled-2022"
+        brand: "TCL"
+        line: "6-Series Mini-LED QLED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-tcl-5-series-qled-2022"
+        brand: "TCL"
+        line: "5-Series QLED"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-tcl-4-series-2022"
+        brand: "TCL"
+        line: "4-Series"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [32, 43, 50, 55, 65, 75, 85]
+        variant_count: 7
+      - id: "tv-hisense-u8qg-mini-led-2025"
+        brand: "Hisense"
+        line: "U8QG Mini-LED"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85, 100]
+        variant_count: 4
+      - id: "tv-hisense-u7qg-mini-led-2025"
+        brand: "Hisense"
+        line: "U7QG Mini-LED"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75, 85, 100]
+        variant_count: 5
+      - id: "tv-hisense-u8n-mini-led-2024"
+        brand: "Hisense"
+        line: "U8N Mini-LED"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 100]
+        variant_count: 4
+      - id: "tv-hisense-u7n-mini-led-2024"
+        brand: "Hisense"
+        line: "U7N Mini-LED"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 100]
+        variant_count: 4
+      - id: "tv-hisense-u6n-mini-led-2024"
+        brand: "Hisense"
+        line: "U6N Mini-LED"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-hisense-qd7n-qled-2024"
+        brand: "Hisense"
+        line: "QD7N QLED"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-hisense-qd6n-qled-2024"
+        brand: "Hisense"
+        line: "QD6N QLED"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-hisense-a6n-2024"
+        brand: "Hisense"
+        line: "A6N"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-hisense-u8k-mini-led-2023"
+        brand: "Hisense"
+        line: "U8K Mini-LED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 100]
+        variant_count: 4
+      - id: "tv-hisense-u7k-mini-led-2023"
+        brand: "Hisense"
+        line: "U7K Mini-LED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85, 100]
+        variant_count: 5
+      - id: "tv-hisense-u6k-mini-led-2023"
+        brand: "Hisense"
+        line: "U6K Mini-LED"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-hisense-qd6-qled-2023"
+        brand: "Hisense"
+        line: "QD6 QLED"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-hisense-a6h-2023"
+        brand: "Hisense"
+        line: "A6H"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-hisense-u8h-mini-led-2022"
+        brand: "Hisense"
+        line: "U8H Mini-LED"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-hisense-u7h-mini-led-2022"
+        brand: "Hisense"
+        line: "U7H Mini-LED"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-hisense-u6h-qled-2022"
+        brand: "Hisense"
+        line: "U6H QLED"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-hisense-a6g-2022"
+        brand: "Hisense"
+        line: "A6G"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-vizio-v-series-2024"
+        brand: "Vizio"
+        line: "V-Series"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-vizio-mqx-2024"
+        brand: "Vizio"
+        line: "MQX"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-vizio-v-series-2023"
+        brand: "Vizio"
+        line: "V-Series"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-vizio-m-series-quantum-2023"
+        brand: "Vizio"
+        line: "M-Series Quantum"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [50, 55, 65, 75]
+        variant_count: 4
+      - id: "tv-vizio-m-series-quantum-x-2023"
+        brand: "Vizio"
+        line: "M-Series Quantum X"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75]
+        variant_count: 2
+      - id: "tv-vizio-mqx-2023"
+        brand: "Vizio"
+        line: "MQX"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-vizio-m-series-2022"
+        brand: "Vizio"
+        line: "M-Series"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 70, 75]
+        variant_count: 6
+      - id: "tv-vizio-p-series-quantum-2022"
+        brand: "Vizio"
+        line: "P-Series Quantum"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-vizio-p-series-quantum-x-2022"
+        brand: "Vizio"
+        line: "P-Series Quantum X"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 75]
+        variant_count: 2
+      - id: "tv-vizio-oled-2022"
+        brand: "Vizio"
+        line: "OLED"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65]
+        variant_count: 2
+      - id: "tv-roku-plus-series-2024"
+        brand: "Roku"
+        line: "Plus Series"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-roku-pro-series-2024"
+        brand: "Roku"
+        line: "Pro Series"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-roku-plus-series-2023"
+        brand: "Roku"
+        line: "Plus Series"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-roku-select-series-2023"
+        brand: "Roku"
+        line: "Select Series"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [24, 32, 43, 50, 55, 65]
+        variant_count: 6
+      - id: "tv-amazon-fire-tv-omni-mini-led-series-2024"
+        brand: "Amazon"
+        line: "Fire TV Omni Mini-LED Series"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-amazon-fire-tv-4-series-2023"
+        brand: "Amazon"
+        line: "Fire TV 4-Series"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-amazon-fire-tv-omni-qled-series-2022"
+        brand: "Amazon"
+        line: "Fire TV Omni QLED Series"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-amazon-fire-tv-omni-series-2022"
+        brand: "Amazon"
+        line: "Fire TV Omni Series"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-amazon-fire-tv-4-series-2022"
+        brand: "Amazon"
+        line: "Fire TV 4-Series"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [43, 50, 55]
+        variant_count: 3
+      - id: "tv-amazon-fire-tv-2-series-2022"
+        brand: "Amazon"
+        line: "Fire TV 2-Series"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [32, 40]
+        variant_count: 2
+      - id: "tv-insignia-f50-series-qled-fire-tv-2023"
+        brand: "Insignia"
+        line: "F50 Series QLED Fire TV"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-insignia-f30-series-4k-fire-tv-2022"
+        brand: "Insignia"
+        line: "F30 Series 4K Fire TV"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 58, 65, 70, 75]
+        variant_count: 7
+      - id: "tv-insignia-f20-series-fire-tv-2022"
+        brand: "Insignia"
+        line: "F20 Series Fire TV"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [24, 32, 39]
+        variant_count: 3
+      - id: "tv-toshiba-4k-uhd-fire-tv-edition-2023"
+        brand: "Toshiba"
+        line: "4K UHD Fire TV Edition"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-toshiba-4k-uhd-fire-tv-edition-2022"
+        brand: "Toshiba"
+        line: "4K UHD Fire TV Edition"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-philips-4k-uhd-roku-tv-2022"
+        brand: "Philips"
+        line: "4K UHD Roku TV"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 58, 65, 70, 75]
+        variant_count: 7
+      - id: "tv-onn-4k-uhd-roku-tv-2023"
+        brand: "onn."
+        line: "4K UHD Roku TV"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 58, 65, 70, 75, 85]
+        variant_count: 8
+      - id: "tv-onn-4k-uhd-google-tv-2023"
+        brand: "onn."
+        line: "4K UHD Google TV"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-sceptre-4k-uhd-led-tv-2023"
+        brand: "Sceptre"
+        line: "4K UHD LED TV"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-westinghouse-4k-uhd-roku-tv-2023"
+        brand: "Westinghouse"
+        line: "4K UHD Roku TV"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-element-4k-uhd-fire-tv-edition-2023"
+        brand: "Element"
+        line: "4K UHD Fire TV Edition"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65]
+        variant_count: 4
+      - id: "tv-sharp-4k-uhd-roku-tv-2022"
+        brand: "Sharp"
+        line: "4K UHD Roku TV"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 65]
+        variant_count: 4
+      - id: "tv-samsung-qn990f-neo-qled-8k-2025"
+        brand: "Samsung"
+        line: "QN990F Neo QLED 8K"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85]
+        variant_count: 3
+      - id: "tv-samsung-crystal-uhd-u8000f-2025"
+        brand: "Samsung"
+        line: "Crystal UHD U8000F"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-samsung-the-serif-2024"
+        brand: "Samsung"
+        line: "The Serif"
+        tier: premium
+        release_year: 2024
+        launch_family: true
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65]
+        variant_count: 4
+      - id: "tv-samsung-the-terrace-2023"
+        brand: "Samsung"
+        line: "The Terrace"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [55, 65, 75]
+        variant_count: 3
+      - id: "tv-lg-m5-oled-evo-2025"
+        brand: "LG"
+        line: "M5 OLED evo"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 77, 83, 97]
+        variant_count: 4
+      - id: "tv-lg-qned85-2025"
+        brand: "LG"
+        line: "QNED85"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [50, 55, 65, 75, 86]
+        variant_count: 5
+      - id: "tv-lg-m4-oled-evo-2024"
+        brand: "LG"
+        line: "M4 OLED evo"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [65, 77, 83, 97]
+        variant_count: 4
+      - id: "tv-lg-m3-oled-evo-2023"
+        brand: "LG"
+        line: "M3 OLED evo"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          size_in: [77, 83, 97]
+        variant_count: 3
+      - id: "tv-tcl-qm9-qd-mini-led-2024"
+        brand: "TCL"
+        line: "QM9 QD-Mini LED"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [65, 75, 85, 98]
+        variant_count: 4
+      - id: "tv-tcl-qm6k-qled-2025"
+        brand: "TCL"
+        line: "QM6K QLED"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [55, 65, 75, 85]
+        variant_count: 4
+      - id: "tv-hisense-qd7qf-qled-2025"
+        brand: "Hisense"
+        line: "QD7QF QLED"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-vizio-v-series-2025"
+        brand: "Vizio"
+        line: "V-Series"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75, 85]
+        variant_count: 6
+      - id: "tv-amazon-fire-tv-4-series-2024"
+        brand: "Amazon"
+        line: "Fire TV 4-Series"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          size_in: [43, 50, 55, 65, 75]
+        variant_count: 5
+      - id: "tv-westinghouse-4k-uhd-google-tv-2024"
+        brand: "Westinghouse"
+        line: "4K UHD Google TV"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: low
+        variants:
+          size_in: [43, 50, 55, 65]
+        variant_count: 4
+  phone:
+    target_skus: 800
+    line_count: 100
+    lines:
+      - id: "phone-apple-iphone-se-3rd-generation-2022"
+        brand: "Apple"
+        line: "iPhone SE (3rd generation)"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [64, 128, 256]
+          color: ["Midnight", "Starlight", "(PRODUCT)RED"]
+        variant_count: 9
+      - id: "phone-apple-iphone-14-2022"
+        brand: "Apple"
+        line: "iPhone 14"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Midnight", "Starlight", "Blue", "Purple", "Yellow", "(PRODUCT)RED"]
+        variant_count: 18
+      - id: "phone-apple-iphone-14-plus-2022"
+        brand: "Apple"
+        line: "iPhone 14 Plus"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Midnight", "Starlight", "Blue", "Purple", "Yellow", "(PRODUCT)RED"]
+        variant_count: 18
+      - id: "phone-apple-iphone-14-pro-2022"
+        brand: "Apple"
+        line: "iPhone 14 Pro"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Space Black", "Silver", "Gold", "Deep Purple"]
+        variant_count: 16
+      - id: "phone-apple-iphone-14-pro-max-2022"
+        brand: "Apple"
+        line: "iPhone 14 Pro Max"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Space Black", "Silver", "Gold", "Deep Purple"]
+        variant_count: 16
+      - id: "phone-apple-iphone-15-2023"
+        brand: "Apple"
+        line: "iPhone 15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Black", "Blue", "Green", "Yellow", "Pink"]
+        variant_count: 15
+      - id: "phone-apple-iphone-15-plus-2023"
+        brand: "Apple"
+        line: "iPhone 15 Plus"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Black", "Blue", "Green", "Yellow", "Pink"]
+        variant_count: 15
+      - id: "phone-apple-iphone-15-pro-2023"
+        brand: "Apple"
+        line: "iPhone 15 Pro"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Black Titanium", "White Titanium", "Blue Titanium", "Natural Titanium"]
+        variant_count: 16
+      - id: "phone-apple-iphone-15-pro-max-2023"
+        brand: "Apple"
+        line: "iPhone 15 Pro Max"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Black Titanium", "White Titanium", "Blue Titanium", "Natural Titanium"]
+        variant_count: 12
+      - id: "phone-apple-iphone-16-2024"
+        brand: "Apple"
+        line: "iPhone 16"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Black", "White", "Pink", "Teal", "Ultramarine"]
+        variant_count: 15
+      - id: "phone-apple-iphone-16-plus-2024"
+        brand: "Apple"
+        line: "iPhone 16 Plus"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Black", "White", "Pink", "Teal", "Ultramarine"]
+        variant_count: 15
+      - id: "phone-apple-iphone-16-pro-2024"
+        brand: "Apple"
+        line: "iPhone 16 Pro"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Black Titanium", "White Titanium", "Natural Titanium", "Desert Titanium"]
+        variant_count: 16
+      - id: "phone-apple-iphone-16-pro-max-2024"
+        brand: "Apple"
+        line: "iPhone 16 Pro Max"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Black Titanium", "White Titanium", "Natural Titanium", "Desert Titanium"]
+        variant_count: 12
+      - id: "phone-apple-iphone-16e-2025"
+        brand: "Apple"
+        line: "iPhone 16e"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Black", "White"]
+        variant_count: 6
+      - id: "phone-apple-iphone-17-2025"
+        brand: "Apple"
+        line: "iPhone 17"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Black", "White", "Mist Blue", "Sage", "Lavender"]
+        variant_count: 10
+      - id: "phone-apple-iphone-air-2025"
+        brand: "Apple"
+        line: "iPhone Air"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Space Black", "Cloud White", "Light Gold", "Sky Blue"]
+        variant_count: 12
+      - id: "phone-apple-iphone-17-pro-2025"
+        brand: "Apple"
+        line: "iPhone 17 Pro"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Silver", "Cosmic Orange", "Deep Blue"]
+        variant_count: 9
+      - id: "phone-apple-iphone-17-pro-max-2025"
+        brand: "Apple"
+        line: "iPhone 17 Pro Max"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512, 1024, 2048]
+          color: ["Silver", "Cosmic Orange", "Deep Blue"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s22-2022"
+        brand: "Samsung"
+        line: "Galaxy S22"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Phantom Black", "Phantom White", "Green", "Pink Gold"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s22-plus-2022"
+        brand: "Samsung"
+        line: "Galaxy S22+"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Phantom Black", "Phantom White", "Green", "Pink Gold"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s22-ultra-2022"
+        brand: "Samsung"
+        line: "Galaxy S22 Ultra"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Phantom Black", "Phantom White", "Burgundy", "Green"]
+        variant_count: 16
+      - id: "phone-samsung-galaxy-z-flip4-2022"
+        brand: "Samsung"
+        line: "Galaxy Z Flip4"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Bora Purple", "Graphite", "Pink Gold", "Blue"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-z-fold4-2022"
+        brand: "Samsung"
+        line: "Galaxy Z Fold4"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Phantom Black", "Graygreen", "Beige"]
+        variant_count: 9
+      - id: "phone-samsung-galaxy-s23-2023"
+        brand: "Samsung"
+        line: "Galaxy S23"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Phantom Black", "Cream", "Green", "Lavender"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s23-plus-2023"
+        brand: "Samsung"
+        line: "Galaxy S23+"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Phantom Black", "Cream", "Green", "Lavender"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s23-ultra-2023"
+        brand: "Samsung"
+        line: "Galaxy S23 Ultra"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Phantom Black", "Cream", "Green", "Lavender"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s23-fe-2023"
+        brand: "Samsung"
+        line: "Galaxy S23 FE"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Mint", "Cream", "Graphite", "Purple"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-a54-5g-2023"
+        brand: "Samsung"
+        line: "Galaxy A54 5G"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Graphite", "Awesome Lime", "Awesome Violet", "Awesome White"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-a14-5g-2023"
+        brand: "Samsung"
+        line: "Galaxy A14 5G"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [64, 128]
+          color: ["Black", "Light Green", "Silver"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-z-flip5-2023"
+        brand: "Samsung"
+        line: "Galaxy Z Flip5"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Mint", "Graphite", "Cream", "Lavender"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-z-fold5-2023"
+        brand: "Samsung"
+        line: "Galaxy Z Fold5"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Phantom Black", "Icy Blue", "Cream"]
+        variant_count: 9
+      - id: "phone-samsung-galaxy-s24-2024"
+        brand: "Samsung"
+        line: "Galaxy S24"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Onyx Black", "Marble Gray", "Cobalt Violet", "Amber Yellow"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s24-plus-2024"
+        brand: "Samsung"
+        line: "Galaxy S24+"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Onyx Black", "Marble Gray", "Cobalt Violet", "Amber Yellow"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s24-ultra-2024"
+        brand: "Samsung"
+        line: "Galaxy S24 Ultra"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Titanium Black", "Titanium Gray", "Titanium Violet", "Titanium Yellow"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s24-fe-2024"
+        brand: "Samsung"
+        line: "Galaxy S24 FE"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Blue", "Graphite", "Gray", "Mint", "Yellow"]
+        variant_count: 10
+      - id: "phone-samsung-galaxy-a15-5g-2024"
+        brand: "Samsung"
+        line: "Galaxy A15 5G"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Blue Black", "Light Blue", "Blue"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a35-5g-2024"
+        brand: "Samsung"
+        line: "Galaxy A35 5G"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Navy", "Awesome Lemon", "Awesome Iceblue"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a55-5g-2024"
+        brand: "Samsung"
+        line: "Galaxy A55 5G"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Navy", "Awesome Lemon", "Awesome Iceblue"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-z-flip6-2024"
+        brand: "Samsung"
+        line: "Galaxy Z Flip6"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Blue", "Silver Shadow", "Yellow", "Mint"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-z-fold6-2024"
+        brand: "Samsung"
+        line: "Galaxy Z Fold6"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Silver Shadow", "Pink", "Navy"]
+        variant_count: 9
+      - id: "phone-samsung-galaxy-s25-2025"
+        brand: "Samsung"
+        line: "Galaxy S25"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Navy", "Icyblue", "Mint", "Silver Shadow"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s25-plus-2025"
+        brand: "Samsung"
+        line: "Galaxy S25+"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Navy", "Icyblue", "Mint", "Silver Shadow"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s25-ultra-2025"
+        brand: "Samsung"
+        line: "Galaxy S25 Ultra"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Titanium Silverblue", "Titanium Black", "Titanium Whitesilver", "Titanium Gray"]
+        variant_count: 12
+      - id: "phone-samsung-galaxy-s25-edge-2025"
+        brand: "Samsung"
+        line: "Galaxy S25 Edge"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Titanium Silver", "Titanium Jetblack"]
+        variant_count: 4
+      - id: "phone-samsung-galaxy-a16-5g-2025"
+        brand: "Samsung"
+        line: "Galaxy A16 5G"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Black", "Light Gray", "Light Green"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a36-5g-2025"
+        brand: "Samsung"
+        line: "Galaxy A36 5G"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Black", "Awesome Lavender", "Awesome Lime"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-z-flip7-2025"
+        brand: "Samsung"
+        line: "Galaxy Z Flip7"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Blue Shadow", "Jet Black", "Coral Red"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-z-fold7-2025"
+        brand: "Samsung"
+        line: "Galaxy Z Fold7"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Blue Shadow", "Silver Shadow", "Jet Black"]
+        variant_count: 9
+      - id: "phone-google-pixel-6a-2022"
+        brand: "Google"
+        line: "Pixel 6a"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Chalk", "Charcoal", "Sage"]
+        variant_count: 3
+      - id: "phone-google-pixel-7-2022"
+        brand: "Google"
+        line: "Pixel 7"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Snow", "Lemongrass"]
+        variant_count: 6
+      - id: "phone-google-pixel-7-pro-2022"
+        brand: "Google"
+        line: "Pixel 7 Pro"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Obsidian", "Snow", "Hazel"]
+        variant_count: 9
+      - id: "phone-google-pixel-7a-2023"
+        brand: "Google"
+        line: "Pixel 7a"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Charcoal", "Snow", "Sea", "Coral"]
+        variant_count: 4
+      - id: "phone-google-pixel-8-2023"
+        brand: "Google"
+        line: "Pixel 8"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Hazel", "Rose"]
+        variant_count: 6
+      - id: "phone-google-pixel-8-pro-2023"
+        brand: "Google"
+        line: "Pixel 8 Pro"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Obsidian", "Porcelain", "Bay"]
+        variant_count: 12
+      - id: "phone-google-pixel-8a-2024"
+        brand: "Google"
+        line: "Pixel 8a"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Porcelain", "Bay", "Aloe"]
+        variant_count: 8
+      - id: "phone-google-pixel-9-2024"
+        brand: "Google"
+        line: "Pixel 9"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Porcelain", "Wintergreen", "Peony"]
+        variant_count: 8
+      - id: "phone-google-pixel-9-pro-2024"
+        brand: "Google"
+        line: "Pixel 9 Pro"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Obsidian", "Porcelain", "Hazel", "Rose Quartz"]
+        variant_count: 16
+      - id: "phone-google-pixel-9-pro-xl-2024"
+        brand: "Google"
+        line: "Pixel 9 Pro XL"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Obsidian", "Porcelain", "Hazel", "Rose Quartz"]
+        variant_count: 16
+      - id: "phone-google-pixel-9-pro-fold-2024"
+        brand: "Google"
+        line: "Pixel 9 Pro Fold"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Obsidian", "Porcelain"]
+        variant_count: 4
+      - id: "phone-google-pixel-9a-2025"
+        brand: "Google"
+        line: "Pixel 9a"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Porcelain", "Iris", "Peony"]
+        variant_count: 8
+      - id: "phone-google-pixel-10-2025"
+        brand: "Google"
+        line: "Pixel 10"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Obsidian", "Frost", "Indigo", "Lemongrass"]
+        variant_count: 8
+      - id: "phone-google-pixel-10-pro-2025"
+        brand: "Google"
+        line: "Pixel 10 Pro"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256, 512, 1024]
+          color: ["Obsidian", "Moonstone", "Jade", "Porcelain"]
+        variant_count: 16
+      - id: "phone-motorola-moto-g-power-5g-2023"
+        brand: "Motorola"
+        line: "Moto G Power 5G"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Mauve", "Ink Blue"]
+        variant_count: 2
+      - id: "phone-motorola-moto-g-stylus-5g-2023"
+        brand: "Motorola"
+        line: "Moto G Stylus 5G"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Gray", "Ink Blue"]
+        variant_count: 4
+      - id: "phone-motorola-moto-g-play-2023"
+        brand: "Motorola"
+        line: "Moto G Play"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [32, 64]
+          color: ["Navy Blue", "Moonlight Grey"]
+        variant_count: 4
+      - id: "phone-motorola-edge-2023"
+        brand: "Motorola"
+        line: "Edge"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256]
+          color: ["Eclipse Black", "Jade Green"]
+        variant_count: 2
+      - id: "phone-motorola-moto-g-power-5g-2024"
+        brand: "Motorola"
+        line: "Moto G Power 5G"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Midnight Blue", "Mauve"]
+        variant_count: 4
+      - id: "phone-motorola-moto-g-stylus-5g-2024"
+        brand: "Motorola"
+        line: "Moto G Stylus 5G"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Cosmic Blue", "Scarlet Wave"]
+        variant_count: 4
+      - id: "phone-motorola-moto-g-5g-2024"
+        brand: "Motorola"
+        line: "Moto G 5G"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Sage Green", "Ocean Blue"]
+        variant_count: 2
+      - id: "phone-motorola-razr-2024"
+        brand: "Motorola"
+        line: "Razr"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256]
+          color: ["Sage Green", "Koala Gray", "Peach Fuzz"]
+        variant_count: 3
+      - id: "phone-motorola-razr-plus-2024"
+        brand: "Motorola"
+        line: "Razr+"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256]
+          color: ["Infinite Black", "Hot Pink", "Glacier Blue"]
+        variant_count: 3
+      - id: "phone-motorola-edge-2024"
+        brand: "Motorola"
+        line: "Edge"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Eclipse Black", "Jade Green", "Slate Gray"]
+        variant_count: 6
+      - id: "phone-motorola-moto-g-power-5g-2025"
+        brand: "Motorola"
+        line: "Moto G Power 5G"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Midnight Blue", "Slate Gray"]
+        variant_count: 4
+      - id: "phone-motorola-razr-2025"
+        brand: "Motorola"
+        line: "Razr"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256]
+          color: ["Cabaret", "Gibraltar Sea"]
+        variant_count: 2
+      - id: "phone-motorola-razr-plus-2025"
+        brand: "Motorola"
+        line: "Razr+"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Pantone Midnight Blue", "Pantone Spring Bud"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-10-pro-2022"
+        brand: "OnePlus"
+        line: "OnePlus 10 Pro"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Volcanic Black", "Emerald Forest"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-nord-n20-5g-2022"
+        brand: "OnePlus"
+        line: "OnePlus Nord N20 5G"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Blue Smoke"]
+        variant_count: 1
+      - id: "phone-oneplus-oneplus-11-2023"
+        brand: "OnePlus"
+        line: "OnePlus 11"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Titan Black", "Eternal Green"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-nord-n30-5g-2023"
+        brand: "OnePlus"
+        line: "OnePlus Nord N30 5G"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Chromatic Gray"]
+        variant_count: 1
+      - id: "phone-oneplus-oneplus-12-2024"
+        brand: "OnePlus"
+        line: "OnePlus 12"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Silky Black", "Flowy Emerald"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-12r-2024"
+        brand: "OnePlus"
+        line: "OnePlus 12R"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Cool Blue", "Iron Gray"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-13-2025"
+        brand: "OnePlus"
+        line: "OnePlus 13"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512, 1024]
+          color: ["Black Eclipse", "Midnight Ocean", "Arctic Dawn"]
+        variant_count: 9
+      - id: "phone-oneplus-oneplus-13r-2025"
+        brand: "OnePlus"
+        line: "OnePlus 13R"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Nebula Noir", "Astral Trail"]
+        variant_count: 4
+      - id: "phone-nothing-phone-2-2023"
+        brand: "Nothing"
+        line: "Phone (2)"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256, 512]
+          color: ["Dark Gray", "White"]
+        variant_count: 6
+      - id: "phone-nothing-phone-2a-2024"
+        brand: "Nothing"
+        line: "Phone (2a)"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Black", "White", "Milk"]
+        variant_count: 6
+      - id: "phone-nothing-phone-3a-2025"
+        brand: "Nothing"
+        line: "Phone (3a)"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Black", "White", "Blue"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a53-5g-2022"
+        brand: "Samsung"
+        line: "Galaxy A53 5G"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Black", "Awesome Blue", "Awesome Peach", "Awesome White"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-s21-fe-5g-2022"
+        brand: "Samsung"
+        line: "Galaxy S21 FE 5G"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Graphite", "White", "Lavender", "Olive"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-a25-5g-2024"
+        brand: "Samsung"
+        line: "Galaxy A25 5G"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128, 256]
+          color: ["Blue Black", "Blue", "Yellow"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a06-2024"
+        brand: "Samsung"
+        line: "Galaxy A06"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [64, 128]
+          color: ["Black", "Light Blue", "Light Violet"]
+        variant_count: 6
+      - id: "phone-samsung-galaxy-a26-5g-2025"
+        brand: "Samsung"
+        line: "Galaxy A26 5G"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Black", "Mint", "White", "Peach Pink"]
+        variant_count: 8
+      - id: "phone-samsung-galaxy-a56-5g-2025"
+        brand: "Samsung"
+        line: "Galaxy A56 5G"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [128, 256]
+          color: ["Awesome Graphite", "Awesome Lightgray", "Awesome Olive", "Awesome Pink"]
+        variant_count: 8
+      - id: "phone-sony-xperia-1-v-2023"
+        brand: "Sony"
+        line: "Xperia 1 V"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Black", "Khaki Green", "Platinum Silver"]
+        variant_count: 6
+      - id: "phone-sony-xperia-10-v-2023"
+        brand: "Sony"
+        line: "Xperia 10 V"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [128]
+          color: ["Black", "White", "Lavender", "Sage Green"]
+        variant_count: 4
+      - id: "phone-asus-zenfone-11-ultra-2024"
+        brand: "ASUS"
+        line: "Zenfone 11 Ultra"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Eternal Black", "Misty Gray", "Desert Sand", "Skyline Blue"]
+        variant_count: 8
+      - id: "phone-google-pixel-fold-2023"
+        brand: "Google"
+        line: "Pixel Fold"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256, 512]
+          color: ["Obsidian", "Porcelain"]
+        variant_count: 4
+      - id: "phone-oneplus-oneplus-open-2023"
+        brand: "OnePlus"
+        line: "OnePlus Open"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [512]
+          color: ["Emerald Dusk", "Voyager Black"]
+        variant_count: 2
+      - id: "phone-nothing-phone-3-2025"
+        brand: "Nothing"
+        line: "Phone (3)"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [256, 512]
+          color: ["Black", "White"]
+        variant_count: 4
+      - id: "phone-motorola-razr-plus-2023"
+        brand: "Motorola"
+        line: "Razr+"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          storage_gb: [256]
+          color: ["Infinite Black", "Glacier Blue", "Viva Magenta"]
+        variant_count: 3
+      - id: "phone-motorola-moto-g-play-2024"
+        brand: "Motorola"
+        line: "Moto G Play"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          storage_gb: [64]
+          color: ["Sapphire Blue", "Sage Green"]
+        variant_count: 2
+  laptop:
+    target_skus: 450
+    line_count: 82
+    lines:
+      - id: "laptop-apple-macbook-air-13-inch-m2-2022"
+        brand: "Apple"
+        line: "MacBook Air 13-inch M2"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Midnight", "Starlight", "Space Gray", "Silver"]
+        variant_count: 16
+      - id: "laptop-apple-macbook-pro-13-inch-m2-2022"
+        brand: "Apple"
+        line: "MacBook Pro 13-inch M2"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Space Gray", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-air-15-inch-m2-2023"
+        brand: "Apple"
+        line: "MacBook Air 15-inch M2"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Midnight", "Starlight", "Space Gray", "Silver"]
+        variant_count: 12
+      - id: "laptop-apple-macbook-pro-14-inch-m3-2023"
+        brand: "Apple"
+        line: "MacBook Pro 14-inch M3"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "24GB/1TB"]
+          color: ["Space Gray", "Silver", "Space Black"]
+        variant_count: 9
+      - id: "laptop-apple-macbook-pro-16-inch-m3-pro-2023"
+        brand: "Apple"
+        line: "MacBook Pro 16-inch M3 Pro"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["18GB/512GB", "36GB/1TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 4
+      - id: "laptop-apple-macbook-air-13-inch-m3-2024"
+        brand: "Apple"
+        line: "MacBook Air 13-inch M3"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "24GB/1TB"]
+          color: ["Midnight", "Starlight", "Space Gray", "Silver"]
+        variant_count: 12
+      - id: "laptop-apple-macbook-air-15-inch-m3-2024"
+        brand: "Apple"
+        line: "MacBook Air 15-inch M3"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "24GB/1TB"]
+          color: ["Midnight", "Starlight", "Space Gray", "Silver"]
+        variant_count: 12
+      - id: "laptop-apple-macbook-pro-14-inch-m4-2024"
+        brand: "Apple"
+        line: "MacBook Pro 14-inch M4"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "24GB/1TB", "32GB/1TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-pro-16-inch-m4-pro-2024"
+        brand: "Apple"
+        line: "MacBook Pro 16-inch M4 Pro"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["24GB/512GB", "48GB/1TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 4
+      - id: "laptop-apple-macbook-air-13-inch-m4-2025"
+        brand: "Apple"
+        line: "MacBook Air 13-inch M4"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/256GB", "16GB/512GB", "24GB/1TB"]
+          color: ["Midnight", "Starlight", "Sky Blue", "Silver"]
+        variant_count: 12
+      - id: "laptop-apple-macbook-air-15-inch-m4-2025"
+        brand: "Apple"
+        line: "MacBook Air 15-inch M4"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/256GB", "16GB/512GB", "24GB/1TB"]
+          color: ["Midnight", "Starlight", "Sky Blue", "Silver"]
+        variant_count: 12
+      - id: "laptop-dell-xps-13-plus-2022"
+        brand: "Dell"
+        line: "XPS 13 Plus"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Platinum", "Graphite"]
+        variant_count: 6
+      - id: "laptop-dell-inspiron-15-2022"
+        brand: "Dell"
+        line: "Inspiron 15"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Carbon Black", "Platinum Silver"]
+        variant_count: 6
+      - id: "laptop-dell-xps-15-2023"
+        brand: "Dell"
+        line: "XPS 15"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB", "64GB/2TB"]
+          color: ["Platinum Silver"]
+        variant_count: 3
+      - id: "laptop-dell-inspiron-16-plus-2023"
+        brand: "Dell"
+        line: "Inspiron 16 Plus"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Ice Blue", "Platinum Silver"]
+        variant_count: 6
+      - id: "laptop-dell-latitude-14-5000-series-2023"
+        brand: "Dell"
+        line: "Latitude 14 5000 Series"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "32GB/1TB"]
+          color: ["Titan Gray"]
+        variant_count: 3
+      - id: "laptop-dell-xps-13-2024"
+        brand: "Dell"
+        line: "XPS 13"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Platinum", "Graphite"]
+        variant_count: 6
+      - id: "laptop-dell-xps-14-2024"
+        brand: "Dell"
+        line: "XPS 14"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB", "64GB/2TB"]
+          color: ["Platinum", "Graphite"]
+        variant_count: 6
+      - id: "laptop-dell-xps-16-2024"
+        brand: "Dell"
+        line: "XPS 16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB", "64GB/2TB"]
+          color: ["Platinum", "Graphite"]
+        variant_count: 6
+      - id: "laptop-dell-inspiron-14-plus-2024"
+        brand: "Dell"
+        line: "Inspiron 14 Plus"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Ice Blue", "Platinum Silver"]
+        variant_count: 4
+      - id: "laptop-dell-alienware-m16-r2-2024"
+        brand: "Dell"
+        line: "Alienware m16 R2"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/1TB", "32GB/1TB", "32GB/2TB"]
+          color: ["Dark Metallic Moon", "Lunar Light"]
+        variant_count: 6
+      - id: "laptop-hp-pavilion-15-2022"
+        brand: "HP"
+        line: "Pavilion 15"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Natural Silver", "Space Blue", "Fog Blue"]
+        variant_count: 9
+      - id: "laptop-hp-envy-x360-14-2022"
+        brand: "HP"
+        line: "Envy x360 14"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Nightfall Black", "Natural Silver"]
+        variant_count: 6
+      - id: "laptop-hp-spectre-x360-14-2023"
+        brand: "HP"
+        line: "Spectre x360 14"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Nightfall Black", "Slate Blue"]
+        variant_count: 6
+      - id: "laptop-hp-victus-15-2023"
+        brand: "HP"
+        line: "Victus 15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Mica Silver", "Performance Blue"]
+        variant_count: 6
+      - id: "laptop-hp-chromebook-14-2023"
+        brand: "HP"
+        line: "Chromebook 14"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["4GB/64GB", "8GB/128GB"]
+          color: ["Mineral Silver"]
+        variant_count: 2
+      - id: "laptop-hp-omnibook-x-14-2024"
+        brand: "HP"
+        line: "OmniBook X 14"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Glacier Silver", "Meteor Silver"]
+        variant_count: 6
+      - id: "laptop-hp-omnibook-ultra-14-2024"
+        brand: "HP"
+        line: "OmniBook Ultra 14"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Meteor Silver"]
+        variant_count: 2
+      - id: "laptop-hp-omen-16-2024"
+        brand: "HP"
+        line: "Omen 16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB", "32GB/2TB"]
+          color: ["Shadow Black"]
+        variant_count: 3
+      - id: "laptop-hp-15-laptop-2024"
+        brand: "HP"
+        line: "15 Laptop"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Natural Silver", "Jet Black"]
+        variant_count: 6
+      - id: "laptop-lenovo-ideapad-slim-3-15-2022"
+        brand: "Lenovo"
+        line: "IdeaPad Slim 3 15"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Arctic Grey", "Abyss Blue"]
+        variant_count: 6
+      - id: "laptop-lenovo-yoga-7i-14-2022"
+        brand: "Lenovo"
+        line: "Yoga 7i 14"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Storm Grey", "Arctic Grey"]
+        variant_count: 6
+      - id: "laptop-lenovo-thinkpad-e14-gen-5-2023"
+        brand: "Lenovo"
+        line: "ThinkPad E14 Gen 5"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "32GB/1TB"]
+          color: ["Graphite Black"]
+        variant_count: 3
+      - id: "laptop-lenovo-thinkpad-x1-carbon-gen-11-2023"
+        brand: "Lenovo"
+        line: "ThinkPad X1 Carbon Gen 11"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Deep Black"]
+        variant_count: 3
+      - id: "laptop-lenovo-legion-5i-15-2023"
+        brand: "Lenovo"
+        line: "Legion 5i 15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Storm Grey", "Phantom Blue"]
+        variant_count: 6
+      - id: "laptop-lenovo-ideapad-1-15-2023"
+        brand: "Lenovo"
+        line: "IdeaPad 1 15"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["4GB/128GB", "8GB/256GB", "8GB/512GB"]
+          color: ["Cloud Grey"]
+        variant_count: 3
+      - id: "laptop-lenovo-yoga-slim-7i-aura-edition-2024"
+        brand: "Lenovo"
+        line: "Yoga Slim 7i Aura Edition"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Cosmic Blue", "Luna Grey"]
+        variant_count: 4
+      - id: "laptop-lenovo-thinkpad-x1-carbon-gen-12-2024"
+        brand: "Lenovo"
+        line: "ThinkPad X1 Carbon Gen 12"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Black", "Weave Black"]
+        variant_count: 4
+      - id: "laptop-lenovo-legion-pro-5i-16-2024"
+        brand: "Lenovo"
+        line: "Legion Pro 5i 16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/1TB", "32GB/1TB", "32GB/2TB"]
+          color: ["Eclipse Black"]
+        variant_count: 3
+      - id: "laptop-lenovo-loq-15-2024"
+        brand: "Lenovo"
+        line: "LOQ 15"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Luna Grey", "Storm Grey"]
+        variant_count: 6
+      - id: "laptop-asus-zenbook-14-oled-2023"
+        brand: "ASUS"
+        line: "Zenbook 14 OLED"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Ponder Blue", "Jade Black"]
+        variant_count: 4
+      - id: "laptop-asus-vivobook-15-2023"
+        brand: "ASUS"
+        line: "Vivobook 15"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Quiet Blue", "Cool Silver"]
+        variant_count: 6
+      - id: "laptop-asus-tuf-gaming-a15-2023"
+        brand: "ASUS"
+        line: "TUF Gaming A15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Jaeger Gray", "Mecha Gray"]
+        variant_count: 6
+      - id: "laptop-asus-rog-zephyrus-g14-2023"
+        brand: "ASUS"
+        line: "ROG Zephyrus G14"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Eclipse Gray", "Platinum White"]
+        variant_count: 4
+      - id: "laptop-asus-zenbook-s-14-2024"
+        brand: "ASUS"
+        line: "Zenbook S 14"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Scandinavian White", "Zumaia Gray"]
+        variant_count: 4
+      - id: "laptop-asus-vivobook-s-15-2024"
+        brand: "ASUS"
+        line: "Vivobook S 15"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Neutral Black", "Cream White"]
+        variant_count: 4
+      - id: "laptop-asus-rog-strix-g16-2024"
+        brand: "ASUS"
+        line: "ROG Strix G16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/1TB", "32GB/1TB"]
+          color: ["Eclipse Gray"]
+        variant_count: 2
+      - id: "laptop-acer-aspire-5-15-2022"
+        brand: "Acer"
+        line: "Aspire 5 15"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB"]
+          color: ["Steel Gray", "Silver"]
+        variant_count: 6
+      - id: "laptop-acer-chromebook-spin-714-2022"
+        brand: "Acer"
+        line: "Chromebook Spin 714"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/256GB", "16GB/256GB"]
+          color: ["Steel Gray"]
+        variant_count: 2
+      - id: "laptop-acer-swift-go-14-2023"
+        brand: "Acer"
+        line: "Swift Go 14"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Steam Blue", "Pure Silver"]
+        variant_count: 6
+      - id: "laptop-acer-nitro-v-15-2023"
+        brand: "Acer"
+        line: "Nitro V 15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Obsidian Black"]
+        variant_count: 3
+      - id: "laptop-acer-aspire-3-15-2023"
+        brand: "Acer"
+        line: "Aspire 3 15"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["4GB/128GB", "8GB/256GB", "8GB/512GB"]
+          color: ["Pure Silver", "Charcoal Gray"]
+        variant_count: 6
+      - id: "laptop-acer-predator-helios-neo-16-2024"
+        brand: "Acer"
+        line: "Predator Helios Neo 16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Abyss Black"]
+        variant_count: 3
+      - id: "laptop-acer-swift-go-16-2024"
+        brand: "Acer"
+        line: "Swift Go 16"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Steam Blue", "Pure Silver"]
+        variant_count: 4
+      - id: "laptop-microsoft-surface-laptop-5-13-5-inch-2022"
+        brand: "Microsoft"
+        line: "Surface Laptop 5 13.5-inch"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Platinum", "Sage", "Black", "Sandstone"]
+        variant_count: 16
+      - id: "laptop-microsoft-surface-laptop-studio-2022"
+        brand: "Microsoft"
+        line: "Surface Laptop Studio"
+        tier: flagship
+        release_year: 2022
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Platinum"]
+        variant_count: 2
+      - id: "laptop-microsoft-surface-laptop-go-3-2023"
+        brand: "Microsoft"
+        line: "Surface Laptop Go 3"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["8GB/256GB", "16GB/256GB"]
+          color: ["Platinum", "Sage", "Sandstone", "Ice Blue"]
+        variant_count: 8
+      - id: "laptop-microsoft-surface-laptop-7-13-8-inch-2024"
+        brand: "Microsoft"
+        line: "Surface Laptop 7 13.8-inch"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/256GB", "16GB/512GB", "32GB/1TB"]
+          color: ["Platinum", "Sapphire", "Dune", "Black"]
+        variant_count: 12
+      - id: "laptop-microsoft-surface-laptop-7-15-inch-2024"
+        brand: "Microsoft"
+        line: "Surface Laptop 7 15-inch"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/256GB", "16GB/512GB", "32GB/1TB"]
+          color: ["Platinum", "Black"]
+        variant_count: 6
+      - id: "laptop-samsung-galaxy-book3-15-6-inch-2023"
+        brand: "Samsung"
+        line: "Galaxy Book3 15.6-inch"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/256GB", "16GB/512GB"]
+          color: ["Graphite", "Silver"]
+        variant_count: 4
+      - id: "laptop-samsung-galaxy-book4-pro-14-inch-2024"
+        brand: "Samsung"
+        line: "Galaxy Book4 Pro 14-inch"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Moonstone Gray", "Platinum Silver"]
+        variant_count: 4
+      - id: "laptop-samsung-galaxy-book4-15-6-inch-2024"
+        brand: "Samsung"
+        line: "Galaxy Book4 15.6-inch"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/256GB", "16GB/512GB"]
+          color: ["Gray"]
+        variant_count: 2
+      - id: "laptop-msi-katana-15-2023"
+        brand: "MSI"
+        line: "Katana 15"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Black"]
+        variant_count: 3
+      - id: "laptop-msi-stealth-14-ai-studio-2024"
+        brand: "MSI"
+        line: "Stealth 14 AI Studio"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/1TB", "32GB/1TB"]
+          color: ["Star Blue", "Black"]
+        variant_count: 4
+      - id: "laptop-razer-blade-14-2023"
+        brand: "Razer"
+        line: "Blade 14"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/1TB", "32GB/1TB"]
+          color: ["Black"]
+        variant_count: 2
+      - id: "laptop-razer-blade-16-2024"
+        brand: "Razer"
+        line: "Blade 16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["32GB/1TB", "32GB/2TB"]
+          color: ["Black"]
+        variant_count: 2
+      - id: "laptop-lg-gram-14-2023"
+        brand: "LG"
+        line: "gram 14"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Obsidian Black", "Snow White"]
+        variant_count: 4
+      - id: "laptop-lg-gram-16-2023"
+        brand: "LG"
+        line: "gram 16"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/2TB"]
+          color: ["Obsidian Black", "Snow White"]
+        variant_count: 6
+      - id: "laptop-lg-gram-pro-16-2024"
+        brand: "LG"
+        line: "gram Pro 16"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "32GB/1TB"]
+          color: ["Obsidian Black", "Essence White"]
+        variant_count: 4
+      - id: "laptop-apple-macbook-pro-14-inch-m2-pro-2023"
+        brand: "Apple"
+        line: "MacBook Pro 14-inch M2 Pro"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Space Gray", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-pro-16-inch-m2-pro-2023"
+        brand: "Apple"
+        line: "MacBook Pro 16-inch M2 Pro"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Space Gray", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-pro-14-inch-m3-pro-2023"
+        brand: "Apple"
+        line: "MacBook Pro 14-inch M3 Pro"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["18GB/512GB", "18GB/1TB", "36GB/1TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-pro-14-inch-m4-pro-2024"
+        brand: "Apple"
+        line: "MacBook Pro 14-inch M4 Pro"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["24GB/512GB", "24GB/1TB", "48GB/1TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 6
+      - id: "laptop-apple-macbook-pro-16-inch-m4-max-2024"
+        brand: "Apple"
+        line: "MacBook Pro 16-inch M4 Max"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["36GB/1TB", "48GB/1TB", "64GB/2TB"]
+          color: ["Space Black", "Silver"]
+        variant_count: 6
+      - id: "laptop-lenovo-yoga-7i-2-in-1-16-2023"
+        brand: "Lenovo"
+        line: "Yoga 7i 2-in-1 16"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/512GB", "16GB/512GB", "16GB/1TB"]
+          color: ["Storm Grey", "Arctic Grey"]
+        variant_count: 6
+      - id: "laptop-dell-latitude-7440-2023"
+        brand: "Dell"
+        line: "Latitude 7440"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Titan Gray"]
+        variant_count: 3
+      - id: "laptop-hp-envy-16-2023"
+        brand: "HP"
+        line: "Envy 16"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/1TB"]
+          color: ["Natural Silver", "Nightfall Black"]
+        variant_count: 6
+      - id: "laptop-asus-rog-zephyrus-g16-2024"
+        brand: "ASUS"
+        line: "ROG Zephyrus G16"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/1TB", "32GB/1TB", "32GB/2TB"]
+          color: ["Eclipse Gray", "Platinum White"]
+        variant_count: 6
+      - id: "laptop-acer-swift-x-14-2023"
+        brand: "Acer"
+        line: "Swift X 14"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["16GB/512GB", "16GB/1TB"]
+          color: ["Steel Gray"]
+        variant_count: 2
+      - id: "laptop-microsoft-surface-laptop-studio-2-2023"
+        brand: "Microsoft"
+        line: "Surface Laptop Studio 2"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "32GB/1TB", "64GB/2TB"]
+          color: ["Platinum"]
+        variant_count: 3
+      - id: "laptop-msi-thin-15-2023"
+        brand: "MSI"
+        line: "Thin 15"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          config: ["8GB/512GB", "16GB/512GB"]
+          color: ["Cosmos Gray"]
+        variant_count: 2
+      - id: "laptop-lg-gram-17-2023"
+        brand: "LG"
+        line: "gram 17"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: high
+        variants:
+          config: ["16GB/512GB", "16GB/1TB", "32GB/2TB"]
+          color: ["Obsidian Black", "Snow White"]
+        variant_count: 6
+  washer:
+    target_skus: 300
+    line_count: 55
+    lines:
+      - id: "washer-lg-front-load-washer-with-steam-2022"
+        brand: "LG"
+        line: "Front Load Washer with Steam"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-front-load-washer-with-steam-2024"
+        brand: "LG"
+        line: "Front Load Washer with Steam"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-mega-capacity-front-load-washer-2023"
+        brand: "LG"
+        line: "Mega Capacity Front Load Washer"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.0, 5.2]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-mega-capacity-front-load-washer-2025"
+        brand: "LG"
+        line: "Mega Capacity Front Load Washer"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.0, 5.2]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-top-load-washer-with-agitator-2022"
+        brand: "LG"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.3, 5.0]
+          finish: ["White", "Middle Black"]
+        variant_count: 4
+      - id: "washer-lg-top-load-washer-with-agitator-2024"
+        brand: "LG"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.3, 5.0]
+          finish: ["White", "Middle Black"]
+        variant_count: 4
+      - id: "washer-lg-top-load-impeller-washer-2023"
+        brand: "LG"
+        line: "Top Load Impeller Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.3]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-compact-front-load-washer-2023"
+        brand: "LG"
+        line: "Compact Front Load Washer"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4]
+          finish: ["White", "Graphite Steel"]
+        variant_count: 2
+      - id: "washer-samsung-front-load-washer-with-steam-2022"
+        brand: "Samsung"
+        line: "Front Load Washer with Steam"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 6
+      - id: "washer-samsung-front-load-washer-with-steam-2024"
+        brand: "Samsung"
+        line: "Front Load Washer with Steam"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 6
+      - id: "washer-samsung-top-load-washer-with-active-waterjet-2023"
+        brand: "Samsung"
+        line: "Top Load Washer with Active WaterJet"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.0, 5.4]
+          finish: ["White", "Platinum"]
+        variant_count: 4
+      - id: "washer-samsung-top-load-washer-with-agitator-2022"
+        brand: "Samsung"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Platinum"]
+        variant_count: 4
+      - id: "washer-samsung-top-load-washer-with-agitator-2025"
+        brand: "Samsung"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Platinum"]
+        variant_count: 4
+      - id: "washer-samsung-bespoke-ai-front-load-washer-2024"
+        brand: "Samsung"
+        line: "Bespoke AI Front Load Washer"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.6, 5.3]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 6
+      - id: "washer-samsung-bespoke-ai-front-load-washer-2025"
+        brand: "Samsung"
+        line: "Bespoke AI Front Load Washer"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.6, 5.3]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 6
+      - id: "washer-whirlpool-top-load-washer-with-agitator-2022"
+        brand: "Whirlpool"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.8, 4.3, 4.7]
+          finish: ["White", "Chrome Shadow"]
+        variant_count: 6
+      - id: "washer-whirlpool-top-load-washer-with-agitator-2024"
+        brand: "Whirlpool"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.8, 4.3, 4.7]
+          finish: ["White", "Chrome Shadow"]
+        variant_count: 6
+      - id: "washer-whirlpool-top-load-impeller-washer-2023"
+        brand: "Whirlpool"
+        line: "Top Load Impeller Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.7, 5.3]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer-whirlpool-top-load-impeller-washer-2025"
+        brand: "Whirlpool"
+        line: "Top Load Impeller Washer"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.7, 5.3]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer-whirlpool-front-load-washer-2022"
+        brand: "Whirlpool"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 4.8]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer-whirlpool-front-load-washer-2024"
+        brand: "Whirlpool"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 4.8]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer-whirlpool-smart-capable-top-load-washer-2024"
+        brand: "Whirlpool"
+        line: "Smart Capable Top Load Washer"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [5.3, 5.5]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer-maytag-top-load-washer-with-extra-power-2022"
+        brand: "Maytag"
+        line: "Top Load Washer with Extra Power"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.7, 5.3]
+          finish: ["White", "Metallic Slate", "Black"]
+        variant_count: 6
+      - id: "washer-maytag-top-load-washer-with-extra-power-2024"
+        brand: "Maytag"
+        line: "Top Load Washer with Extra Power"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.7, 5.3]
+          finish: ["White", "Metallic Slate", "Black"]
+        variant_count: 6
+      - id: "washer-maytag-front-load-washer-with-extra-power-2023"
+        brand: "Maytag"
+        line: "Front Load Washer with Extra Power"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.0]
+          finish: ["White", "Metallic Slate", "Black"]
+        variant_count: 6
+      - id: "washer-maytag-front-load-washer-with-extra-power-2025"
+        brand: "Maytag"
+        line: "Front Load Washer with Extra Power"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.0]
+          finish: ["White", "Metallic Slate", "Black"]
+        variant_count: 6
+      - id: "washer-maytag-commercial-grade-top-load-washer-2022"
+        brand: "Maytag"
+        line: "Commercial-Grade Top Load Washer"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [3.5, 4.7]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer-ge-top-load-washer-with-agitator-2022"
+        brand: "GE"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 4.5, 5.0]
+          finish: ["White", "Diamond Gray"]
+        variant_count: 6
+      - id: "washer-ge-top-load-washer-with-agitator-2024"
+        brand: "GE"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 4.5, 5.0]
+          finish: ["White", "Diamond Gray"]
+        variant_count: 6
+      - id: "washer-ge-front-load-washer-2023"
+        brand: "GE"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.0]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer-ge-front-load-washer-2025"
+        brand: "GE"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.0]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer-ge-profile-front-load-washer-with-smart-features-2023"
+        brand: "GE Profile"
+        line: "Front Load Washer with Smart Features"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.3]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer-ge-profile-front-load-washer-with-smart-features-2025"
+        brand: "GE Profile"
+        line: "Front Load Washer with Smart Features"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.8, 5.3]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer-ge-profile-top-load-washer-with-smart-features-2024"
+        brand: "GE Profile"
+        line: "Top Load Washer with Smart Features"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.0, 5.5]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer-electrolux-front-load-washer-with-luxcare-2022"
+        brand: "Electrolux"
+        line: "Front Load Washer with LuxCare"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.4, 4.8]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer-electrolux-front-load-washer-with-luxcare-2024"
+        brand: "Electrolux"
+        line: "Front Load Washer with LuxCare"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.4, 4.8]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer-electrolux-top-load-washer-2023"
+        brand: "Electrolux"
+        line: "Top Load Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [4.5, 4.8]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer-frigidaire-front-load-washer-2022"
+        brand: "Frigidaire"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.1, 4.5, 5.1]
+          finish: ["White", "Titanium", "Classic Black"]
+        variant_count: 9
+      - id: "washer-frigidaire-front-load-washer-2024"
+        brand: "Frigidaire"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.1, 4.5, 5.1]
+          finish: ["White", "Titanium", "Classic Black"]
+        variant_count: 9
+      - id: "washer-frigidaire-top-load-washer-with-agitator-2023"
+        brand: "Frigidaire"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.9, 4.1, 4.5]
+          finish: ["White", "Titanium"]
+        variant_count: 6
+      - id: "washer-frigidaire-top-load-washer-with-agitator-2025"
+        brand: "Frigidaire"
+        line: "Top Load Washer with Agitator"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.9, 4.1, 4.5]
+          finish: ["White", "Titanium"]
+        variant_count: 6
+      - id: "washer-kenmore-top-load-washer-2022"
+        brand: "Kenmore"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 4.5, 5.0]
+          finish: ["White", "Black", "Silver"]
+        variant_count: 9
+      - id: "washer-kenmore-top-load-washer-2024"
+        brand: "Kenmore"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 4.5, 5.0]
+          finish: ["White", "Black", "Silver"]
+        variant_count: 9
+      - id: "washer-kenmore-front-load-washer-2023"
+        brand: "Kenmore"
+        line: "Front Load Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Black", "Silver"]
+        variant_count: 6
+      - id: "washer-speed-queen-top-load-washer-2023"
+        brand: "Speed Queen"
+        line: "Top Load Washer"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.2, 3.5, 4.2]
+          finish: ["White"]
+        variant_count: 3
+      - id: "washer-speed-queen-top-load-washer-2025"
+        brand: "Speed Queen"
+        line: "Top Load Washer"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.2, 3.5, 4.2]
+          finish: ["White"]
+        variant_count: 3
+      - id: "washer-amana-top-load-washer-2022"
+        brand: "Amana"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.5, 4.0, 4.5]
+          finish: ["White"]
+        variant_count: 3
+      - id: "washer-amana-top-load-washer-2024"
+        brand: "Amana"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.5, 4.0, 4.5]
+          finish: ["White"]
+        variant_count: 3
+      - id: "washer-hotpoint-top-load-washer-2023"
+        brand: "Hotpoint"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.8, 4.2]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer-lg-smart-front-load-washer-with-ai-direct-drive-2024"
+        brand: "LG"
+        line: "Smart Front Load Washer with AI Direct Drive"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-lg-smart-front-load-washer-with-ai-direct-drive-2025"
+        brand: "LG"
+        line: "Smart Front Load Washer with AI Direct Drive"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer-samsung-smart-dial-front-load-washer-2023"
+        brand: "Samsung"
+        line: "Smart Dial Front Load Washer"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5, 5.2]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 6
+      - id: "washer-electrolux-front-load-washer-with-smartboost-2023"
+        brand: "Electrolux"
+        line: "Front Load Washer with SmartBoost"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [4.4, 4.8]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer-hotpoint-top-load-washer-2024"
+        brand: "Hotpoint"
+        line: "Top Load Washer"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.8, 4.2]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer-speed-queen-front-load-washer-2023"
+        brand: "Speed Queen"
+        line: "Front Load Washer"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [3.5, 4.5]
+          finish: ["White"]
+        variant_count: 2
+  washer_dryer:
+    target_skus: 150
+    line_count: 32
+    lines:
+      - id: "washer_dryer-lg-all-in-one-washcombo-2023"
+        brand: "LG"
+        line: "All-in-One WashCombo"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer_dryer-lg-all-in-one-washcombo-2025"
+        brand: "LG"
+        line: "All-in-One WashCombo"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.2, 5.0]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 6
+      - id: "washer_dryer-lg-ventless-washer-dryer-combo-2022"
+        brand: "LG"
+        line: "Ventless Washer Dryer Combo"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [4.5]
+          finish: ["White", "Graphite Steel", "Middle Black"]
+        variant_count: 3
+      - id: "washer_dryer-samsung-bespoke-ai-laundry-hub-combo-2024"
+        brand: "Samsung"
+        line: "Bespoke AI Laundry Hub Combo"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.3]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 3
+      - id: "washer_dryer-samsung-bespoke-ai-laundry-hub-combo-2025"
+        brand: "Samsung"
+        line: "Bespoke AI Laundry Hub Combo"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [5.3]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 3
+      - id: "washer_dryer-samsung-all-in-one-washer-dryer-combo-2023"
+        brand: "Samsung"
+        line: "All-in-One Washer Dryer Combo"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [5.0]
+          finish: ["White", "Brushed Black", "Platinum"]
+        variant_count: 3
+      - id: "washer_dryer-ge-profile-ultimatefit-washer-dryer-combo-2022"
+        brand: "GE Profile"
+        line: "UltimateFit Washer Dryer Combo"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.8]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer_dryer-ge-profile-ultimatefit-washer-dryer-combo-2024"
+        brand: "GE Profile"
+        line: "UltimateFit Washer Dryer Combo"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.8]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer_dryer-ge-ventless-washer-dryer-combo-2023"
+        brand: "GE"
+        line: "Ventless Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.8]
+          finish: ["White", "Diamond Gray", "Carbon Graphite"]
+        variant_count: 6
+      - id: "washer_dryer-whirlpool-all-in-one-washer-dryer-combo-2022"
+        brand: "Whirlpool"
+        line: "All-in-One Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.8, 4.5]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer_dryer-whirlpool-all-in-one-washer-dryer-combo-2024"
+        brand: "Whirlpool"
+        line: "All-in-One Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.8, 4.5]
+          finish: ["White", "Chrome Shadow", "Metallic Slate"]
+        variant_count: 6
+      - id: "washer_dryer-electrolux-ventless-washer-dryer-combo-2023"
+        brand: "Electrolux"
+        line: "Ventless Washer Dryer Combo"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.4]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer_dryer-electrolux-ventless-washer-dryer-combo-2025"
+        brand: "Electrolux"
+        line: "Ventless Washer Dryer Combo"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.4]
+          finish: ["White", "Titanium", "Black"]
+        variant_count: 6
+      - id: "washer_dryer-haier-compact-washer-dryer-combo-2022"
+        brand: "Haier"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White", "Graphite"]
+        variant_count: 4
+      - id: "washer_dryer-haier-compact-washer-dryer-combo-2024"
+        brand: "Haier"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White", "Graphite"]
+        variant_count: 4
+      - id: "washer_dryer-equator-compact-washer-dryer-combo-2022"
+        brand: "Equator"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 6
+      - id: "washer_dryer-equator-compact-washer-dryer-combo-2023"
+        brand: "Equator"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 6
+      - id: "washer_dryer-equator-compact-washer-dryer-combo-2024"
+        brand: "Equator"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 6
+      - id: "washer_dryer-midea-portable-washer-dryer-combo-2023"
+        brand: "Midea"
+        line: "Portable Washer Dryer Combo"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 6
+      - id: "washer_dryer-blomberg-ventless-washer-dryer-combo-2022"
+        brand: "Blomberg"
+        line: "Ventless Washer Dryer Combo"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer_dryer-blomberg-ventless-washer-dryer-combo-2024"
+        brand: "Blomberg"
+        line: "Ventless Washer Dryer Combo"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer_dryer-bosch-compact-washer-dryer-combo-2023"
+        brand: "Bosch"
+        line: "Compact Washer Dryer Combo"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.2, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 4
+      - id: "washer_dryer-summit-compact-washer-dryer-combo-2022"
+        brand: "Summit"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.7]
+          finish: ["White", "Stainless Steel"]
+        variant_count: 6
+      - id: "washer_dryer-summit-compact-washer-dryer-combo-2023"
+        brand: "Summit"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.6, 2.0, 2.7]
+          finish: ["White", "Stainless Steel"]
+        variant_count: 6
+      - id: "washer_dryer-kenmore-ventless-washer-dryer-combo-2022"
+        brand: "Kenmore"
+        line: "Ventless Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.2, 4.5]
+          finish: ["White", "Black", "Silver"]
+        variant_count: 9
+      - id: "washer_dryer-kenmore-ventless-washer-dryer-combo-2024"
+        brand: "Kenmore"
+        line: "Ventless Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.4, 4.2, 4.5]
+          finish: ["White", "Black", "Silver"]
+        variant_count: 9
+      - id: "washer_dryer-miele-washer-dryer-combo-2023"
+        brand: "Miele"
+        line: "Washer Dryer Combo"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["Lotus White"]
+        variant_count: 2
+      - id: "washer_dryer-beko-washer-dryer-combo-2022"
+        brand: "Beko"
+        line: "Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White"]
+        variant_count: 2
+      - id: "washer_dryer-haier-compact-washer-dryer-combo-2025"
+        brand: "Haier"
+        line: "Compact Washer Dryer Combo"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.0, 2.4]
+          finish: ["White", "Graphite"]
+        variant_count: 4
+      - id: "washer_dryer-bosch-compact-washer-dryer-combo-2024"
+        brand: "Bosch"
+        line: "Compact Washer Dryer Combo"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.2, 2.4]
+          finish: ["White", "Silver"]
+        variant_count: 4
+      - id: "washer_dryer-beko-washer-dryer-combo-2023"
+        brand: "Beko"
+        line: "Washer Dryer Combo"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.0]
+          finish: ["White"]
+        variant_count: 1
+      - id: "washer_dryer-miele-washer-dryer-combo-2024"
+        brand: "Miele"
+        line: "Washer Dryer Combo"
+        tier: flagship
+        release_year: 2024
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [2.0]
+          finish: ["Lotus White"]
+        variant_count: 1
+  refrigerator:
+    target_skus: 500
+    line_count: 63
+    lines:
+      - id: "refrigerator-lg-french-door-refrigerator-2022"
+        brand: "LG"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [26, 28]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-french-door-refrigerator-2024"
+        brand: "LG"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [26, 28]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-counter-depth-max-french-door-refrigerator-2023"
+        brand: "LG"
+        line: "Counter-Depth MAX French Door Refrigerator"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 26]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-counter-depth-max-french-door-refrigerator-2025"
+        brand: "LG"
+        line: "Counter-Depth MAX French Door Refrigerator"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 26]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-4-door-french-door-refrigerator-2022"
+        brand: "LG"
+        line: "4-Door French Door Refrigerator"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 29]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-4-door-french-door-refrigerator-2024"
+        brand: "LG"
+        line: "4-Door French Door Refrigerator"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 29]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-side-by-side-refrigerator-2023"
+        brand: "LG"
+        line: "Side-by-Side Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-top-freezer-refrigerator-2022"
+        brand: "LG"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 20]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-top-freezer-refrigerator-2024"
+        brand: "LG"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 20]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-lg-bottom-freezer-refrigerator-2023"
+        brand: "LG"
+        line: "Bottom Freezer Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [24, 26]
+          finish: ["Stainless Steel", "PrintProof Stainless Steel", "PrintProof Black Stainless Steel", "Matte Black"]
+        variant_count: 8
+      - id: "refrigerator-samsung-french-door-refrigerator-2022"
+        brand: "Samsung"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [25, 28]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-french-door-refrigerator-2024"
+        brand: "Samsung"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [25, 28]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-bespoke-4-door-french-door-refrigerator-2023"
+        brand: "Samsung"
+        line: "Bespoke 4-Door French Door Refrigerator"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 29]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-bespoke-4-door-french-door-refrigerator-2025"
+        brand: "Samsung"
+        line: "Bespoke 4-Door French Door Refrigerator"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [23, 29]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-counter-depth-french-door-refrigerator-2022"
+        brand: "Samsung"
+        line: "Counter-Depth French Door Refrigerator"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 24]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-counter-depth-french-door-refrigerator-2024"
+        brand: "Samsung"
+        line: "Counter-Depth French Door Refrigerator"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 24]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-side-by-side-refrigerator-2023"
+        brand: "Samsung"
+        line: "Side-by-Side Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 28]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-top-freezer-refrigerator-2022"
+        brand: "Samsung"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-top-freezer-refrigerator-2025"
+        brand: "Samsung"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-samsung-bottom-freezer-refrigerator-2024"
+        brand: "Samsung"
+        line: "Bottom Freezer Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [24, 26]
+          finish: ["Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 8
+      - id: "refrigerator-whirlpool-french-door-refrigerator-2022"
+        brand: "Whirlpool"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25, 27]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 12
+      - id: "refrigerator-whirlpool-french-door-refrigerator-2024"
+        brand: "Whirlpool"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25, 27]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 12
+      - id: "refrigerator-whirlpool-side-by-side-refrigerator-2023"
+        brand: "Whirlpool"
+        line: "Side-by-Side Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [21, 25]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 8
+      - id: "refrigerator-whirlpool-side-by-side-refrigerator-2025"
+        brand: "Whirlpool"
+        line: "Side-by-Side Refrigerator"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [21, 25]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 8
+      - id: "refrigerator-whirlpool-top-freezer-refrigerator-2022"
+        brand: "Whirlpool"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [14, 18, 21]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 12
+      - id: "refrigerator-whirlpool-top-freezer-refrigerator-2024"
+        brand: "Whirlpool"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [14, 18, 21]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 12
+      - id: "refrigerator-whirlpool-bottom-freezer-refrigerator-2023"
+        brand: "Whirlpool"
+        line: "Bottom Freezer Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 22]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 8
+      - id: "refrigerator-maytag-french-door-refrigerator-2023"
+        brand: "Maytag"
+        line: "French Door Refrigerator"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["White", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-maytag-french-door-refrigerator-2025"
+        brand: "Maytag"
+        line: "French Door Refrigerator"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["White", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-maytag-top-freezer-refrigerator-2022"
+        brand: "Maytag"
+        line: "Top Freezer Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["White", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-maytag-top-freezer-refrigerator-2024"
+        brand: "Maytag"
+        line: "Top Freezer Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["White", "Fingerprint Resistant Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-ge-french-door-refrigerator-2022"
+        brand: "GE"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 25, 28]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Slate"]
+        variant_count: 12
+      - id: "refrigerator-ge-french-door-refrigerator-2024"
+        brand: "GE"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 25, 28]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Slate"]
+        variant_count: 12
+      - id: "refrigerator-ge-side-by-side-refrigerator-2023"
+        brand: "GE"
+        line: "Side-by-Side Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [21, 25]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Slate"]
+        variant_count: 8
+      - id: "refrigerator-ge-top-freezer-refrigerator-2022"
+        brand: "GE"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [15, 18, 21]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Slate"]
+        variant_count: 12
+      - id: "refrigerator-ge-top-freezer-refrigerator-2025"
+        brand: "GE"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [15, 18, 21]
+          finish: ["White", "Stainless Steel", "Fingerprint Resistant Stainless Steel", "Slate"]
+        variant_count: 12
+      - id: "refrigerator-ge-profile-smart-french-door-refrigerator-with-ice-and-water-2023"
+        brand: "GE Profile"
+        line: "Smart French Door Refrigerator with Ice and Water"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["Fingerprint Resistant Stainless Steel", "Fingerprint Resistant Black Stainless Steel", "White"]
+        variant_count: 6
+      - id: "refrigerator-ge-profile-smart-french-door-refrigerator-with-ice-and-water-2025"
+        brand: "GE Profile"
+        line: "Smart French Door Refrigerator with Ice and Water"
+        tier: premium
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["Fingerprint Resistant Stainless Steel", "Fingerprint Resistant Black Stainless Steel", "White"]
+        variant_count: 6
+      - id: "refrigerator-frigidaire-french-door-refrigerator-2022"
+        brand: "Frigidaire"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-frigidaire-french-door-refrigerator-2024"
+        brand: "Frigidaire"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-frigidaire-side-by-side-refrigerator-2023"
+        brand: "Frigidaire"
+        line: "Side-by-Side Refrigerator"
+        tier: budget
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 25]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-frigidaire-top-freezer-refrigerator-2022"
+        brand: "Frigidaire"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [13, 18, 20]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 9
+      - id: "refrigerator-frigidaire-top-freezer-refrigerator-2024"
+        brand: "Frigidaire"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [13, 18, 20]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 9
+      - id: "refrigerator-frigidaire-counter-depth-french-door-refrigerator-2023"
+        brand: "Frigidaire"
+        line: "Counter-Depth French Door Refrigerator"
+        tier: premium
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 23]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-kitchenaid-counter-depth-french-door-refrigerator-2023"
+        brand: "KitchenAid"
+        line: "Counter-Depth French Door Refrigerator"
+        tier: flagship
+        release_year: 2023
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["Stainless Steel with PrintShield Finish", "Black Stainless Steel with PrintShield Finish", "Panel Ready"]
+        variant_count: 6
+      - id: "refrigerator-kitchenaid-counter-depth-french-door-refrigerator-2025"
+        brand: "KitchenAid"
+        line: "Counter-Depth French Door Refrigerator"
+        tier: flagship
+        release_year: 2025
+        name_verified: false
+        name_confidence: low
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["Stainless Steel with PrintShield Finish", "Black Stainless Steel with PrintShield Finish", "Panel Ready"]
+        variant_count: 6
+      - id: "refrigerator-electrolux-french-door-refrigerator-2022"
+        brand: "Electrolux"
+        line: "French Door Refrigerator"
+        tier: premium
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["Stainless Steel", "Black Stainless Steel"]
+        variant_count: 4
+      - id: "refrigerator-electrolux-french-door-refrigerator-2024"
+        brand: "Electrolux"
+        line: "French Door Refrigerator"
+        tier: premium
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 27]
+          finish: ["Stainless Steel", "Black Stainless Steel"]
+        variant_count: 4
+      - id: "refrigerator-hisense-french-door-refrigerator-2023"
+        brand: "Hisense"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 6
+      - id: "refrigerator-hisense-french-door-refrigerator-2025"
+        brand: "Hisense"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2025
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 25]
+          finish: ["Stainless Steel", "Black Stainless Steel", "White"]
+        variant_count: 6
+      - id: "refrigerator-insignia-french-door-refrigerator-2022"
+        brand: "Insignia"
+        line: "French Door Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 22]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-insignia-french-door-refrigerator-2024"
+        brand: "Insignia"
+        line: "French Door Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [20, 22]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 6
+      - id: "refrigerator-midea-top-freezer-refrigerator-2022"
+        brand: "Midea"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [10, 18, 21]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-midea-top-freezer-refrigerator-2024"
+        brand: "Midea"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [10, 18, 21]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-haier-compact-refrigerator-2022"
+        brand: "Haier"
+        line: "Compact Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.7, 3.3, 4.5]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-haier-compact-refrigerator-2024"
+        brand: "Haier"
+        line: "Compact Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [2.7, 3.3, 4.5]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-danby-compact-refrigerator-2022"
+        brand: "Danby"
+        line: "Compact Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.7, 3.2, 4.4]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-danby-compact-refrigerator-2024"
+        brand: "Danby"
+        line: "Compact Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [1.7, 3.2, 4.4]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-kenmore-top-freezer-refrigerator-2022"
+        brand: "Kenmore"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-kenmore-top-freezer-refrigerator-2024"
+        brand: "Kenmore"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [18, 21]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-kenmore-french-door-refrigerator-2023"
+        brand: "Kenmore"
+        line: "French Door Refrigerator"
+        tier: mainstream
+        release_year: 2023
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [22, 25]
+          finish: ["White", "Stainless Steel", "Black Stainless Steel"]
+        variant_count: 6
+      - id: "refrigerator-amana-top-freezer-refrigerator-2022"
+        brand: "Amana"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2022
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [14, 18, 21]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
+      - id: "refrigerator-amana-top-freezer-refrigerator-2024"
+        brand: "Amana"
+        line: "Top Freezer Refrigerator"
+        tier: budget
+        release_year: 2024
+        name_verified: false
+        name_confidence: medium
+        variants:
+          capacity_cuft: [14, 18, 21]
+          finish: ["White", "Stainless Steel", "Black"]
+        variant_count: 9
