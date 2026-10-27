@@ -28,7 +28,6 @@ rules then classify.
 
 import argparse
 import csv
-import itertools
 import math
 import random
 import re
@@ -41,12 +40,11 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
+from app.catalog import CATEGORY_ORDER, expand_catalog, slug, storage_label  # noqa: E402,F401
 from app.core.classify import DEAD, HEALTHY, INSUFFICIENT, NEW, SLOW, classify  # noqa: E402
 from app.core.quality import dq_check  # noqa: E402
 from app.core.thresholds import load_thresholds  # noqa: E402
 
-CATEGORY_ORDER = ["tv", "phone", "laptop", "washer", "washer_dryer", "refrigerator"]
-PREFIX = {"tv": "TV", "phone": "PH", "laptop": "LT", "washer": "WS", "washer_dryer": "WD", "refrigerator": "RF"}
 DEPT = {"tv": "Displays", "phone": "Phones & Tablets", "laptop": "Computing",
         "washer": "Large Appliances", "washer_dryer": "Large Appliances", "refrigerator": "Large Appliances"}
 SUBCAT = {"tv": "TVs", "phone": "Phones", "laptop": "Laptops", "washer": "Washers",
@@ -55,8 +53,6 @@ HEADER = ["sku", "brand", "model", "category", "qty_on_hand", "unit_cost", "sell
           "received_date", "units_sold_30d", "units_sold_90d", "msrp", "is_seasonal", "supplier", "return_window_end"]
 SUPPLIER = {"Apple": "Ingram Micro", "Samsung": "Samsung Direct", "LG": "LG Distribution", "Sony": "Sony Direct",
             "Google": "Ingram Micro", "Motorola": "TD Synnex", "OnePlus": "TD Synnex"}
-PRICE_UP_LINES = {("Motorola", "Moto G 5G", 2024), ("Motorola", "Moto G Power 5G", 2024)}  # rising-price case
-LEADER_LINES = {("Insignia", "F50 Series QLED Fire TV", 2023), ("Toshiba", "C350 Fire TV", 2023)}  # cheapest-price anchors
 ENTRY_PHONE_LINES = {"Moto G Play", "Galaxy A06", "Galaxy A14 5G", "Galaxy A15 5G", "OnePlus Nord N20 5G",
                      "OnePlus Nord N30 5G"}
 TV_ANCHOR_SIZES = [43, 50, 55, 65, 75, 85]
@@ -73,10 +69,6 @@ HIST_MONTHS = 12
 def R(*key):
     """Deterministic RNG per key, independent of iteration order."""
     return random.Random("|".join(str(k) for k in key))
-
-
-def slug(s, n=99):
-    return "".join(c for c in str(s).upper() if c.isalnum())[:n]
 
 
 def psych(x):
@@ -136,17 +128,6 @@ def tv_floor(anchors, size, kind):
 
 
 # ======================================================================================= catalog
-def parse_config(label):
-    """"16GB/512GB" or "16GB/1TB" -> (ram_gb, ssd_gb)."""
-    ram, ssd = label.split("/")
-    ssd_gb = int(ssd[:-2]) * (1024 if ssd.endswith("TB") else 1)
-    return int(ram[:-2]), ssd_gb
-
-
-def storage_label(gb):
-    return f"{gb // 1024}TB" if gb >= 1024 else f"{gb}GB"
-
-
 def finish_factor(finish):
     f = finish.lower()
     k = 1.0
@@ -161,49 +142,6 @@ def finish_factor(finish):
     if "panel" in f:
         k *= 1.10
     return k
-
-
-def expand_catalog(lines_path):
-    spec = yaml.safe_load(Path(lines_path).read_text(encoding="utf-8"))
-    targets = spec["targets"]
-    years = {}
-    for cat in CATEGORY_ORDER:
-        for ln in spec["categories"][cat]["lines"]:
-            years.setdefault((cat, ln["brand"], ln["line"]), set()).add(ln["release_year"])
-    variants, seq = [], {c: 0 for c in CATEGORY_ORDER}
-    for cat in CATEGORY_ORDER:
-        for ln in spec["categories"][cat]["lines"]:
-            dims = ln["variants"]
-            label = ln["line"] + (f" ({ln['release_year']})" if len(years[(cat, ln["brand"], ln["line"])]) > 1 else "")
-            names = list(dims)
-            for combo in itertools.product(*[dims[n] for n in names]):
-                d = dict(zip(names, combo))
-                if cat == "tv":
-                    size, model = d["size_in"], f"{label} {d['size_in']} inch"
-                    other = ()
-                elif cat == "phone":
-                    size, model = d["storage_gb"], f"{label} {storage_label(d['storage_gb'])} {d['color']}"
-                    other = (d["color"],)
-                elif cat == "laptop":
-                    size, model = parse_config(d["config"]), f"{label} {d['config']} {d['color']}"
-                    other = (d["color"],)
-                else:
-                    size, model = d["capacity_cuft"], f"{label} {d['capacity_cuft']:g} cu ft {d['finish']}"
-                    other = (d["finish"],)
-                seq[cat] += 1
-                variants.append(dict(
-                    category=cat, brand=ln["brand"], line=ln["line"], line_id=ln["id"], year=ln["release_year"],
-                    tier=ln["tier"], launch=bool(ln.get("launch_family")), dims=d, size=size, other=other,
-                    model=model, family=f"{ln['brand']} {label}",
-                    sku=f"{PREFIX[cat]}-{slug(ln['brand'], 3)}-{seq[cat]:04d}",
-                    price_up=(ln["brand"], ln["line"], ln["release_year"]) in PRICE_UP_LINES,
-                    leader=(ln["brand"], ln["line"], ln["release_year"]) in LEADER_LINES))
-    counts = {c: sum(1 for v in variants if v["category"] == c) for c in CATEGORY_ORDER}
-    if counts != targets:
-        raise SystemExit(f"catalog counts {counts} do not match targets {targets}")
-    if len({v["sku"] for v in variants}) != len(variants) or len({(v["brand"], v["model"]) for v in variants}) != len(variants):
-        raise SystemExit("catalog has duplicate SKUs or product names")
-    return variants
 
 
 # ======================================================================================= market prices
