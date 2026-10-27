@@ -211,3 +211,8 @@ def test_a_zero_quantity_is_not_a_missing_value():
 def test_agent_discount_ladder_matches_the_config():
     from app.schemas.outputs import DISCOUNT_LADDER
     assert DISCOUNT_LADDER == TH.discount_ladder_pct == (5, 10, 15, 20)
+
+
+@pytest.mark.parametrize("over", [dict(qty_on_hand="five"), dict(qty_on_hand="2.5"), dict(sell_price="abc")])
+def test_an_unreadable_required_number_blocks_the_row(over):
+    assert (1, "MISSING_REQUIRED") in codes([row(**over)])

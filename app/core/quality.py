@@ -108,6 +108,8 @@ def dq_check(rows: list[dict], as_of: date, th: Thresholds) -> list[Issue]:
             v = r.get(col)
             if v is None or str(v).strip() == "":   # a quantity of 0 is a value, not a missing one
                 add(i, "MISSING_REQUIRED")
+            elif (col == "qty_on_hand" and parse_int(v) is None) or (col == "sell_price" and parse_money(v) is None):
+                add(i, "MISSING_REQUIRED")          # present but not a readable number
         cost = parse_money(r.get("unit_cost"))
         if cost is None or cost <= 0:
             add(i, "MISSING_COST")
