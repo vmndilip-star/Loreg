@@ -129,3 +129,14 @@ def accept(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_
 @router.post("/actions/{rec_id}/decline")
 def decline(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     return _decide(rec_id, False, conn, shop_id)
+
+
+@router.post("/actions/{rec_id}/undo")
+def undo(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    """Take back an accepted or declined decision (409 if the plan has no decision). Money at risk is recomputed."""
+    try:
+        return repo.undo(conn, shop_id, rec_id)
+    except repo.NotFound as e:
+        raise HTTPException(404, str(e)) from None
+    except repo.Conflict as e:
+        raise HTTPException(409, str(e)) from None

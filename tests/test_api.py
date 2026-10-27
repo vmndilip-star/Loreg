@@ -67,7 +67,9 @@ def test_demo_upload_quarantines_exactly_three_rows_and_keeps_197(demo, catalog_
     assert issues["upload"]["ok"] == 197 and issues["upload"]["blocked"] == 3
     errors = {i["code"]: i["n"] for i in issues["issues"] if i["level"] == "error"}
     assert errors == {"MISSING_COST": 1, "NEGATIVE_QTY": 1, "DUPLICATE_SKU": 1}
-    assert issues["upload"]["zero_qty"] == 4 and {i["code"] for i in issues["issues"]} - set(errors) == {"ZERO_QTY"}  # info only, rows kept
+    zero = sum(1 for r in read_csv(catalog_dir / "upload_demo_200.csv") if r["qty_on_hand"] == "0")
+    assert zero >= 1 and issues["upload"]["zero_qty"] == zero                                  # info only, rows kept
+    assert {i["code"] for i in issues["issues"]} - set(errors) == {"ZERO_QTY"}
     assert sum(1 for r in issues["rows"] if r["quarantined"]) == 3
     # the quarantined rows never reach the stock tables
     assert client.get("/api/summary").json()["totals"]["skus"] == 197
@@ -131,6 +133,7 @@ def test_summary_equals_the_csv_recomputation(full, truth):
     t = truth.totals()
     assert s["totals"] == t
     assert s["money_at_risk_cents"] == t["at_risk"]["cap_cents"] and s["accepted_cents"] == 0
+    assert s["at_risk_all_cents"] == t["at_risk"]["cap_cents"]    # nothing accepted yet: the two numbers agree
     cats = truth.risk_by_category()
     assert [(c["key"], c["n"], c["cap_cents"]) for c in s["by_category"]] == cats
     assert [c["label"] for c in s["by_category"]] == [CATEGORY_LABEL[k] for k, _, _ in cats]
@@ -263,6 +266,7 @@ def test_accepting_lowers_money_at_risk_by_exactly_that_items_capital(demo):
     s = client.get("/api/summary").json()
     assert s["money_at_risk_cents"] == before - recs[0]["tied_cents"] and s["accepted_cents"] == recs[0]["tied_cents"]
     assert s["totals"]["at_risk"]["cap_cents"] == before  # the status totals themselves do not change
+    assert s["at_risk_all_cents"] == before and s["money_at_risk_cents"] < s["at_risk_all_cents"]  # the page can label them separately
     r2 = client.post(f"/api/actions/{recs[1]['id']}/accept").json()
     assert r2["money_at_risk_cents"] == before - recs[0]["tied_cents"] - recs[1]["tied_cents"]
 
@@ -416,3 +420,54 @@ def test_sql_in_the_api_is_parameterized():
     for path in [root / "storage" / "repo.py", root / "ingest.py"]:
         for m in re.finditer(r'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE)[^"\n]*\{([^}]*)\}', path.read_text(encoding="utf-8")):
             assert m.group(2).strip() == "RISK_MARKS" or m.group(2).strip() == "placeholders", (path.name, m.group(0)[:80])
+
+
+# ------------------------------------------------------------------------------ undo
+def test_undo_of_an_accepted_plan_restores_money_at_risk_exactly(demo):
+    client, _, _ = demo
+    recs = planned(client)
+    start = client.get("/api/summary").json()
+    client.post(f"/api/actions/{recs[0]['id']}/accept")
+    client.post(f"/api/actions/{recs[1]['id']}/accept")
+    r = client.post(f"/api/actions/{recs[0]['id']}/undo").json()
+    assert r["status"] == "proposed" and r["money_at_risk_cents"] == start["money_at_risk_cents"] - recs[1]["tied_cents"]
+    assert r["accepted_cents"] == recs[1]["tied_cents"] and r["accepted_n"] == 1
+    again = client.post(f"/api/actions/{recs[0]['id']}/accept").json()                       # accepting again works
+    assert again["money_at_risk_cents"] == start["money_at_risk_cents"] - recs[0]["tied_cents"] - recs[1]["tied_cents"]
+    client.post(f"/api/actions/{recs[0]['id']}/undo")
+    client.post(f"/api/actions/{recs[1]['id']}/undo")
+    end = client.get("/api/summary").json()
+    assert end["money_at_risk_cents"] == start["money_at_risk_cents"] and end["accepted_cents"] == 0
+
+
+def test_undo_of_a_declined_plan_lets_the_owner_accept_it(demo):
+    client, _, _ = demo
+    recs = planned(client)
+    client.post(f"/api/actions/{recs[0]['id']}/decline")
+    assert client.post(f"/api/actions/{recs[0]['id']}/accept").status_code == 409            # declined is final until undone
+    assert client.post(f"/api/actions/{recs[0]['id']}/undo").json()["status"] == "proposed"
+    assert client.post(f"/api/actions/{recs[0]['id']}/accept").json()["status"] == "accepted"
+
+
+def test_double_undo_and_undo_of_an_undecided_plan_are_refused(demo):
+    client, _, _ = demo
+    recs = planned(client)
+    assert client.post(f"/api/actions/{recs[0]['id']}/undo").status_code == 409              # never decided
+    client.post(f"/api/actions/{recs[0]['id']}/accept")
+    assert client.post(f"/api/actions/{recs[0]['id']}/undo").status_code == 200
+    assert client.post(f"/api/actions/{recs[0]['id']}/undo").status_code == 409              # double undo
+
+
+def test_undo_of_an_unknown_id_is_404(demo):
+    assert demo[0].post("/api/actions/99999/undo").status_code == 404
+
+
+def test_undo_is_written_to_the_audit_log(demo):
+    client, _, db = demo
+    recs = planned(client)
+    client.post(f"/api/actions/{recs[0]['id']}/accept")
+    client.post(f"/api/actions/{recs[0]['id']}/undo")
+    con = sqlite3.connect(db)
+    rows = con.execute("SELECT action, detail_json FROM audit_log ORDER BY id").fetchall()
+    con.close()
+    assert [r[0] for r in rows][-2:] == ["accepted", "undone"] and '"was": "accepted"' in rows[-1][1]

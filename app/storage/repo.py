@@ -68,7 +68,9 @@ def summary(conn: sqlite3.Connection, shop_id: int) -> dict | None:
         "as_of": up["as_of"], "upload_id": up["id"], "rule_version": up["rule_version"],
         "totals": {"skus": total["n"], "stock_at_cost_cents": total["cap"], "dead": blk("dead"), "slow": blk("slow"),
                    "at_risk": blk(*AT_RISK), "new": blk("new"), "insufficient": blk("insufficient_data"), "zero_qty": total["zero"] or 0},
-        "money_at_risk_cents": mar["money_at_risk_cents"], "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"],
+        # money_at_risk_cents: dead or slow stock with no accepted plan yet. at_risk_all_cents: everything dead or slow.
+        "money_at_risk_cents": mar["money_at_risk_cents"], "at_risk_all_cents": mar["at_risk_cents"],
+        "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"],
         "by_category": [{"key": c["key"], "label": CATEGORY_LABEL.get(c["key"], c["key"]), "n": c["n"], "cap_cents": c["cap"],
                          "pct": round(100 * c["cap"] / top)} for c in cats],
         "needs_look": {"count": nl["count"], "unsorted": nl["unsorted"]},
@@ -218,6 +220,28 @@ def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) ->
             conn.execute("ROLLBACK")
             raise
     return {"recommendation_id": rec_id, "sku": rec["sku"], "status": target, "capital_cents": rec["capital_cents"], **money_at_risk(conn, shop_id)}
+
+
+def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
+    """Take back an accepted or declined decision: the plan goes back to 'proposed'. Money at risk is recomputed."""
+    rec = conn.execute("SELECT * FROM recommendations WHERE id = ?", (rec_id,)).fetchone()
+    if rec is None:
+        raise NotFound(f"recommendation {rec_id} not found")
+    if rec["status"] not in ("accepted", "rejected"):
+        raise Conflict("there is no decision to undo on this plan")
+    ts = now_text()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("UPDATE recommendations SET status = 'proposed', decided_at = NULL WHERE id = ?", (rec_id,))
+        conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
+                     (shop_id, ts, "owner", "undone", "recommendation", str(rec_id),
+                      json.dumps({"sku": rec["sku"], "was": "accepted" if rec["status"] == "accepted" else "declined",
+                                  "capital_cents": rec["capital_cents"]})))
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return {"recommendation_id": rec_id, "sku": rec["sku"], "status": "proposed", "capital_cents": rec["capital_cents"], **money_at_risk(conn, shop_id)}
 
 
 # ---------------------------------------------------------------------------------------- uploads and needs-a-look
