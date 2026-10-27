@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 NOT_ENOUGH_DATA = "Not enough data"
 
 Option = Literal["discount", "bundle", "return", "hold"]
-DISCOUNT_LADDER = (5, 10, 15)  # percentages the recommender may propose
+DISCOUNT_LADDER = (5, 10, 15, 20)  # percentages the recommender may propose; must match config/thresholds.yaml
 
 
 class InventoryExplanation(BaseModel):
