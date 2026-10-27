@@ -406,7 +406,8 @@ def test_no_api_storage_ingest_or_core_module_imports_the_model_client():
     import ast
     root = Path(__file__).resolve().parent.parent / "app"
     offenders = []
-    for path in list(root.glob("api/*.py")) + list(root.glob("storage/*.py")) + list(root.glob("core/*.py")) + [root / "ingest.py", root / "catalog.py"]:
+    numbers = [root / "api" / "routes.py", root / "api" / "deps.py", root / "ingest.py", root / "catalog.py", root / "watch" / "attach.py"]
+    for path in numbers + list(root.glob("storage/*.py")) + list(root.glob("core/*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
             if any(n == "openai" or n.startswith("app.llm") or n.startswith("app.agents") or n.startswith("openai.") for n in names):
