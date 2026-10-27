@@ -18,6 +18,7 @@ USER_AGENT = "LoregBot/0.1 (+https://github.com/vmndilip-star/Loreg; hackathon p
 TIMEOUT_S = 10.0
 MAX_BYTES = 2 * 1024 * 1024
 ROBOTS_TTL = timedelta(hours=24)
+ROBOTS_STALE_OK = timedelta(days=30)   # RFC 9309: if robots.txt is temporarily unreachable a crawler may keep using its last copy
 ROBOTS_TRIES = 3
 ROBOTS_BACKOFF_S = 2.0
 _sleep = time.sleep   # tests replace this so they do not wait
@@ -81,14 +82,22 @@ def fetch_feed(http: httpx.Client, url: str, *, etag: str | None = None, last_mo
             fresh = now - datetime.fromisoformat(robots_checked_at.replace("Z", "+00:00")) < ROBOTS_TTL
         except ValueError:
             fresh = False
-    checked = False
+    checked, stale_note = False, ""
     if fresh:
         allowed, note = robots_allowed, "robots decision cached"
     else:
         allowed, note = _robots_decision(http, url)
-        checked = True
+        checked = allowed is not None            # an unreachable robots.txt must not overwrite the last good decision
+        if allowed is None and robots_allowed is True and robots_checked_at:
+            try:
+                age = now - datetime.fromisoformat(robots_checked_at.replace("Z", "+00:00"))
+            except ValueError:
+                age = None
+            if age is not None and age < ROBOTS_STALE_OK:
+                allowed = True                   # last known rules allowed this feed and are under 30 days old
+                stale_note = f"robots.txt was unreachable ({note}); used the copy checked on {robots_checked_at[:10]}"
     if allowed is None:
-        return FeedResult("robots_unavailable", message=note, robots_allowed=None, robots_checked=checked)
+        return FeedResult("robots_unavailable", message=note, robots_allowed=None, robots_checked=False)
     if allowed is False:
         return FeedResult("blocked_by_robots", message="robots.txt does not allow this feed for our User-Agent", robots_allowed=False, robots_checked=checked)
 
@@ -119,4 +128,4 @@ def fetch_feed(http: httpx.Client, url: str, *, etag: str | None = None, last_mo
     if not parsed.version:  # feedparser could not recognise RSS or Atom (an HTML page, plain text, ...)
         return FeedResult("bad_feed", message="the response is not a readable feed", robots_allowed=True, robots_checked=checked)
     return FeedResult("ok", entries=list(parsed.entries), etag=new_etag, last_modified=new_modified,
-                      message=f"{len(parsed.entries)} entries", robots_allowed=True, robots_checked=checked)
+                      message=f"{len(parsed.entries)} entries" + (f"; {stale_note}" if stale_note else ""), robots_allowed=True, robots_checked=checked)

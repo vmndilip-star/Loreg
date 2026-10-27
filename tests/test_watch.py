@@ -434,3 +434,54 @@ def test_a_stray_invisible_character_is_flagged_but_does_not_block_the_article(s
 def test_soft_hyphens_and_direction_marks_are_removed_without_a_flag():
     text, flags = sanitize_html("<p>soft\u00adhyphen and\u200elrm</p>")
     assert text == "softhyphen andlrm" and flags == []
+
+
+def _age_robots(client, days):
+    """White box: pretend the stored robots.txt decision was made `days` ago."""
+    con = sqlite3.connect(client.app.state.db_path)
+    stamp = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    con.execute("UPDATE market_sources SET robots_checked_at = ?", (stamp,))
+    con.commit()
+    con.close()
+
+
+def test_when_robots_txt_is_unreachable_the_last_good_decision_is_used_for_up_to_30_days(shop, monkeypatch):
+    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
+    web = FakeWeb(rss([article()]))
+    client, _ = run_scan(None, shop, web)                       # a good robots.txt is read and cached
+    _age_robots(client, 3)                                       # older than a day, so it must be re-read ...
+    web.robots_status, web.etag = 503, '"v2"'                    # ... but robots.txt is down now
+    rep = client.post("/api/watch/scan").json()
+    assert rep["sources"][0]["status"] == "ok" and "used the copy checked on" in rep["sources"][0]["message"] and "unreachable" in rep["sources"][0]["message"]
+    assert "/global/feed" in web.paths()[2:]                     # the feed was fetched on the strength of the cached allow
+    con = db(client.app.state.db_path.parent)
+    assert con.execute("SELECT robots_allowed FROM market_sources").fetchone()[0] == 1   # the good decision was not overwritten
+
+
+def test_a_stale_robots_decision_older_than_30_days_is_not_used(shop, monkeypatch):
+    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
+    web = FakeWeb(rss([article()]))
+    client, _ = run_scan(None, shop, web)
+    _age_robots(client, 31)
+    web.robots_status = 503
+    before = len(web.requests)
+    rep = client.post("/api/watch/scan").json()
+    assert rep["sources"][0]["status"] == "robots_unavailable"
+    assert "/global/feed" not in [r.url.path for r in web.requests[before:]]
+
+
+def test_a_cached_disallow_is_never_overridden_by_an_unreachable_robots_txt(shop, monkeypatch):
+    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
+    web = FakeWeb(rss([article()]), robots="User-agent: *\nDisallow: /global/\n")
+    client, _ = run_scan(None, shop, web)
+    _age_robots(client, 3)
+    web.robots_status = 503
+    assert client.post("/api/watch/scan").json()["sources"][0]["status"] == "robots_unavailable"
+    assert "/global/feed" not in web.paths()
+
+
+def test_a_first_ever_scan_with_robots_txt_down_fetches_nothing(shop, monkeypatch):
+    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
+    web = FakeWeb(rss([article()]), robots_status=503)
+    client, rep = run_scan(None, shop, web)
+    assert rep["sources"][0]["status"] == "robots_unavailable" and "/global/feed" not in web.paths()
