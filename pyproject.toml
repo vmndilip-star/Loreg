@@ -15,10 +15,11 @@ dependencies = [
     "openai>=1.40",
     "python-dotenv",
     "pyyaml",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "httpx"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
