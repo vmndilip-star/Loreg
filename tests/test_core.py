@@ -201,3 +201,13 @@ def test_default_option_order():
 
 def test_hold_is_always_allowed():
     assert "hold" in opts(sell_price=1010.0).options()
+
+
+def test_a_zero_quantity_is_not_a_missing_value():
+    assert (1, "MISSING_REQUIRED") not in codes([row(qty_on_hand=0)])      # int 0, not just the string "0"
+    assert (1, "MISSING_REQUIRED") in codes([row(qty_on_hand=None)])
+
+
+def test_agent_discount_ladder_matches_the_config():
+    from app.schemas.outputs import DISCOUNT_LADDER
+    assert DISCOUNT_LADDER == TH.discount_ladder_pct == (5, 10, 15, 20)

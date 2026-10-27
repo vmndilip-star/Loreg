@@ -105,7 +105,8 @@ def dq_check(rows: list[dict], as_of: date, th: Thresholds) -> list[Issue]:
 
     for i, r in enumerate(rows, start=1):
         for col in REQUIRED:
-            if str(r.get(col, "") or "").strip() == "":
+            v = r.get(col)
+            if v is None or str(v).strip() == "":   # a quantity of 0 is a value, not a missing one
                 add(i, "MISSING_REQUIRED")
         cost = parse_money(r.get("unit_cost"))
         if cost is None or cost <= 0:
