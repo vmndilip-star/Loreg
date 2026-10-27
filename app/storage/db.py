@@ -127,33 +127,47 @@ CREATE TABLE IF NOT EXISTS dq_issues (
 CREATE INDEX IF NOT EXISTS idx_dq_upload ON dq_issues(upload_id);
 
 CREATE TABLE IF NOT EXISTS market_sources (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     shop_id INTEGER REFERENCES shops(id),
     name TEXT NOT NULL,
-    url TEXT NOT NULL,
+    brand TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE,
     kind TEXT NOT NULL,
+    etag TEXT,                       -- for conditional GET
+    last_modified TEXT,
+    robots_allowed INTEGER,          -- cached robots.txt decision (NULL = never checked)
+    robots_checked_at TEXT,
+    last_fetch_at TEXT,
+    last_status TEXT,
     created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS market_items (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_id INTEGER NOT NULL REFERENCES market_sources(id),
     url TEXT NOT NULL,
+    canonical_url TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
-    published TEXT,
+    published_at TEXT,
     fetched_at TEXT NOT NULL,
-    text_hash TEXT NOT NULL,
-    injection_flags TEXT
+    text TEXT NOT NULL,              -- sanitized article text. Local database only; never committed.
+    content_hash TEXT NOT NULL UNIQUE,
+    injection_flags TEXT NOT NULL DEFAULT '[]',
+    untrusted INTEGER NOT NULL DEFAULT 1,
+    extracted INTEGER NOT NULL DEFAULT 0   -- 0 not yet, 1 read by the Market agent, -1 skipped (no launch cue)
 );
 
 CREATE TABLE IF NOT EXISTS market_events (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_id INTEGER NOT NULL REFERENCES market_items(id),
     brand TEXT NOT NULL,
     family TEXT NOT NULL,
-    launch_date TEXT,
+    launch_date TEXT,                -- exactly as written in the article, only if it appears there word for word
+    launch_iso TEXT,                 -- the same date as YYYY-MM-DD when it has a year
     date_stated INTEGER NOT NULL,
     quote TEXT,
+    matched_line_ids TEXT NOT NULL DEFAULT '[]',
+    flagged INTEGER NOT NULL DEFAULT 0,    -- came from an article with injection-like text: never attached automatically
     created_at TEXT NOT NULL
 );
 
@@ -168,7 +182,14 @@ CREATE TABLE IF NOT EXISTS alerts (
     n_items INTEGER NOT NULL,
     capital_cents INTEGER NOT NULL,
     created_at TEXT NOT NULL,
-    help_requested_at TEXT          -- NULL until the owner asks for help; plans are refused until then
+    help_requested_at TEXT,         -- NULL until the owner asks for help; plans are refused until then
+    source_item_id INTEGER,         -- the stored article behind this alert, if a real one matched
+    source_name TEXT,
+    source_url TEXT,
+    source_title TEXT,
+    source_published TEXT,
+    launch_date TEXT,               -- as written in the article; NULL means announced, no date
+    date_stated INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS recommendations (
@@ -185,7 +206,19 @@ CREATE TABLE IF NOT EXISTS recommendations (
     status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','accepted','rejected','expired')),
     created_at TEXT NOT NULL,
     decided_at TEXT,
+    source TEXT NOT NULL DEFAULT 'rules',   -- rules | model | mock | fallback: who wrote the option and reasons
     UNIQUE (alert_id, sku)
+);
+
+CREATE TABLE IF NOT EXISTS daily_briefs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL REFERENCES shops(id),
+    generated_at TEXT NOT NULL,
+    facts_hash TEXT NOT NULL,
+    source TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    bullets_json TEXT NOT NULL,
+    citations_json TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -201,7 +234,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 """
 
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
-          "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log")
+          "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs")
+SCHEMA_VERSION = 2
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -215,10 +249,34 @@ def connect(path=None) -> sqlite3.Connection:
     return conn
 
 
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(r["name"] == column for r in conn.execute(f"PRAGMA table_info({table})"))
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version >= SCHEMA_VERSION:
+        return
+    if version < 2:
+        if not _has_column(conn, "market_items", "canonical_url"):
+            for t in ("market_events", "market_items", "market_sources"):  # version 1 had these empty and unused
+                conn.execute(f"DROP TABLE IF EXISTS {t}")
+        conn.executescript(SCHEMA)
+        for col, decl in (("source_item_id", "INTEGER"), ("source_name", "TEXT"), ("source_url", "TEXT"), ("source_title", "TEXT"),
+                          ("source_published", "TEXT"), ("launch_date", "TEXT"), ("date_stated", "INTEGER NOT NULL DEFAULT 0")):
+            if not _has_column(conn, "alerts", col):
+                conn.execute(f"ALTER TABLE alerts ADD COLUMN {col} {decl}")
+        if not _has_column(conn, "recommendations", "source"):
+            conn.execute("ALTER TABLE recommendations ADD COLUMN source TEXT NOT NULL DEFAULT 'rules'")
+    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
 def init_db(path=None) -> None:
     conn = connect(path)
     try:
         conn.executescript(SCHEMA)
+        migrate(conn)
     finally:
         conn.close()
 
