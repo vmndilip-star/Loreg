@@ -8,7 +8,8 @@ from app.schemas.outputs import NOT_ENOUGH_DATA, DailyBrief
 SYSTEM = (
     "You write the short morning summary for a small US electronics and appliance shop owner. "
     "Give one headline and at most four short bullets about money tied up in slow and dead stock and "
-    "any launch alerts. Do not recommend a discount; alerts come first and the owner asks for help."
+    "any launch alerts. Do not recommend a discount; alerts come first and the owner asks for help. "
+    "Write every bullet as one complete sentence that ends with a full stop. Do not ask questions."
 )
 _PRIORITY = ("capital_at_risk_total", "dead_capital", "slow_capital", "launch_exposed_count")
 

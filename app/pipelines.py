@@ -243,7 +243,8 @@ def daily_brief(ctx: Ctx, started: float) -> Iterator[dict]:
     brief: DailyBrief = res.output
     yield ev("tool", name="daily_agent", source=res.source)
     repo_ai.save_brief(ctx.conn, ctx.shop_id, facts_hash("daily", facts), res.source, brief.headline, brief.bullets, brief.citations)
-    yield from tokens(_strip_marks(" ".join([brief.headline + ".", *brief.bullets])))
+    sentences = [_strip_marks(s).rstrip(" .") + "." for s in [brief.headline, *brief.bullets] if _strip_marks(s)]
+    yield from tokens(" ".join(sentences))
     t = summary["totals"]
     yield ev("cards", cards=[{"type": "summary", "money_at_risk_cents": summary["money_at_risk_cents"], "at_risk_all_cents": summary["at_risk_all_cents"],
                               "dead": t["dead"], "slow": t["slow"], "stock_at_cost_cents": t["stock_at_cost_cents"]}])
