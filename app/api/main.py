@@ -1,4 +1,4 @@
-"""FastAPI app factory for the numbers API (no model calls)."""
+"""FastAPI app factory. The numbers routes never call a model; the watch, ask and daily routes use agents."""
 
 import os
 from datetime import date
@@ -7,19 +7,24 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from app.api.routes import router
+from app.api.routes_watch import router as watch_router
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
 from app.storage.db import DEFAULT_DB_PATH, init_db
 
 
-def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=None, catalog_path=None) -> FastAPI:
-    app = FastAPI(title="Loreg numbers API", version="0.1.0")
+def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=None, catalog_path=None, llm=None, http_factory=None) -> FastAPI:
+    """`llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
+    app = FastAPI(title="Loreg API", version="0.2.0")
     path = Path(db_path or os.environ.get("LOREG_DB") or DEFAULT_DB_PATH)
     init_db(path)
     app.state.db_path = path
     app.state.th = load_thresholds(thresholds_path)
     app.state.catalog = load_catalog(catalog_path)
+    app.state.llm = llm
+    app.state.http_factory = http_factory
     default = as_of or os.environ.get("LOREG_AS_OF")
     app.state.default_as_of = date.fromisoformat(default) if isinstance(default, str) and default else (default or None)
     app.include_router(router)
+    app.include_router(watch_router)
     return app

@@ -99,6 +99,15 @@ def _group_items(conn, brand: str, category: str, shop_id: int):
         (shop_id, brand, category, *AT_RISK)).fetchall()
 
 
+def _source(a) -> dict:
+    """The real, dated source behind an alert, or a plain statement that there is none."""
+    if a["source_item_id"] is None:
+        return {"attached": False, "status": "no dated source attached"}
+    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "title": a["source_title"], "published": a["source_published"],
+            "launch_date": a["launch_date"] if a["date_stated"] else None,
+            "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date"}
+
+
 def launch_exposed(conn: sqlite3.Connection, shop_id: int) -> list[dict]:
     """Launch-family items that are dead or slow, per alert. Deliberately no options: plans come only after the owner asks."""
     out = []
@@ -107,7 +116,7 @@ def launch_exposed(conn: sqlite3.Connection, shop_id: int) -> list[dict]:
         top3 = items[:3]
         out.append({
             "alert_id": a["id"], "label": f"{a['brand']} {CATEGORY_LABEL.get(a['category'], a['category'])}", "brand": a["brand"],
-            "category": a["category"], "title": a["title"], "source_note": a["source_note"],
+            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(a),
             "n": len(items), "cap_cents": sum(i["capital_cents"] for i in items),
             "top": [{"sku": i["sku"], "name": _name(i), "shelf": i["qty"], "cap_cents": i["capital_cents"]} for i in top3],
             "rest_n": len(items) - len(top3), "rest_cap_cents": sum(i["capital_cents"] for i in items[3:]),
@@ -125,7 +134,8 @@ def get_alert(conn: sqlite3.Connection, alert_id: int):
 def alert_state(conn: sqlite3.Connection, alert_id: int) -> dict:
     a = get_alert(conn, alert_id)
     recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? GROUP BY status", (alert_id,)).fetchall()
-    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "n_items": a["n_items"], "cap_cents": a["capital_cents"],
+    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(a), "n_items": a["n_items"],
+            "cap_cents": a["capital_cents"],
             "help_requested": a["help_requested_at"] is not None, "help_requested_at": a["help_requested_at"],
             "recommendations": {r["status"]: r["n"] for r in recs}}
 

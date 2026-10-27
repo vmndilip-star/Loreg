@@ -17,6 +17,7 @@ from app.core import metrics
 from app.core.classify import AT_RISK, INSUFFICIENT, classify
 from app.core.quality import SEVERITY, dq_check, normalize_category, parse_date, parse_int, split_by_severity
 from app.core.thresholds import Thresholds
+from app.watch.attach import NO_SOURCE_NOTE, attach_events_to_alerts
 
 REQUIRED_COLUMNS = ["sku", "brand", "model", "category", "qty_on_hand", "unit_cost", "sell_price"]
 MAX_BYTES = 5 * 1024 * 1024
@@ -179,6 +180,5 @@ def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str) -> N
             "INSERT INTO alerts (shop_id, kind, title, brand, category, source_note, n_items, capital_cents, created_at)"
             " VALUES (?,?,?,?,?,?,?,?,?)",
             (shop_id, "launch_family", f"{g['brand']} {CATEGORY_LABEL.get(g['category'], g['category'])} may be affected by a newer line",
-             g["brand"], g["category"],
-             "No dated news source is attached. These items are in the catalog's launch family (a newer generation is expected); "
-             "no launch date is claimed.", g["n"], g["cap"], ts))
+             g["brand"], g["category"], NO_SOURCE_NOTE, g["n"], g["cap"], ts))
+    attach_events_to_alerts(conn, shop_id)  # a stored, dated event may already match; otherwise the note above stays
