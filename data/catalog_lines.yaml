@@ -82,7 +82,6 @@ categories:
         line: "QN900D Neo QLED 8K"
         tier: flagship
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: high
         variants:
@@ -93,7 +92,6 @@ categories:
         line: "QN800D Neo QLED 8K"
         tier: flagship
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: medium
         variants:
@@ -159,7 +157,6 @@ categories:
         line: "S95D OLED"
         tier: flagship
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: high
         variants:
@@ -181,7 +178,6 @@ categories:
         line: "S85D OLED"
         tier: premium
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: medium
         variants:
@@ -192,7 +188,6 @@ categories:
         line: "Crystal UHD DU8000"
         tier: mainstream
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: high
         variants:
@@ -203,7 +198,6 @@ categories:
         line: "Crystal UHD DU7200"
         tier: budget
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: high
         variants:
@@ -214,7 +208,6 @@ categories:
         line: "The Frame"
         tier: premium
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: high
         variants:
@@ -1550,9 +1543,9 @@ categories:
         variants:
           size_in: [24, 32, 39]
         variant_count: 3
-      - id: "tv-toshiba-4k-uhd-fire-tv-edition-2023"
+      - id: "tv-toshiba-c350-fire-tv-2023"
         brand: "Toshiba"
-        line: "4K UHD Fire TV Edition"
+        line: "C350 Fire TV"
         tier: budget
         release_year: 2023
         name_verified: false
@@ -1665,7 +1658,6 @@ categories:
         line: "The Serif"
         tier: premium
         release_year: 2024
-        launch_family: true
         name_verified: false
         name_confidence: medium
         variants:
