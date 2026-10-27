@@ -31,6 +31,9 @@ META_BASE_URL = "https://api.meta.ai/v1"
 DEFAULT_META_MODEL = "muse-spark-1.3"
 DEFAULT_MAX_COMPLETION_TOKENS = 8000  # reasoning tokens count toward this
 MAX_ATTEMPTS = 5
+DEFAULT_TIMEOUT_S = 20.0
+# Meta rejects reasoning_effort "none" (reasoning is always on). Lowest allowed value is "minimal".
+REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh", "max")
 
 _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
@@ -55,14 +58,19 @@ def strictify(schema):
 class _Chat:
     """OpenAI-compatible chat transport with 429 backoff."""
 
-    def __init__(self, name: str, base_url: str, api_key: str, model: str):
+    def __init__(self, name: str, base_url: str, api_key: str, model: str, reasoning_effort: str | None = None,
+                 timeout_s: float = DEFAULT_TIMEOUT_S):
         self.name, self.model, self._key = name, model, api_key
+        self.reasoning_effort, self.timeout_s = reasoning_effort, timeout_s
         self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
 
     def _scrub(self, text) -> str:
         return str(text).replace(self._key, "***") if self._key else str(text)
 
     def create(self, **kwargs):
+        if self.reasoning_effort and "reasoning_effort" not in kwargs:
+            kwargs["reasoning_effort"] = self.reasoning_effort
+        kwargs.setdefault("timeout", self.timeout_s)  # per request; callers also bound the whole agent call
         delay = 0.5
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
@@ -80,21 +88,26 @@ class _Chat:
 
 
 class LLMClient:
-    def __init__(self, backend: str | None = None):
+    def __init__(self, backend: str | None = None, reasoning_effort: str | None = None, timeout_s: float | None = None):
         load_dotenv(_ENV_FILE)
         self.backend = (backend or os.environ.get("LLM_BACKEND") or "mock").strip().lower()
+        effort = (reasoning_effort or os.environ.get("LLM_REASONING_EFFORT") or "").strip().lower() or None
+        if effort is not None and effort not in REASONING_EFFORTS:
+            raise LLMError(f"reasoning_effort {effort!r} is not allowed (Meta rejects 'none'); use one of {REASONING_EFFORTS}")
+        timeout = float(timeout_s or os.environ.get("LLM_TIMEOUT_S") or DEFAULT_TIMEOUT_S)
+        self.reasoning_effort, self.timeout_s = effort, timeout
         self._chat: _Chat | None = None
         if self.backend == "meta":
             key = os.environ.get("META_API_KEY", "")
             if not key:
                 raise LLMError("LLM_BACKEND=meta but META_API_KEY is not set")
-            self._chat = _Chat("meta", META_BASE_URL, key, os.environ.get("META_MODEL", DEFAULT_META_MODEL))
+            self._chat = _Chat("meta", META_BASE_URL, key, os.environ.get("META_MODEL", DEFAULT_META_MODEL), effort, timeout)
         elif self.backend == "openai_compat":
             base, key, model = (os.environ.get(k, "") for k in
                                 ("OPENAI_COMPAT_BASE_URL", "OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_MODEL"))
             if not (base and model):
                 raise LLMError("LLM_BACKEND=openai_compat needs OPENAI_COMPAT_BASE_URL and OPENAI_COMPAT_MODEL")
-            self._chat = _Chat("openai_compat", base, key or "none", model)
+            self._chat = _Chat("openai_compat", base, key or "none", model, effort, timeout)
         elif self.backend != "mock":
             raise LLMError(f"unknown LLM_BACKEND {self.backend!r} (use meta, openai_compat or mock)")
 

@@ -78,3 +78,23 @@ def test_error_text_never_contains_the_key(monkeypatch):
     monkeypatch.setenv("META_API_KEY", "sk-test-secret-123")
     c = LLMClient("meta")
     assert "sk-test-secret-123" not in c._chat._scrub("failed with key sk-test-secret-123 in text")
+
+
+def test_reasoning_effort_none_is_rejected_and_minimal_is_allowed(monkeypatch):
+    with pytest.raises(LLMError, match="not allowed"):
+        LLMClient("mock", reasoning_effort="none")
+    assert LLMClient("mock", reasoning_effort="minimal").reasoning_effort == "minimal"
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "low")
+    assert LLMClient("mock").reasoning_effort == "low"
+
+
+def test_the_request_carries_the_reasoning_effort_and_a_timeout(monkeypatch):
+    monkeypatch.setenv("META_API_KEY", "sk-test-secret-123")
+    c = LLMClient("meta", reasoning_effort="minimal", timeout_s=7)
+    seen = {}
+
+    class Resp:
+        choices = [type("C", (), {"finish_reason": "stop", "message": type("M", (), {"content": "ok"})()})()]
+    c._chat._client.chat.completions.create = lambda **kw: seen.update(kw) or Resp()
+    assert c.complete_text(system="s", user="u") == "ok"
+    assert seen["reasoning_effort"] == "minimal" and seen["timeout"] == 7 and seen["max_completion_tokens"] == 8000
