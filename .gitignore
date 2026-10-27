@@ -24,3 +24,6 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Generated database (python data/generate_catalog.py); reproducible from the seed
+data/generated/

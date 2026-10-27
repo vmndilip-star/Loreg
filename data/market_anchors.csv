@@ -1,0 +1,47 @@
+anchor_id,category,segment,price_type,usd,observed_on,evidence,source_url,note
+tv_43_promo,tv,43,promo_floor,69.0,2025-06,sourced_older,https://tomsguide.com/deals/tcl-75-inch-4k-tv-deal,Doorbuster: Insignia 43in F30 'from $69' at Best Buy (price check).
+tv_43_street,tv,43,street_floor,199.99,2026-10,estimated,,Assumption: cheapest regular price.
+tv_50_promo,tv,50,promo_floor,149.0,2026-10,estimated,,Assumption.
+tv_50_street,tv,50,street_floor,229.99,2026-10,estimated,,Assumption.
+tv_55_promo,tv,55,promo_floor,228.0,2025-06,sourced_older,https://tomsguide.com/deals/tcl-75-inch-4k-tv-deal,Onn 55in 4K Roku TV sale $228 at Walmart.
+tv_55_street,tv,55,street_floor,249.99,2026-10,estimated,,Assumption.
+tv_65_promo,tv,65,promo_floor,249.99,2026-07,sourced_2026,https://www.techradar.com/seasonal-sales/shopping-for-a-65-inch-tv-our-experts-have-rounded-up-the-best-prime-day-deals-from-samsung-lg-and-tcl-starting-at-just-usd259-99,Insignia 65in F50 at $249.99 during Prime Day 2026 (sale price not regular).
+tv_65_street,tv,65,street_floor,329.99,2026-10,estimated,,Assumption: low-quality secondary says most 65in sets sell $330-$600.
+tv_75_promo,tv,75,promo_floor,429.0,2025-06,sourced_older,https://tomsguide.com/deals/tcl-75-inch-4k-tv-deal,Toshiba 75in Fire TV $429 at Best Buy.
+tv_75_street,tv,75,street_floor,498.0,2024-05,sourced_older,"https://www.tomsguide.com/us/best-75-inch-tv-deals,news-28644.html",Onn 75in 4K Roku TV list $498 at Walmart.
+tv_85_promo,tv,85,promo_floor,599.0,2026-10,estimated,,Assumption.
+tv_85_street,tv,85,street_floor,799.99,2026-10,estimated,,Assumption.
+phone_entry_street,phone,entry,street_floor,169.99,2025-11,sourced_older,https://androidmagazine.eu/en/2025/11/05/motorola-predstavila-prvni-modely-rady-moto-g-pro-rok-2026-potesi-vydrzi-i-selfie-kamerou/,Moto G Play (2026) launch price $169.
+phone_entry_promo,phone,entry,promo_floor,129.99,2026-10,estimated,,Assumption.
+phone_budget_street,phone,budget,street_floor,249.99,2026-10,sourced_2026,https://www.phonearena.com/news/motorola-moto-g-2026-amazon-deal-rare-discount-more-compelling-than-usual_id181723,Moto G (2026): list raised $199.99 -> $299.99; street ~$250 (30-day avg ~$305).
+phone_budget_promo,phone,budget,promo_floor,199.99,2026-10,sourced_2026,https://www.phonearena.com/news/motorola-moto-g-2026-amazon-deal-rare-discount-more-compelling-than-usual_id181723,Moto G (2026) all-time low reported $199.99.
+phone_mainstream_street,phone,mainstream,street_floor,399.99,2026-10,estimated,,Assumption (new in this table; not in the prior reference).
+phone_mainstream_promo,phone,mainstream,promo_floor,329.99,2026-10,estimated,,Assumption (new in this table).
+phone_premium_street,phone,premium,street_floor,699.99,2026-10,estimated,,Assumption (new in this table).
+phone_premium_promo,phone,premium,promo_floor,579.99,2026-10,estimated,,Assumption (new in this table).
+phone_flagship_street,phone,flagship,street_floor,999.99,2026-10,estimated,,Assumption (new in this table).
+phone_flagship_promo,phone,flagship,promo_floor,829.99,2026-10,estimated,,Assumption (new in this table).
+laptop_entry_street,laptop,entry,street_floor,279.99,2026-10,estimated,,Assumption: no 2026 floor found.
+laptop_entry_promo,laptop,entry,promo_floor,199.99,2026-10,estimated,,Assumption.
+laptop_mainstream_street,laptop,mainstream,street_floor,549.99,2026-10,estimated,,Assumption (new in this table).
+laptop_mainstream_promo,laptop,mainstream,promo_floor,449.99,2026-10,estimated,,Assumption (new in this table).
+laptop_premium_street,laptop,premium,street_floor,899.99,2026-10,estimated,,Assumption (new in this table).
+laptop_premium_promo,laptop,premium,promo_floor,749.99,2026-10,estimated,,Assumption (new in this table).
+laptop_flagship_street,laptop,flagship,street_floor,1399.99,2026-10,estimated,,Assumption (new in this table).
+laptop_flagship_promo,laptop,flagship,promo_floor,1199.99,2026-10,estimated,,Assumption (new in this table).
+washer_top_street,washer,top_load,street_floor,599.99,2026-09,sourced_2026,https://www.analyticsinsight.net/deals/best-buy-labor-day-deals-2026-that-are-still-around-top-savings-on-tvs-laptops-appliances,Insignia 3.7 cu ft top-load $399.99 after $200 off (Labor Day 2026; secondary aggregator).
+washer_top_promo,washer,top_load,promo_floor,399.99,2026-09,sourced_2026,https://www.analyticsinsight.net/deals/best-buy-labor-day-deals-2026-that-are-still-around-top-savings-on-tvs-laptops-appliances,Same source: sale price.
+washer_front_street,washer,front_load,street_floor,749.99,2026-10,estimated,,Assumption.
+washer_front_promo,washer,front_load,promo_floor,599.99,2026-10,estimated,,Assumption.
+washer_dryer_street,washer_dryer,combo,street_floor,1199.99,2026-10,estimated,,Assumption.
+washer_dryer_promo,washer_dryer,combo,promo_floor,999.99,2026-10,estimated,,Assumption.
+fridge_top_street,refrigerator,top_freezer,street_floor,699.99,2026-10,estimated,,Assumption.
+fridge_top_promo,refrigerator,top_freezer,promo_floor,549.99,2026-10,estimated,,Assumption.
+fridge_side_street,refrigerator,side_by_side,street_floor,1199.99,2026-10,estimated,,Assumption.
+fridge_side_promo,refrigerator,side_by_side,promo_floor,999.99,2026-10,estimated,,Assumption.
+fridge_french_street,refrigerator,french_door,street_floor,1799.99,2026-10,estimated,,Assumption.
+fridge_french_promo,refrigerator,french_door,promo_floor,1499.99,2026-10,estimated,,Assumption.
+fridge_bottom_street,refrigerator,bottom_freezer,street_floor,1099.99,2026-10,estimated,,Assumption (new in this table).
+fridge_bottom_promo,refrigerator,bottom_freezer,promo_floor,899.99,2026-10,estimated,,Assumption (new in this table).
+fridge_compact_street,refrigerator,compact,street_floor,149.99,2026-10,estimated,,Assumption (new in this table).
+fridge_compact_promo,refrigerator,compact,promo_floor,119.99,2026-10,estimated,,Assumption (new in this table).
