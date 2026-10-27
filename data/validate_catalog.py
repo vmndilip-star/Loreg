@@ -269,7 +269,7 @@ def validate(folder, seed, as_of_text, anchors_override=None, determinism=True, 
     n_launch = sum(1 for sku in seen_demo if sku in set(launch))
     check("U04 demo upload mix: 80 TVs, 62 phones, 25 laptops, 20 washers, 12 washer-dryers (199 products) plus 1 duplicate row",
           demo_cat == {"tv": 80, "phone": 62, "laptop": 25, "washer": 20, "washer_dryer": 12} and len(demo) - len(seen_demo) == 1, demo_cat)
-    check("U05 demo upload includes exactly 24 Samsung launch-family TVs", n_launch == 24, n_launch)
+    check("U05 demo upload includes exactly 10 Samsung launch-family TVs", n_launch == 10, n_launch)
     defects = read(D / "upload_defects.csv")
     man = read(D / "defects_manifest.csv")
     dis = dq_check(defects, as_of, th)

@@ -527,17 +527,23 @@ def share(a, b):
 
 
 def build_demo_upload(skus, seed):
-    """200 rows from the database: 24 Samsung launch-family TVs, 56 other TVs, 62 phones, 25 laptops, 20 washers,
-    12 washer-dryers (199 unique) plus 1 duplicate; 3 seeded errors: missing cost, negative quantity, duplicate SKU."""
+    """200 rows from the database: 10 Samsung launch-family TVs (7 dead or slow, 3 not), 70 other TVs, 62 phones, 25 laptops,
+    20 washers, 12 washer-dryers (199 unique) plus 1 duplicate; 3 seeded errors: missing cost, negative quantity, duplicate SKU.
+
+    Ten launch-family rows keep the demo's at-risk share of stock near the full database's (an earlier 23 pushed it to 43%).
+    """
     rr = R(seed, "demo")
     ok = [s for s in skus if not s["fixed"] and s["category"] != "refrigerator"]
     launch = [s for s in ok if s["launch"]]
-    launch.sort(key=lambda s: (s["status"] not in (DEAD, SLOW), s["sku"]))  # at-risk launch stock first
-    chosen = launch[:24]
+    at_risk = [s for s in launch if s["status"] in (DEAD, SLOW)]
+    calm = [s for s in launch if s["status"] not in (DEAD, SLOW)]
+    rr.shuffle(at_risk)
+    rr.shuffle(calm)
+    chosen = at_risk[:7] + calm[:3]
     others = {c: [s for s in ok if s["category"] == c and not s["launch"]] for c in CATEGORY_ORDER}
     for lst in others.values():
         rr.shuffle(lst)
-    chosen += others["tv"][:56] + others["phone"][:62] + others["laptop"][:25] + others["washer"][:20] + others["washer_dryer"][:12]
+    chosen += others["tv"][:70] + others["phone"][:62] + others["laptop"][:25] + others["washer"][:20] + others["washer_dryer"][:12]
     assert len(chosen) == 199, len(chosen)
     rows = [master_row(s) for s in chosen]
     rr.shuffle(rows)
