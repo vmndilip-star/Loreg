@@ -215,7 +215,7 @@ def test_the_same_question_returns_from_the_cache(shop):
     first = ask(shop, ASK)[-1][1]
     second = ask(shop, ASK)[-1][1]
     assert not all(a["cached"] for a in first["agents"])
-    assert all(a["cached"] for a in second["agents"]) and second["total_ms"] <= first["total_ms"]
+    assert all(a["cached"] for a in second["agents"]) and all(a["ms"] < 50 for a in second["agents"])   # served from memory
 
 
 def test_changing_the_facts_misses_the_cache(catalog_dir, shop):
