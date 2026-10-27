@@ -346,11 +346,14 @@ def test_a_missing_robots_txt_means_no_rules(shop):
     assert run_scan(None, shop, web)[1]["sources"][0]["status"] == "ok"
 
 
-def test_an_unreachable_robots_txt_means_do_not_fetch(shop):
+def test_an_unreachable_robots_txt_means_do_not_fetch(shop, monkeypatch):
+    waits = []
+    monkeypatch.setattr(feeds, "_sleep", waits.append)
     web = FakeWeb(rss([article()]), robots_status=503)
     client, rep = run_scan(None, shop, web)
     assert rep["sources"][0]["status"] == "robots_unavailable" and rep["network"] == "unavailable"
     assert "/global/feed" not in web.paths() and web.paths().count("/robots.txt") == feeds.ROBOTS_TRIES
+    assert waits == [feeds.ROBOTS_BACKOFF_S, 2 * feeds.ROBOTS_BACKOFF_S]                       # it backed off between tries
 
 
 def test_the_robots_decision_is_cached_for_a_day(shop):

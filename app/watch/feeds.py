@@ -5,6 +5,7 @@ Nothing here fetches anything except the feed URL and that host's robots.txt.
 """
 
 import hashlib
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -17,7 +18,9 @@ USER_AGENT = "LoregBot/0.1 (+https://github.com/vmndilip-star/Loreg; hackathon p
 TIMEOUT_S = 10.0
 MAX_BYTES = 2 * 1024 * 1024
 ROBOTS_TTL = timedelta(hours=24)
-ROBOTS_TRIES = 2
+ROBOTS_TRIES = 3
+ROBOTS_BACKOFF_S = 2.0
+_sleep = time.sleep   # tests replace this so they do not wait
 SAMSUNG_FEED = "https://news.samsung.com/global/feed"
 _TRACKING = ("utm_", "fbclid", "gclid", "mc_cid", "mc_eid", "ref")
 
@@ -50,7 +53,9 @@ def _robots_decision(http: httpx.Client, feed_url: str) -> tuple[bool | None, st
     parts = urlsplit(feed_url)
     robots_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
     last = ""
-    for _ in range(ROBOTS_TRIES):
+    for attempt in range(ROBOTS_TRIES):
+        if attempt:
+            _sleep(ROBOTS_BACKOFF_S * attempt)  # polite: wait a little longer before each retry
         try:
             r = http.get(robots_url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_S, follow_redirects=True)
         except httpx.HTTPError as e:
