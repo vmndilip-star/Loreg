@@ -1,0 +1,37 @@
+# Loreg rule thresholds. Every value here is a tunable ASSUMPTION, not a fact.
+# They were derived from a rough sector inventory benchmark (see prior/docs/LOREG_BASE_CONTEXT.md, section 4.1).
+# Bump rule_version whenever a value changes so stored classifications can be told apart.
+rule_version: 1
+
+# Per category:
+#   slow_dsls           slow if days since last sale >= this
+#   dead_dsls           dead if days since last sale >= this
+#   slow_days_of_stock  slow if days of stock > this
+#   new_grace_days      stock received fewer days ago than this is "new"
+categories:
+  tv:           {slow_dsls: 60, dead_dsls: 120, slow_days_of_stock: 120, new_grace_days: 30}
+  phone:        {slow_dsls: 45, dead_dsls: 90,  slow_days_of_stock: 90,  new_grace_days: 21}
+  laptop:       {slow_dsls: 60, dead_dsls: 120, slow_days_of_stock: 120, new_grace_days: 30}
+  washer:       {slow_dsls: 75, dead_dsls: 150, slow_days_of_stock: 150, new_grace_days: 45}
+  washer_dryer: {slow_dsls: 75, dead_dsls: 150, slow_days_of_stock: 150, new_grace_days: 45}
+  refrigerator: {slow_dsls: 75, dead_dsls: 150, slow_days_of_stock: 150, new_grace_days: 45}
+
+# Seasonal items: slow, dead and days-of-stock thresholds are multiplied by this (grace is not).
+seasonal_multiplier: 1.5
+
+data_quality:
+  velocity_outlier_floor_units_30d: 30   # absolute floor: IQR fences alone misfire on sparse integer counts
+  velocity_outlier_iqr_multiplier: 3
+  msrp_mismatch_factor: 1.2              # sell_price above this many times msrp is flagged
+
+actions:
+  discount_ladder_pct: [5, 10, 15, 20]
+  below_cost_dead_multiple: 2            # a below-cost discount is only allowed after this many times the dead limit
+  below_cost_max_pct: 10                 # and never deeper than this
+  holding_cost_rate: 0.25                # yearly holding cost as a share of capital (assumption)
+
+# Used by the synthetic database generator only.
+generator:
+  status_mix: {dead: 0.13, slow: 0.13, new: 0.06}   # share of SKUs per category; the rest are healthy
+  fixture_capital_cap_usd: 3000                     # max qty x unit_cost for a fixture row
+  fixture_share_target: 0.01                        # fixture rows are about 1% of SKUs

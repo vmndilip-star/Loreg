@@ -14,6 +14,7 @@ dependencies = [
     "pydantic>=2",
     "openai>=1.40",
     "python-dotenv",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
