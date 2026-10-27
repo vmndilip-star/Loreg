@@ -34,6 +34,9 @@ MAX_ATTEMPTS = 5
 DEFAULT_TIMEOUT_S = 20.0
 # Meta rejects reasoning_effort "none" (reasoning is always on). Lowest allowed value is "minimal".
 REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh", "max")
+# Measured on muse-spark-1.3 (see the latency table in the Phase report): "minimal" is 3 to 6 times faster than the default and every
+# agent answer still passed the code-side checks (40 of 40 calls per setting). Used for the meta backend unless LLM_REASONING_EFFORT says otherwise.
+DEFAULT_META_REASONING_EFFORT = "minimal"
 
 _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
@@ -92,6 +95,8 @@ class LLMClient:
         load_dotenv(_ENV_FILE)
         self.backend = (backend or os.environ.get("LLM_BACKEND") or "mock").strip().lower()
         effort = (reasoning_effort or os.environ.get("LLM_REASONING_EFFORT") or "").strip().lower() or None
+        if effort is None and self.backend == "meta":
+            effort = DEFAULT_META_REASONING_EFFORT
         if effort is not None and effort not in REASONING_EFFORTS:
             raise LLMError(f"reasoning_effort {effort!r} is not allowed (Meta rejects 'none'); use one of {REASONING_EFFORTS}")
         timeout = float(timeout_s or os.environ.get("LLM_TIMEOUT_S") or DEFAULT_TIMEOUT_S)

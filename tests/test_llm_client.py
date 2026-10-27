@@ -98,3 +98,12 @@ def test_the_request_carries_the_reasoning_effort_and_a_timeout(monkeypatch):
     c._chat._client.chat.completions.create = lambda **kw: seen.update(kw) or Resp()
     assert c.complete_text(system="s", user="u") == "ok"
     assert seen["reasoning_effort"] == "minimal" and seen["timeout"] == 7 and seen["max_completion_tokens"] == 8000
+
+
+def test_the_meta_backend_defaults_to_the_lowest_allowed_effort_and_others_to_none(monkeypatch):
+    monkeypatch.setenv("META_API_KEY", "sk-test-secret-123")
+    assert LLMClient("meta").reasoning_effort == "minimal"
+    assert LLMClient("meta", reasoning_effort="high").reasoning_effort == "high"
+    assert LLMClient("mock").reasoning_effort is None
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "medium")
+    assert LLMClient("meta").reasoning_effort == "medium"
