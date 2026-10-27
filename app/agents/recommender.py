@@ -33,7 +33,8 @@ def allowed_discounts(facts: list[Fact]) -> list[int]:
 
 
 def allowed_options(facts: list[Fact]) -> list[str]:
-    options = ["bundle", "hold"]
+    bundle_ruled_out = any(f.key == "bundle_allowed" and f.number == 0 for f in facts)  # code can rule bundling out
+    options = ["hold"] if bundle_ruled_out else ["bundle", "hold"]
     if allowed_discounts(facts):
         options.insert(0, "discount")
     if _flag(facts, "return_window_open"):
