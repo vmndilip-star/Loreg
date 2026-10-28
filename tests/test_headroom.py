@@ -13,6 +13,7 @@ from app.api.main import create_app
 from app.core import actions
 from app.core.thresholds import load_thresholds
 from conftest import OfflineModel
+from auth import AuthedClient
 
 TH = load_thresholds()
 AS_OF = date(2026, 10, 26)
@@ -82,7 +83,7 @@ def test_the_dead_stock_exception_still_names_cost_for_the_step_beyond_it():
 
 # ------------------------------------------------------------------------------ on the cards the API sends
 def load(tmp_path, catalog_dir, demo_file=None):
-    client = TestClient(create_app(tmp_path / "h.sqlite", as_of="2026-10-26", llm=OfflineModel()))
+    client = AuthedClient(create_app(tmp_path / "h.sqlite", as_of="2026-10-26", llm=OfflineModel()))
     raw = demo_file if demo_file is not None else (catalog_dir / "upload_demo_200.csv").read_bytes()
     assert client.post("/api/upload", files={"file": ("d.csv", raw, "text/csv")}).status_code == 200
     group = client.get("/api/launch/exposed").json()["groups"][0]

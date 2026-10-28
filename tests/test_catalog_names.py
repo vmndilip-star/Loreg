@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.catalog import CATEGORY_LABEL, CATEGORY_ORDER, DEFAULT_LINES_PATH, load_catalog, norm, search_text, url_slug
 from csv_truth import read_csv
+from auth import AuthedClient
 
 SPEC = yaml.safe_load(DEFAULT_LINES_PATH.read_text(encoding="utf-8"))
 YAML_LINES = {ln["id"]: dict(ln, category=cat) for cat in CATEGORY_ORDER for ln in SPEC["categories"][cat]["lines"]}
@@ -18,7 +19,7 @@ YAML_LINES = {ln["id"]: dict(ln, category=cat) for cat in CATEGORY_ORDER for ln 
 def products(catalog_dir, tmp_path_factory):
     """The products table after uploading the full 3,000-product file."""
     db = tmp_path_factory.mktemp("names") / "t.sqlite"
-    client = TestClient(create_app(db_path=db, as_of="2026-10-26"))
+    client = AuthedClient(create_app(db_path=db, as_of="2026-10-26"))
     with open(catalog_dir / "skus_master.csv", "rb") as f:
         assert client.post("/api/upload", files={"file": ("skus_master.csv", f, "text/csv")}).status_code == 200
     con = sqlite3.connect(db)

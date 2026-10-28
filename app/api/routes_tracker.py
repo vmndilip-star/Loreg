@@ -16,23 +16,17 @@ def _today(request: Request):
     return request.app.state.clock().astimezone(timezone.utc).date()      # a calendar day in UTC; see config/thresholds.yaml
 
 
-def _existing_shop(conn) -> int | None:
-    row = conn.execute("SELECT id FROM shops ORDER BY id LIMIT 1").fetchone()       # read-only: never creates the shop
-    return row["id"] if row else None
-
-
 @router.get("/launch/tracker")
-def launch_tracker(request: Request, conn=Depends(get_conn)):
+def launch_tracker(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Every tracked line with its state today, worked out now from stored news and its history. Nothing is written."""
-    shop_id, today, th = _existing_shop(conn), _today(request), request.app.state.th
-    return {"today": today.isoformat(), "grace_days": th.launch_grace_days, "watches": tracker.read(conn, shop_id, today, th) if shop_id else []}
+    today, th = _today(request), request.app.state.th
+    return {"today": today.isoformat(), "grace_days": th.launch_grace_days, "watches": tracker.read(conn, shop_id, today, th)}
 
 
 @router.get("/notifications")
-def list_notifications(limit: int = Query(50, ge=1, le=200), conn=Depends(get_conn)):
+def list_notifications(limit: int = Query(50, ge=1, le=200), conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """The newest notifications and how many are unread. Nothing is written."""
-    shop_id = _existing_shop(conn)
-    return tracker.notifications(conn, shop_id, limit) if shop_id else {"unread": 0, "items": []}
+    return tracker.notifications(conn, shop_id, limit)
 
 
 @router.post("/notifications/refresh")
@@ -59,5 +53,6 @@ def read_all(request: Request, conn=Depends(get_conn), shop_id: int = Depends(ge
 def read_one(notification_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     if conn.execute("SELECT 1 FROM notifications WHERE id = ? AND shop_id = ?", (notification_id, shop_id)).fetchone() is None:
         raise HTTPException(404, f"no notification {notification_id}")
-    conn.execute("UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE id = ?", (stamp(request.app.state.clock()), notification_id))
+    conn.execute("UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE id = ? AND shop_id = ?",
+                 (stamp(request.app.state.clock()), notification_id, shop_id))
     return {"id": notification_id, "unread": tracker.notifications(conn, shop_id, 1)["unread"]}

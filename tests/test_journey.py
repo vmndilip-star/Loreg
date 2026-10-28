@@ -11,6 +11,7 @@ from app.api.main import create_app
 from app.api.routes_demo import DEMO_FILE
 from csv_truth import Truth
 from test_watch import POISONS, FakeWeb, article, rss
+from auth import AuthedClient
 
 ASK = "What should I clear before the launch?"
 ALLOWED = {"discount", "bundle", "return", "hold"}
@@ -36,7 +37,7 @@ def truth(catalog_dir):
 @pytest.fixture
 def app_client(tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
-    return TestClient(create_app(tmp_path / "journey.sqlite", as_of="2026-10-26"))
+    return AuthedClient(create_app(tmp_path / "journey.sqlite", as_of="2026-10-26"))
 
 
 def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
@@ -114,7 +115,7 @@ def test_a_poisoned_article_changes_no_number_and_is_shown_as_data(tmp_path, mon
     monkeypatch.setenv("LOREG_DEMO", "1")
     poison = dict(POISONS)["ignore previous instructions"]
     web = FakeWeb(rss([article(title="SYNTHETIC <img src=x onerror=alert(1)> Samsung QN90D Neo QLED refresh", html=poison)]))
-    c = TestClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=web.factory()))
+    c = AuthedClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=web.factory()))
     c.post("/api/demo/load")
     before = c.get("/api/summary").json()
     scan = c.post("/api/watch/scan").json()

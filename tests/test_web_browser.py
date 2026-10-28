@@ -13,6 +13,7 @@ import pytest
 from app.api.routes_demo import DEMO_FILE
 from app.core.thresholds import load_thresholds
 from csv_truth import Truth
+from auth import OWNER, PASSWORD, PROFILE, sign_in
 from live_server import LiveServer
 from test_watch import POISONS, FakeWeb, article, rss
 
@@ -28,6 +29,27 @@ POISON_TITLE = "SYNTHETIC <img src=x onerror=alert(1)> Samsung QN90D Neo QLED re
 
 def dollars(cents: int) -> str:
     return f"${(cents + 50) // 100:,}"
+
+
+def api(server) -> httpx.Client:
+    """A signed-in client for this server, made once per server: the same account as the pages (or the demo shop when LOREG_DEMO=1)."""
+    if getattr(server, "client", None) is None:
+        server.client = httpx.Client(base_url=server.url, timeout=30)
+        sign_in(server.client)
+    return server.client
+
+
+def page_in(browser, server, **context_args):
+    """A page in a new browser context that is already signed in, as the page itself would be after signing in."""
+    context = browser.new_context(**context_args)
+    s = context.request.get(server.url + "/api/session").json()
+    if not s["signed_in"]:
+        token = {"X-CSRF-Token": s["csrf_token"]}
+        r = context.request.post(server.url + "/api/signup", data={"email": OWNER, "password": PASSWORD, **PROFILE}, headers=token)
+        if r.status == 409:
+            r = context.request.post(server.url + "/api/login", data={"email": OWNER, "password": PASSWORD}, headers=token)
+        assert r.ok, r.text()
+    return context.new_page()
 
 
 @pytest.fixture
@@ -50,7 +72,7 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
     web = FakeWeb(rss([article(title=POISON_TITLE, html=dict(POISONS)["ignore previous instructions"])]))
 
     with LiveServer(tmp_path / "browser.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         problems, dialogs = [], []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
         page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
@@ -94,7 +116,7 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         expect(alert).to_contain_text("Want me to plan what to do with them?")
         expect(alert.locator("[data-testid=source-label]")).to_have_text("Demo article (synthetic)")       # never unsourced, never unlabelled
         expect(alert.locator("[data-testid=source-dates]")).to_have_text("Published Oct 24, 2026Fetched Oct 26, 2026")
-        pace = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["pace"]          # the server words it; the page only shows it
+        pace = api(server).get("/api/launch/exposed").json()["groups"][0]["pace"]          # the server words it; the page only shows it
         assert pace["status"] == "upcoming" and pace["units"] == sum(i["qty"] for i in exposed) and pace["per_day"] == -(-pace["units"] // pace["days_until"])
         expect(alert.locator("[data-testid=pace]")).to_have_text(pace["text"])
         assert "not a sales forecast" in pace["text"] and "synthetic demo article" in pace["text"] and "November 20, 2026" in pace["text"]
@@ -128,8 +150,8 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         assert "minimum advertised price of $822" in cards.nth(2).inner_text()
 
         # 5b. how far a discount may go, and what stops the next step: the figures are the API's cents, shown as dollars
-        alert_id = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["alert_id"]
-        api_plan = {r["sku"]: r for r in httpx.post(server.url + f"/api/alerts/{alert_id}/plan", params={"limit": 3}).json()["recommendations"]}
+        alert_id = api(server).get("/api/launch/exposed").json()["groups"][0]["alert_id"]
+        api_plan = {r["sku"]: r for r in api(server).post(f"/api/alerts/{alert_id}/plan", params={"limit": 3}).json()["recommendations"]}
         dollars2 = lambda c: f"${c / 100:,.2f}"  # noqa: E731
         h = api_plan[exposed[0]["sku"]]["headroom"]
         note = cards.nth(0).locator("[data-testid=headroom]")
@@ -145,7 +167,7 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         first = exposed[0]
         cards.nth(0).locator("[data-testid=accept]").click()
         expect(money()).to_have_text(dollars(start - first["cap"]))
-        server_now = httpx.get(server.url + "/api/summary").json()["money_at_risk_cents"]
+        server_now = api(server).get("/api/summary").json()["money_at_risk_cents"]
         assert server_now == start - first["cap"] and money().inner_text() == dollars(server_now)
 
         # 7. decline another: no change; undo the first: back to the start
@@ -188,12 +210,12 @@ def test_the_stale_banner_shows_on_home_and_on_watch_exactly_when_the_source_is_
     web = FakeWeb(rss([article()]))                              # published 2026-10-26 08:00, a synthetic article that really matches the Samsung line
     with LiveServer(tmp_path / "stale.sqlite", http_factory=web.factory(), clock=lambda: now) as server:
         with open(DEMO_FILE, "rb") as f:
-            assert httpx.post(server.url + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
-        assert httpx.post(server.url + "/api/watch/scan").json()["matched_events"] == 1
-        source = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["source"]
+            assert api(server).post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+        assert api(server).post("/api/watch/scan").json()["matched_events"] == 1
+        source = api(server).get("/api/launch/exposed").json()["groups"][0]["source"]
         assert source["attached"] and source["age_days"] == age and source["stale_after_days"] == STALE_DAYS
         assert source["freshness"] == ("stale" if banner else "fresh")
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         page.goto(server.url + "/#home")
         home = page.locator("[data-testid=alert] .banner-warn")
         page.goto(server.url + "/#watch")
@@ -216,12 +238,12 @@ def test_browse_and_search_in_chrome_show_the_numbers_the_api_returns(browser, c
     monkeypatch.setenv("LOREG_DEMO", "1")
     truth = Truth(catalog_dir, master="upload_demo_200.csv")
     with LiveServer(tmp_path / "browse.sqlite") as server:
-        httpx.post(server.url + "/api/demo/load")
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         problems = []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
         rows = page.locator("[data-testid=products] tbody tr")
-        api = lambda **p: httpx.get(server.url + "/api/products", params=p).json()  # noqa: E731
+        products = lambda **p: api(server).get("/api/products", params=p).json()  # noqa: E731
 
         # a category link filters the table below, and the address says so
         page.goto(server.url + "/#stock")
@@ -239,7 +261,7 @@ def test_browse_and_search_in_chrome_show_the_numbers_the_api_returns(browser, c
         page.locator("[data-testid=chip-slow]").click()
         expect(rows).to_have_count(len(slow))
         expect(page.locator("[data-testid=filter-summary]")).to_contain_text(f"{dollars(sum(i['cap'] for i in slow))} at risk here")
-        body = api(category="tv", status="slow")
+        body = products(category="tv", status="slow")
         for n, r in enumerate(body["rows"]):
             assert rows.nth(n).get_attribute("data-sku") == r["sku"] and dollars(r["tied_up_cents"]) in rows.nth(n).inner_text()
 
@@ -308,8 +330,8 @@ def test_the_demo_alert_stays_pinned_while_real_items_reach_the_news_list(browse
     monkeypatch.setenv("LOREG_DEMO", "1")
     web = FakeWeb(feed_with_an_undated_story())
     with LiveServer(tmp_path / "pin.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
-        httpx.post(server.url + "/api/demo/load")
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         problems = []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
         src = page.locator("[data-testid=source]").first
@@ -349,8 +371,8 @@ def test_a_real_fetched_source_its_stored_copy_and_its_age_in_chrome(browser, ca
     web = FakeWeb(rss([article()]))
     with LiveServer(tmp_path / "prov.sqlite", http_factory=web.factory(), clock=lambda: now["t"]) as server:
         with open(DEMO_FILE, "rb") as f:
-            assert httpx.post(server.url + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+            assert api(server).post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         problems = []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
         page.goto(server.url + "/#watch")
@@ -381,8 +403,8 @@ def test_a_real_fetched_source_its_stored_copy_and_its_age_in_chrome(browser, ca
 def test_the_header_search_dropdown_stays_inside_the_screen_with_no_sideways_scroll(browser, tmp_path, monkeypatch, width):
     monkeypatch.setenv("LOREG_DEMO", "1")
     with LiveServer(tmp_path / "w.sqlite", clock=lambda: NOW) as server:
-        httpx.post(server.url + "/api/demo/load")
-        page = browser.new_page(viewport={"width": width, "height": 800})
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": width, "height": 800})
         page.goto(server.url + "/#stock")
         expect(page.locator("[data-testid=products]")).to_be_visible()
         page.locator("#siteSearch").click()
@@ -411,8 +433,8 @@ def test_stored_copies_without_an_excerpt_render_with_label_and_dates_and_no_emp
     monkeypatch.setenv("LOREG_DEMO", "1")
     monkeypatch.setattr(routes, "NEWS_ITEMS", path)
     with LiveServer(tmp_path / "x.sqlite", clock=lambda: NOW) as server:
-        httpx.post(server.url + "/api/demo/load")
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         page.goto(server.url + "/#watch")
         bare = page.locator("[data-testid=news-item]").filter(has_text="stored without excerpt")
         quoted = page.locator("[data-testid=news-item]").filter(has_text="stored with excerpt")
@@ -430,8 +452,8 @@ def test_the_item_with_no_sales_and_no_received_date_shows_not_enough_data_in_ch
     sku = [i["sku"] for i in Truth(catalog_dir, master="upload_demo_200.csv").items if i["status"] == "insufficient_data"]
     assert len(sku) == 1
     with LiveServer(tmp_path / "nd.sqlite") as server:
-        httpx.post(server.url + "/api/demo/load")
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         page.goto(server.url + f"/#stock?status=all&q={sku[0]}")
         row = page.locator(f"[data-testid=products] tbody tr[data-sku={sku[0]}]")
         expect(row).to_have_count(1)
@@ -446,10 +468,10 @@ def test_first_screen_polish_in_chrome(browser, tmp_path, monkeypatch):
     amounts are on the first screen above the fixed dock at the sizes a screen recording is made at."""
     monkeypatch.setenv("LOREG_DEMO", "1")
     with LiveServer(tmp_path / "polish.sqlite", http_factory=FakeWeb(b"").factory(), clock=lambda: NOW) as server:
-        httpx.post(server.url + "/api/demo/load")
+        api(server).post("/api/demo/load")
         problems = []
         for width, height in ((1280, 720), (1366, 768), (1920, 1080)):
-            page = browser.new_page(viewport={"width": width, "height": height})
+            page = page_in(browser, server, viewport={"width": width, "height": height})
             page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
             page.goto(server.url + "/#home")
             for name in ("Dead items", "Slow items"):
@@ -465,7 +487,7 @@ def test_first_screen_polish_in_chrome(browser, tmp_path, monkeypatch):
             expect(title).to_have_text("Demo article (synthetic)A newer QN90D Neo QLED generation is announced")      # chip, then a title that does not repeat it
             page.close()
 
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
         page.goto(server.url + "/#watch")
         synthetic = page.locator("[data-testid=news-item]").filter(has_text="newer QN90D")
         expect(synthetic.locator(".soft.small").first).to_have_text(re.compile(r"^Loreg demo \(demo\.invalid\)\. Published"))
@@ -504,10 +526,10 @@ def test_the_launch_tracker_and_its_notification_count_in_chrome_at_360_and_1280
     monkeypatch.setenv("LOREG_DEMO", "1")
     web = FakeWeb(rss([LAUNCH, ON_SALE]))
     with LiveServer(tmp_path / "tracker.sqlite", http_factory=web.factory(), clock=lambda: at(2026, 11, 22)) as server:
-        httpx.post(server.url + "/api/demo/load")
+        api(server).post("/api/demo/load")
         problems = []
         for width, height in ((360, 800), (1280, 900)):
-            page = browser.new_page(viewport={"width": width, "height": height})
+            page = page_in(browser, server, viewport={"width": width, "height": height})
             page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
             page.goto(server.url + "/#watch")
             if width == 360:
@@ -524,17 +546,61 @@ def test_the_launch_tracker_and_its_notification_count_in_chrome_at_360_and_1280
             real.locator("summary").click()
             expect(real.locator("[data-testid=history-row]")).to_have_count(1)
             expect(real.locator("[data-testid=history-row]")).to_contain_text("First date: November 20, 2026")
-            unread = httpx.get(server.url + "/api/notifications").json()["unread"]
+            unread = api(server).get("/api/notifications").json()["unread"]
             assert unread >= 2
             expect(page.locator("[data-testid=unread-count]")).to_have_text(f"{unread} new")
             assert page.evaluate("document.documentElement.scrollWidth") <= width, f"sideways scroll at {width}px"
             page.close()
-        page = browser.new_page(viewport={"width": 360, "height": 800})
+        page = page_in(browser, server, viewport={"width": 360, "height": 800})
         page.goto(server.url + "/#watch")
         page.locator("[data-testid=note-read]").first.click()
         expect(page.locator("[data-testid=unread-count]")).to_have_text(f"{unread - 1} new")
         page.locator("[data-testid=notes-read-all]").click()
         expect(page.locator("[data-testid=unread-count]")).to_be_hidden()
-        assert httpx.get(server.url + "/api/notifications").json()["unread"] == 0
+        assert api(server).get("/api/notifications").json()["unread"] == 0
         page.close()
+        assert problems == [], problems
+
+
+def test_signup_account_sign_out_and_a_wrong_password_in_chrome(browser, tmp_path):
+    """Signed out, every screen leads to sign-in. Create an account, see the profile as text, sign out, then a wrong password and an
+    unknown email get the same message, and the right one signs in. No sideways scroll at 360 px."""
+    with LiveServer(tmp_path / "accounts.sqlite") as server:
+        problems = []
+        page = browser.new_context(viewport={"width": 360, "height": 800}).new_page()
+        page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+        page.goto(server.url + "/#home")
+        expect(page).to_have_url(re.compile(r"#signin$"))
+        expect(page.get_by_role("heading", name="Sign in to Loreg")).to_be_visible()
+        expect(page.locator("[data-testid=account-link]")).to_be_hidden()
+        assert page.evaluate("document.documentElement.scrollWidth") <= 360
+        form = page.locator("[data-testid=signup]")
+        for name, value in {"email": "chrome@example.com", "password": "a long test password", "org_name": "Chrome <Example> Shop",
+                            "street": "100 Example Street", "city": "Springfield", "state": "ST", "zip": "00000", "country": "US"}.items():
+            form.locator(f"[name={name}]").fill(value)
+        form.locator("[data-testid=signup-submit]").click()
+        expect(page.locator("[data-testid=signup-note]")).to_contain_text("Organization name must be plain text")      # < and > refused
+        form.locator("[name=org_name]").fill("Chrome Example Shop")
+        form.locator("[data-testid=signup-submit]").click()
+        expect(page).to_have_url(re.compile(r"#home$"))
+        expect(page.locator("[data-testid=account-link]")).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth") <= 360
+        page.locator("[data-testid=account-link]").click()
+        expect(page.locator("[data-testid=profile] [data-field=org_name]")).to_have_text("Chrome Example Shop")
+        expect(page.locator("[data-testid=profile] [data-field=zip]")).to_have_text("00000")
+        page.locator("[data-testid=signout]").click()
+        expect(page).to_have_url(re.compile(r"#signin$"))
+        expect(page.locator("[data-testid=account-link]")).to_be_hidden()
+        page.goto(server.url + "/#watch")
+        expect(page).to_have_url(re.compile(r"#signin$"))
+        sign = page.locator("[data-testid=signin]")
+        for email, password in (("chrome@example.com", "not the password"), ("nobody@example.com", "a long test password")):
+            sign.locator("[name=email]").fill(email)
+            sign.locator("[name=password]").fill(password)
+            sign.locator("[data-testid=signin-submit]").click()
+            expect(page.locator("[data-testid=signin-note]")).to_have_text("Email or password is incorrect.")
+        sign.locator("[name=email]").fill("chrome@example.com")
+        sign.locator("[name=password]").fill("a long test password")
+        sign.locator("[data-testid=signin-submit]").click()
+        expect(page).to_have_url(re.compile(r"#home$"))
         assert problems == [], problems

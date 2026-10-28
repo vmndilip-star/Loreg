@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import create_app
 from csv_truth import CATEGORY_LABEL, Truth, read_csv
+from auth import AuthedClient
 
 AS_OF = "2026-10-26"
 pytestmark = pytest.mark.usefixtures("no_model")
@@ -26,7 +27,7 @@ def plan_post(client, alert_id, **kw):
 
 
 def make_client(tmp_path, name="t.sqlite"):
-    return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF))
+    return AuthedClient(create_app(db_path=tmp_path / name, as_of=AS_OF))
 
 
 def upload_file(client, path, **params):

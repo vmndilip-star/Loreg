@@ -18,6 +18,7 @@ from app.watch import feeds
 from app.watch.feeds import USER_AGENT, canonical_url
 from app.watch.matching import catalog_lines, line_keys, match_lines
 from app.watch.sanitize import INVISIBLE_FLAG, MAX_CHARS, sanitize_html, sanitize_title
+from auth import AuthedClient
 
 FEED_URL = "https://news.samsung.com/global/feed"
 AS_OF = "2026-10-26"
@@ -76,7 +77,7 @@ NOW = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)      # the tests' "toda
 
 
 def make_client(tmp_path, web: FakeWeb, name="t.sqlite", clock=None):
-    return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory(), clock=clock or (lambda: NOW)))
+    return AuthedClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory(), clock=clock or (lambda: NOW)))
 
 
 def db(tmp_path, name="t.sqlite"):

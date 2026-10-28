@@ -19,7 +19,7 @@ def alert_plan(request: Request, alert_id: int, limit: int = Query(3, ge=1, le=1
                shop_id: int = Depends(get_shop_id), llm=Depends(get_llm)):
     """One proposed option per item, the same ones the chat shows. 409 unless help was recorded for this alert."""
     try:
-        repo.get_alert(conn, alert_id)
+        repo.get_alert(conn, alert_id, shop_id)        # another shop's alert is 404 before anything runs
         plans = _run(plan_alert(make_ctx(request, conn, shop_id, llm), alert_id, limit))
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None

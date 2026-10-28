@@ -16,6 +16,10 @@ from app.api.routes_plan import router as plan_router
 from app.api.routes_ask import router as ask_router
 from app.api.routes_watch import router as watch_router
 from app.api.routes_tracker import router as tracker_router
+from app.api.routes_auth import router as auth_router
+from app.auth.config import load_auth_config
+from app.auth.middleware import AuthMiddleware
+from app.core.throttle import Backoff, Window
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
 from app.pipelines import AGENT_TIMEOUT_S, ResultCache
@@ -44,7 +48,7 @@ class WebFiles(StaticFiles):
 
 
 def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=None, catalog_path=None, llm=None, http_factory=None,
-               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None) -> FastAPI:
+               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None, auth_path=None) -> FastAPI:
     """`clock`: a function returning the current time (timezone-aware). Tests inject one; news freshness and fetch dates use it.
     `llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
     app = FastAPI(title="Loreg API", version="0.2.0")
@@ -61,6 +65,12 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.state.agent_timeout_s = agent_timeout_s
     default = as_of or os.environ.get("LOREG_AS_OF")
     app.state.default_as_of = date.fromisoformat(default) if isinstance(default, str) and default else (default or None)
+    cfg = app.state.auth = load_auth_config(auth_path)
+    seconds = lambda: app.state.clock().timestamp()       # noqa: E731  (the limits follow the same injectable clock)
+    app.state.signup_limit = Window(cfg.signup_max_per_ip, cfg.signup_window_s, seconds)
+    app.state.login_backoff = Backoff(cfg.login_free_failures, cfg.login_base_wait_s, cfg.login_max_wait_s, cfg.login_window_s, seconds)
+    app.add_middleware(AuthMiddleware, state=app.state)   # sign-in and CSRF on every /api route; there is no switch to turn it off
+    app.include_router(auth_router)
     app.include_router(router)
     app.include_router(demo_router)
     app.include_router(browse_router)

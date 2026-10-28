@@ -6,6 +6,7 @@ import sqlite3
 import pytest
 
 from app.storage.db import SCHEMA_VERSION, SHOP_COLUMNS, init_db
+from auth import AuthedClient
 
 CHILD_TABLES = ("inventory_snapshots", "classifications", "dq_issues", "launch_history")
 
@@ -105,7 +106,7 @@ def test_a_version_5_database_is_migrated_in_place_and_keeps_every_row_and_date(
 def test_new_rows_carry_their_shop_id(tmp_path, catalog_dir):
     from fastapi.testclient import TestClient
     from app.api.main import create_app
-    c = TestClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26"))
+    c = AuthedClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26"))
     with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
         assert c.post("/api/upload", files={"file": ("upload_demo_200.csv", f, "text/csv")}).status_code == 200
     con = db(tmp_path / "r.sqlite")

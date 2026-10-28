@@ -96,12 +96,12 @@ def _watch_id(conn: sqlite3.Connection, shop_id: int, line_id: str, synthetic: b
     return row["id"] if row else None
 
 
-def _history(conn: sqlite3.Connection, watch_id: int | None) -> list[dict]:
+def _history(conn: sqlite3.Connection, shop_id: int, watch_id: int | None) -> list[dict]:
     if watch_id is None:
         return []
     return [{"old_date": h["old_date"], "new_date": h["new_date"], "new_iso": h["new_iso"], "source_url": h["source_url"],
              "published": h["published_at"], "fetched": h["fetched_at"], "recorded": h["recorded_at"]}
-            for h in conn.execute("SELECT * FROM launch_history WHERE watch_id = ? ORDER BY id", (watch_id,))]
+            for h in conn.execute("SELECT * FROM launch_history WHERE watch_id = ? AND shop_id = ? ORDER BY id", (watch_id, shop_id))]
 
 
 def tracker(conn: sqlite3.Connection, shop_id: int, today: date, th, news=NEWS) -> list[dict]:
@@ -111,7 +111,7 @@ def tracker(conn: sqlite3.Connection, shop_id: int, today: date, th, news=NEWS) 
     for (line_id, synthetic), items in _observations(conn, lines, news).items():
         line = lines[line_id]
         watch_id = _watch_id(conn, shop_id, line_id, synthetic)
-        history = _history(conn, watch_id)
+        history = _history(conn, shop_id, watch_id)
         dated = [(o, _one_date(o)) for o in items.values() if _one_date(o)]
         source, current = dated[-1] if dated else (list(items.values())[-1], None)
         earlier = [d.text for _, d in dated[:-1]] + [h["new_date"] for h in history]
@@ -150,7 +150,8 @@ def sync(conn: sqlite3.Connection, shop_id: int, today: date, th, ts: str, news=
                          (shop_id, w["line_id"], int(w["synthetic"]), ts))
             added["watches"] += 1
         watch_id = _watch_id(conn, shop_id, w["line_id"], w["synthetic"])
-        last = conn.execute("SELECT new_date, new_iso FROM launch_history WHERE watch_id = ? ORDER BY id DESC LIMIT 1", (watch_id,)).fetchone()
+        last = conn.execute("SELECT new_date, new_iso FROM launch_history WHERE watch_id = ? AND shop_id = ? ORDER BY id DESC LIMIT 1",
+                            (watch_id, shop_id)).fetchone()
         prev = (last["new_date"], last["new_iso"]) if last else (None, None)
         for obs, d in w["dated_sources"]:
             if d.text == prev[0]:

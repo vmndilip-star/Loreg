@@ -17,6 +17,7 @@ from app.watch.demo_news import SYNTHETIC_LAUNCH_DAYS, synthetic_excerpt, synthe
 from csv_truth import Truth
 from test_news_provenance import Clock, build, reply_to
 from test_watch import FakeWeb, article, rss
+from auth import AuthedClient
 
 LAUNCH = date(2026, 11, 20)
 WRITTEN = "November 20, 2026"
@@ -82,7 +83,7 @@ def demo(monkeypatch):
 
 
 def demo_app(tmp_path, clock=None, as_of="2026-10-26"):
-    return TestClient(create_app(tmp_path / "p.sqlite", as_of=as_of, http_factory=FakeWeb(b"").factory(), clock=clock or Clock()))
+    return AuthedClient(create_app(tmp_path / "p.sqlite", as_of=as_of, http_factory=FakeWeb(b"").factory(), clock=clock or Clock()))
 
 
 def test_the_demo_alert_has_a_labelled_synthetic_launch_date_and_the_pace_to_it(tmp_path, catalog_dir, demo):

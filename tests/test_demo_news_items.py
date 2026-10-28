@@ -15,6 +15,7 @@ from app.api.main import create_app
 from app.demo import NEWS_ITEMS
 from app.watch.allowlist import check_url, load_news_config
 from test_watch import FakeWeb, article, rss
+from auth import AuthedClient
 
 NOW = datetime(2026, 10, 28, 9, 0, tzinfo=timezone.utc)
 ALLOWED = load_news_config().allowed_hosts
@@ -36,7 +37,7 @@ def write(tmp_path, items):
 def demo_app(tmp_path, monkeypatch, items_path, web=None, name="d.sqlite"):
     monkeypatch.setenv("LOREG_DEMO", "1")
     monkeypatch.setattr(routes, "NEWS_ITEMS", items_path)
-    c = TestClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=(web or FakeWeb(b"")).factory(), clock=lambda: NOW))
+    c = AuthedClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=(web or FakeWeb(b"")).factory(), clock=lambda: NOW))
     assert c.post("/api/demo/load").status_code == 200
     return c
 
@@ -100,7 +101,7 @@ def test_loading_again_adds_nothing_and_without_the_demo_switch_nothing_is_insta
     c.post("/api/demo/load")
     assert sum(1 for i in c.get("/api/watch/items").json()["items"] if i["origin"] == "stored_copy") == 2
     monkeypatch.delenv("LOREG_DEMO")
-    plain = TestClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=lambda: NOW))
+    plain = AuthedClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=lambda: NOW))
     with open(Path(routes.__file__).resolve().parents[2] / "data" / "demo" / "upload_demo_200.csv", "rb") as f:
         plain.post("/api/upload", files={"file": ("d.csv", f, "text/csv")})
     assert plain.get("/api/watch/items").json()["items"] == []

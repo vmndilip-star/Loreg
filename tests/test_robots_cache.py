@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.watch import feeds
 from test_watch import FakeWeb, article, rss
+from auth import AuthedClient
 
 T0 = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
 HOUR = timedelta(hours=1)
@@ -31,7 +32,7 @@ def no_waiting(monkeypatch):
 
 
 def make(tmp_path, web, clock):
-    return TestClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=clock))
+    return AuthedClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=clock))
 
 
 def robots_fetches(web):

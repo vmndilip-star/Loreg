@@ -17,6 +17,7 @@ from app.core import actions
 from app.core.thresholds import load_thresholds
 from app.facts import item_facts
 from app.storage.db import SCHEMA_VERSION, init_db
+from auth import AuthedClient
 
 TH = load_thresholds()
 AS_OF = date(2026, 10, 26)
@@ -89,7 +90,7 @@ def stock_csv(map_values):
 
 @pytest.fixture
 def client(tmp_path):
-    return TestClient(create_app(tmp_path / "m.sqlite", as_of="2026-10-26")), tmp_path / "m.sqlite"
+    return AuthedClient(create_app(tmp_path / "m.sqlite", as_of="2026-10-26")), tmp_path / "m.sqlite"
 
 
 def stored(path):
@@ -127,7 +128,7 @@ def test_an_unreadable_map_is_ignored_and_the_row_is_flagged_not_blocked(client,
 
 def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
     path = tmp_path / "old.sqlite"
-    c = TestClient(create_app(path, as_of="2026-10-26"))
+    c = AuthedClient(create_app(path, as_of="2026-10-26"))
     upload(c, stock_csv(["822.31"]))
     con = sqlite3.connect(path)
     con.execute("ALTER TABLE skus DROP COLUMN map_cents")       # what a version 2 database looked like

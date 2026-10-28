@@ -13,6 +13,7 @@ from app.watch import scan as watch
 from app.watch.common import NEWS
 from app.watch.allowlist import load_news_config
 from test_watch import BASE, FakeWeb, article, rss
+from auth import AuthedClient
 
 N = 5
 
@@ -33,7 +34,7 @@ class SlowModel:
 def setup(tmp_path, catalog_dir):
     web = FakeWeb(rss([article(slug=f"d{i}", html=f"{BASE} Story {i}.") for i in range(N)]))
     app = create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory())
-    c = TestClient(app)
+    c = AuthedClient(app)
     with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
         assert c.post("/api/upload", files={"file": ("upload_demo_200.csv", f, "text/csv")}).status_code == 200
     return app, web

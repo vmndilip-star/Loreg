@@ -25,6 +25,7 @@ from app.pipelines import PIPELINES, Ctx, ResultCache, answer, choose
 from app.schemas.outputs import NOT_ENOUGH_DATA, Recommendation, RouteDecision
 from app.storage import repo, repo_ai
 from app.storage.db import connect, default_shop_id
+from auth import AuthedClient, sign_in
 
 AS_OF = "2026-10-26"
 ASK = "What should I clear before the launch?"
@@ -54,7 +55,7 @@ class FakeModel(LLMClient):
 
 
 def make_client(tmp_path, llm=None, **kw):
-    return TestClient(create_app(db_path=tmp_path / "t.sqlite", as_of=AS_OF, llm=llm, **kw))
+    return AuthedClient(create_app(db_path=tmp_path / "t.sqlite", as_of=AS_OF, llm=llm, **kw))
 
 
 def upload(client, path):
@@ -169,12 +170,14 @@ def test_the_first_status_event_leaves_before_any_model_call(catalog_dir, tmp_pa
                     break
             except httpx.HTTPError:
                 time.sleep(0.05)
+        http = httpx.Client(base_url=base, timeout=60)
+        sign_in(http)
         with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
-            assert httpx.post(base + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+            assert http.post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
         calls_before = model.calls
         start = time.perf_counter()
         first_at = first_event = None
-        with httpx.stream("POST", base + "/api/ask", json={"question": ASK}, timeout=60) as r:
+        with http.stream("POST", "/api/ask", json={"question": ASK}) as r:
             for line in r.iter_lines():
                 if line.startswith("event: ") and first_at is None:
                     first_at, first_event = time.perf_counter() - start, line[7:]

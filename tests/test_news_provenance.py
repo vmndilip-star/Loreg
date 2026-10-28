@@ -13,6 +13,7 @@ from app.api import routes
 from app.api.main import create_app
 from app.watch.demo_news import SYNTHETIC_URL
 from test_watch import FakeWeb, article, rss
+from auth import AuthedClient
 
 T0 = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
 DAY = timedelta(days=1)
@@ -27,7 +28,7 @@ class Clock:
 
 
 def build(tmp_path, catalog_dir, web, clock=None, name="p.sqlite"):
-    c = TestClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=web.factory(), clock=clock or Clock()))
+    c = AuthedClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=web.factory(), clock=clock or Clock()))
     with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
         assert c.post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
     return c
@@ -170,7 +171,7 @@ def demo(monkeypatch):
 @pytest.mark.parametrize("path", ["demo-button", "real-upload"])
 def test_in_demo_mode_the_alert_always_carries_a_labelled_source_whichever_way_the_stock_arrived(tmp_path, catalog_dir, demo, path):
     clock = Clock()
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=clock))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=clock))
     if path == "demo-button":
         assert c.post("/api/demo/load").status_code == 200
     else:
@@ -202,7 +203,7 @@ def test_without_the_demo_switch_an_alert_is_honestly_unsourced_and_nothing_synt
 
 def test_with_the_demo_switch_a_scan_never_replaces_the_synthetic_alert_but_real_items_reach_the_list(tmp_path, catalog_dir, demo):
     web = FakeWeb(rss([article()]))                                            # a real-looking article that matches the alert's line
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
     c.post("/api/demo/load")
     before = source(c)
     assert before["origin"] == "demo_synthetic"
@@ -221,7 +222,7 @@ def test_with_the_demo_switch_a_scan_never_replaces_the_synthetic_alert_but_real
 def test_without_the_demo_switch_the_newest_real_article_replaces_the_alerts_source(tmp_path, catalog_dir, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")                                      # a database that was loaded in demo mode ...
     web = FakeWeb(rss([article()]))
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
     c.post("/api/demo/load")
     assert source(c)["origin"] == "demo_synthetic"
     monkeypatch.delenv("LOREG_DEMO")                                           # ... and then used normally
@@ -244,7 +245,7 @@ def with_copy(tmp_path, monkeypatch, doc):
 
 
 def demo_app(tmp_path):
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
     c.post("/api/demo/load")
     return c
 
@@ -285,7 +286,7 @@ def reply_to(c, question):
 
 
 def test_a_date_question_on_the_synthetic_article_is_answered_from_stored_news_and_says_the_source_is_synthetic(tmp_path, catalog_dir, demo):
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
     c.post("/api/demo/load")
     reply = reply_to(c, "When will Samsung launch the new QN90D?")
     assert reply.startswith("From your stored news only: This source is a synthetic demo article, not real news.")
@@ -296,7 +297,7 @@ def test_a_date_question_on_the_synthetic_article_is_answered_from_stored_news_a
 
 
 def test_a_price_question_on_the_synthetic_article_is_not_enough_data_and_still_says_it_is_synthetic(tmp_path, catalog_dir, demo):
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
     c.post("/api/demo/load")
     reply = reply_to(c, "What will Samsung charge for the new QN90D?")
     assert reply.startswith("Not enough data: I don't have a price for that.") and "synthetic demo article, not real news" in reply
@@ -313,7 +314,7 @@ def test_a_date_question_on_a_real_article_with_no_launch_date_says_so_and_does_
 
 # ------------------------------------------------------------------------------ no real publisher name on a synthetic item
 def test_nothing_about_the_synthetic_article_names_a_real_publisher_anywhere_it_is_shown(tmp_path, catalog_dir, demo):
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(rss([article()])).factory(), clock=Clock()))
+    c = AuthedClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(rss([article()])).factory(), clock=Clock()))
     c.post("/api/demo/load")
     c.post("/api/watch/scan")                                                   # a scan puts a real-looking item next to it; they must not be mixed up
     group = c.get("/api/launch/exposed").json()["groups"][0]

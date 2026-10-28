@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import WEB_DIR, create_app
+from auth import AuthedClient
 
 JS = sorted((WEB_DIR / "js").rglob("*.js"))
 NODE = shutil.which("node")
@@ -19,7 +20,7 @@ def own_files():
 
 
 def test_the_shell_is_served_with_a_content_security_policy(tmp_path):
-    c = TestClient(create_app(tmp_path / "t.sqlite", as_of="2026-10-26"))
+    c = AuthedClient(create_app(tmp_path / "t.sqlite", as_of="2026-10-26"))
     html = c.get("/").text
     assert 'http-equiv="Content-Security-Policy"' in html
     policy = re.search(r'Content-Security-Policy" content="([^"]+)"', html).group(1)

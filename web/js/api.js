@@ -11,8 +11,19 @@ export class ApiError extends Error {
 function detailOf(body, fallback) {
   const d = body && body.detail;
   if (typeof d === 'string') return d;
-  if (Array.isArray(d)) return d.map((x) => x.msg || String(x)).join('; ');
+  if (Array.isArray(d)) return d.map((x) => String(x.msg || x).replace(/^Value error, /, '')).join('; ');
   return fallback;
+}
+
+// The session's CSRF token, from GET /api/session or a sign-in. Sent with every request that is not a GET, the chat stream included.
+let csrfToken = '';
+export function setCsrf(token) { csrfToken = token || ''; }
+
+// Called when the server answers 401 (no session, or it expired), so the page can show the sign-in screen.
+let signedOut = null;
+export function whenSignedOut(fn) { signedOut = fn; }
+function check401(response, path) {
+  if (response.status === 401 && signedOut && !['/session', '/login'].includes(path)) signedOut();
 }
 
 async function failure(response) {
@@ -25,6 +36,7 @@ const OFFLINE = 'Could not reach Loreg. Is the server running?';
 
 export async function api(path, { method = 'GET', json, form, signal } = {}) {
   const init = { method, signal, headers: {} };
+  if (method !== 'GET') init.headers['X-CSRF-Token'] = csrfToken;
   if (json !== undefined) { init.body = JSON.stringify(json); init.headers['Content-Type'] = 'application/json'; }
   if (form) init.body = form;
   let response;
@@ -32,6 +44,7 @@ export async function api(path, { method = 'GET', json, form, signal } = {}) {
     if (e.name === 'AbortError') throw e;
     throw new ApiError(0, OFFLINE);
   }
+  check401(response, path);
   if (!response.ok) throw await failure(response);
   return response.status === 204 ? null : response.json();
 }
@@ -42,13 +55,14 @@ export async function* askStream(question, { sku, signal } = {}) {
   try {
     response = await fetch('/api/ask', {
       method: 'POST', signal,
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'X-CSRF-Token': csrfToken },
       body: JSON.stringify(sku ? { question, sku } : { question }),
     });
   } catch (e) {
     if (e.name === 'AbortError') throw e;
     throw new ApiError(0, OFFLINE);
   }
+  check401(response, '/ask');
   if (!response.ok) throw await failure(response);
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

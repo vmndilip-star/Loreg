@@ -195,17 +195,19 @@ def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None, today: date 
     return out
 
 
-def get_alert(conn: sqlite3.Connection, alert_id: int):
-    a = conn.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,)).fetchone()
+def get_alert(conn: sqlite3.Connection, alert_id: int, shop_id: int):
+    """The shop's own alert. Another shop's alert is "not found", exactly like one that does not exist."""
+    a = conn.execute("SELECT * FROM alerts WHERE id = ? AND shop_id = ?", (alert_id, shop_id)).fetchone()
     if a is None:
         raise NotFound(f"alert {alert_id} not found")
     return a
 
 
-def alert_state(conn: sqlite3.Connection, alert_id: int, th=None, today: date | None = None) -> dict:
-    a = get_alert(conn, alert_id)
-    as_of, stale = _shop_as_of(conn, a["shop_id"]), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
-    recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? GROUP BY status", (alert_id,)).fetchall()
+def alert_state(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None, today: date | None = None) -> dict:
+    a = get_alert(conn, alert_id, shop_id)
+    as_of, stale = _shop_as_of(conn, shop_id), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
+    recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? AND shop_id = ? GROUP BY status",
+                        (alert_id, shop_id)).fetchall()
     return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(conn, a, today, as_of, stale), "n_items": a["n_items"],
             "cap_cents": a["capital_cents"],
             "help_requested": a["help_requested_at"] is not None, "help_requested_at": a["help_requested_at"],
@@ -213,19 +215,19 @@ def alert_state(conn: sqlite3.Connection, alert_id: int, th=None, today: date | 
 
 
 def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None, today: date | None = None) -> dict:
-    a = get_alert(conn, alert_id)
+    a = get_alert(conn, alert_id, shop_id)
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
     try:
         if a["help_requested_at"] is None:  # idempotent: the first request is the one on record
-            conn.execute("UPDATE alerts SET help_requested_at = ? WHERE id = ?", (ts, alert_id))
+            conn.execute("UPDATE alerts SET help_requested_at = ? WHERE id = ? AND shop_id = ?", (ts, alert_id, shop_id))
             conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id) VALUES (?,?,?,?,?,?)",
                          (shop_id, ts, "owner", "help_requested", "alert", str(alert_id)))
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return alert_state(conn, alert_id, th, today)
+    return alert_state(conn, shop_id, alert_id, th, today)
 
 
 def item_options(it, as_of: date, th: Thresholds) -> actions.OptionSet:
@@ -261,7 +263,7 @@ def _rec_json(rec, item, as_of: date, th: Thresholds) -> dict:
 
 def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: Thresholds) -> list[dict]:
     """One proposed option per item for the top `limit` items of the alert. Refused (Conflict) until the owner asked for help."""
-    a = get_alert(conn, alert_id)
+    a = get_alert(conn, alert_id, shop_id)
     if a["help_requested_at"] is None:
         raise Conflict("Loreg only plans after you ask for help on this alert")
     as_of = date.fromisoformat(latest_upload(conn, shop_id)["as_of"])
@@ -292,7 +294,8 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
         conn.execute("ROLLBACK")
         raise
     by_sku = {it["sku"]: it for it in items}
-    recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? ORDER BY capital_cents DESC, sku", (alert_id,)).fetchall()
+    recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? AND shop_id = ? ORDER BY capital_cents DESC, sku",
+                        (alert_id, shop_id)).fetchall()
     return [_rec_json(r, by_sku[r["sku"]], as_of, th) for r in recs if r["sku"] in by_sku]
 
 
@@ -303,8 +306,8 @@ def item_plan(conn: sqlite3.Connection, alert_id: int, sku: str):
 
 def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) -> dict:
     """Save the owner's decision. Needs a recorded help request. Returns the recomputed money at risk."""
-    rec = conn.execute("SELECT r.*, a.help_requested_at AS help_at FROM recommendations r JOIN alerts a ON a.id = r.alert_id WHERE r.id = ?",
-                       (rec_id,)).fetchone()
+    rec = conn.execute("SELECT r.*, a.help_requested_at AS help_at FROM recommendations r JOIN alerts a ON a.id = r.alert_id AND a.shop_id = r.shop_id"
+                       " WHERE r.id = ? AND r.shop_id = ?", (rec_id, shop_id)).fetchone()
     if rec is None:
         raise NotFound(f"recommendation {rec_id} not found")
     if rec["help_at"] is None:
@@ -316,7 +319,7 @@ def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) ->
         ts = now_text()
         conn.execute("BEGIN IMMEDIATE")
         try:
-            conn.execute("UPDATE recommendations SET status = ?, decided_at = ? WHERE id = ?", (target, ts, rec_id))
+            conn.execute("UPDATE recommendations SET status = ?, decided_at = ? WHERE id = ? AND shop_id = ?", (target, ts, rec_id, shop_id))
             conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                          (shop_id, ts, "owner", "accepted" if accept else "declined", "recommendation", str(rec_id),
                           json.dumps({"sku": rec["sku"], "capital_cents": rec["capital_cents"]})))
@@ -329,7 +332,7 @@ def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) ->
 
 def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
     """Take back an accepted or declined decision: the plan goes back to 'proposed'. Money at risk is recomputed."""
-    rec = conn.execute("SELECT * FROM recommendations WHERE id = ?", (rec_id,)).fetchone()
+    rec = conn.execute("SELECT * FROM recommendations WHERE id = ? AND shop_id = ?", (rec_id, shop_id)).fetchone()
     if rec is None:
         raise NotFound(f"recommendation {rec_id} not found")
     if rec["status"] not in ("accepted", "rejected"):
@@ -337,7 +340,7 @@ def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
     try:
-        conn.execute("UPDATE recommendations SET status = 'proposed', decided_at = NULL WHERE id = ?", (rec_id,))
+        conn.execute("UPDATE recommendations SET status = 'proposed', decided_at = NULL WHERE id = ? AND shop_id = ?", (rec_id, shop_id))
         conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                      (shop_id, ts, "owner", "undone", "recommendation", str(rec_id),
                       json.dumps({"sku": rec["sku"], "was": "accepted" if rec["status"] == "accepted" else "declined",
@@ -350,15 +353,16 @@ def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------------------- uploads and needs-a-look
-def upload_issues(conn: sqlite3.Connection, upload_id: int, row_limit: int = 200) -> dict:
-    up = conn.execute("SELECT * FROM uploads WHERE id = ?", (upload_id,)).fetchone()
+def upload_issues(conn: sqlite3.Connection, shop_id: int, upload_id: int, row_limit: int = 200) -> dict:
+    up = conn.execute("SELECT * FROM uploads WHERE id = ? AND shop_id = ?", (upload_id, shop_id)).fetchone()
     if up is None:
         raise NotFound(f"upload {upload_id} not found")
-    counts = conn.execute("SELECT code, COUNT(*) AS n FROM dq_issues WHERE upload_id = ? GROUP BY code", (upload_id,)).fetchall()
+    counts = conn.execute("SELECT code, COUNT(*) AS n FROM dq_issues WHERE upload_id = ? AND shop_id = ? GROUP BY code",
+                          (upload_id, shop_id)).fetchall()
     by_code = {c["code"]: c["n"] for c in counts}
     issues = [{"code": c, "n": by_code[c], "level": SEVERITY[c], "text": DQ_TEXT[c].format(n=by_code[c])} for c in CODES if c in by_code]
-    rows = conn.execute("SELECT row_number, sku, code, severity, quarantined FROM dq_issues WHERE upload_id = ? ORDER BY row_number, code LIMIT ?",
-                        (upload_id, row_limit)).fetchall()
+    rows = conn.execute("SELECT row_number, sku, code, severity, quarantined FROM dq_issues WHERE upload_id = ? AND shop_id = ?"
+                        " ORDER BY row_number, code LIMIT ?", (upload_id, shop_id, row_limit)).fetchall()
     return {"upload": {"id": up["id"], "file": up["filename"], "as_of": up["as_of"], "rows": up["rows"], "ok": up["rows"] - up["blocked"] - up["look"],
                        "look": up["look"], "blocked": up["blocked"], "kept": up["kept"], "zero_qty": up["zero_qty"], "unsorted": up["unsorted"]},
             "issues": issues,

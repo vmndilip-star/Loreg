@@ -66,9 +66,9 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
 
 
 @router.get("/uploads/{upload_id}/issues")
-def upload_issues(upload_id: int, conn=Depends(get_conn)):
+def upload_issues(upload_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     try:
-        return repo.upload_issues(conn, upload_id)
+        return repo.upload_issues(conn, shop_id, upload_id)
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 
@@ -98,9 +98,9 @@ def needs_look(limit: int = Query(100, ge=1, le=500), conn=Depends(get_conn), sh
 
 
 @router.get("/alerts/{alert_id}")
-def alert(alert_id: int, request: Request, conn=Depends(get_conn)):
+def alert(alert_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     try:
-        return repo.alert_state(conn, alert_id, request.app.state.th, request.app.state.clock().date())
+        return repo.alert_state(conn, shop_id, alert_id, request.app.state.th, request.app.state.clock().date())
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 

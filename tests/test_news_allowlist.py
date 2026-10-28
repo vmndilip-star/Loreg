@@ -9,6 +9,7 @@ from app.api.main import create_app
 from app.watch import feeds
 from app.watch.allowlist import check_url, load_news_config
 from test_watch import FakeWeb, article, rss
+from auth import AuthedClient
 
 NEWS = load_news_config()
 ALLOWED = NEWS.allowed_hosts
@@ -153,7 +154,7 @@ def test_entries_whose_links_are_off_the_list_are_dropped_and_counted(tmp_path, 
              {**article(slug="y"), "link": "http://news.samsung.com/global/synthetic-y"},
              {**article(slug="z"), "link": "https://news.samsung.com.evil.test/global/synthetic-z"}]
     web = FakeWeb(rss(items))
-    client = TestClient(create_app(tmp_path / "a.sqlite", as_of="2026-10-26", http_factory=web.factory()))
+    client = AuthedClient(create_app(tmp_path / "a.sqlite", as_of="2026-10-26", http_factory=web.factory()))
     rep = client.post("/api/watch/scan").json()
     assert rep["sources"][0]["new"] == 1 and rep["sources"][0]["offsite_links"] == 3
     assert [i["url"] for i in client.get("/api/watch/items").json()["items"]] == ["https://news.samsung.com/global/synthetic-ok1"]
@@ -178,7 +179,7 @@ def test_a_source_that_is_not_on_the_list_is_never_fetched_even_if_passed_in(tmp
 def test_the_scan_route_reports_a_refused_redirect_in_plain_words(tmp_path):
     web = Web({("news.samsung.com", "/robots.txt"): ROBOTS,
                ("news.samsung.com", "/global/feed"): httpx.Response(302, headers={"location": "https://news.samsung.com.evil.test/global/feed"})})
-    client = TestClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26", http_factory=web.client))
+    client = AuthedClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26", http_factory=web.client))
     rep = client.post("/api/watch/scan").json()
     assert rep["sources"][0]["status"] == "blocked_redirect" and "was refused" in rep["message"] and "Nothing is stored yet" in rep["message"]
     assert web.hosts() == {"news.samsung.com"}

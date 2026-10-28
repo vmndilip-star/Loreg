@@ -20,6 +20,7 @@ from app.schemas.outputs import Recommendation
 from app.storage import repo, repo_ai
 from app.storage.db import connect, default_shop_id
 from conftest import OfflineModel
+from auth import AuthedClient
 
 AS_OF = "2026-10-26"
 ASK = "What should I clear before the launch?"
@@ -28,7 +29,7 @@ TH = load_thresholds()
 
 
 def make(tmp_path, llm, name="p.sqlite"):
-    return TestClient(create_app(tmp_path / name, as_of=AS_OF, llm=llm))
+    return AuthedClient(create_app(tmp_path / name, as_of=AS_OF, llm=llm))
 
 
 def load(client, catalog_dir):
@@ -169,7 +170,7 @@ def test_layer_two_stops_a_bad_answer_even_if_the_agents_own_checks_are_bypassed
 
 # ------------------------------------------------------------------------------ the fallback is the rules
 def test_the_recommenders_fallback_is_the_rules_default_for_every_at_risk_item(catalog_dir, tmp_path):
-    c = TestClient(create_app(tmp_path / "all.sqlite", as_of=AS_OF))
+    c = AuthedClient(create_app(tmp_path / "all.sqlite", as_of=AS_OF))
     with open(catalog_dir / "skus_master.csv", "rb") as f:
         assert c.post("/api/upload", files={"file": ("m.csv", f, "text/csv")}).status_code == 200
     con = connect(tmp_path / "all.sqlite")

@@ -9,12 +9,13 @@ from fastapi.testclient import TestClient
 
 from app.api.main import create_app
 from app.api.routes_demo import DEMO_FILE
+from auth import AuthedClient
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def make(tmp_path, name="t.sqlite"):
-    return TestClient(create_app(tmp_path / name, as_of="2026-10-26"))
+    return AuthedClient(create_app(tmp_path / name, as_of="2026-10-26"))
 
 
 def test_demo_routes_answer_404_when_the_flag_is_unset(tmp_path, monkeypatch):
@@ -70,7 +71,7 @@ def test_a_local_env_file_is_read_before_the_app_is_created(tmp_path, monkeypatc
         monkeypatch.setenv(key, "x")
         monkeypatch.delenv(key)
     load_env(env)
-    c = TestClient(create_app(tmp_path / "e.sqlite"))
+    c = AuthedClient(create_app(tmp_path / "e.sqlite"))
     assert c.get("/api/demo").json() == {"enabled": True}
     assert c.post("/api/demo/load").json()["as_of"] == "2026-10-26"
     monkeypatch.setenv("LOREG_AS_OF", "2026-11-01")               # a value already in the environment wins over the file

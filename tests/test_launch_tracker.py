@@ -14,6 +14,7 @@ from app.storage.db import connect
 from app.watch import tracker
 from test_news_provenance import Clock
 from test_watch import POISONS, FakeWeb, rss
+from auth import AuthedClient
 
 TH = load_thresholds()
 HEAD = "SYNTHETIC TEST ARTICLE (written for Loreg's tests, not real news). "
@@ -37,7 +38,7 @@ ON_SALE = item("The Samsung QN90D Neo QLED lineup refresh is now available in th
 class Shop:
     def __init__(self, tmp_path, catalog_dir, clock=None, llm=None, demo=False, name="t.sqlite"):
         self.path, self.web, self.clock = tmp_path / name, FakeWeb(b""), clock or Clock(at(2026, 10, 26))
-        self.c = TestClient(create_app(self.path, as_of="2026-10-26", http_factory=self.web.factory(), clock=self.clock, llm=llm))
+        self.c = AuthedClient(create_app(self.path, as_of="2026-10-26", http_factory=self.web.factory(), clock=self.clock, llm=llm))
         self.v = 0
         if demo:
             assert self.c.post("/api/demo/load").status_code == 200

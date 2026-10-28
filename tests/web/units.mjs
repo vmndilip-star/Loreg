@@ -1,7 +1,7 @@
 // Runs under plain Node (no DOM). Checks formatting and the SSE reader, with a fake fetch that splits frames at awkward places.
 import assert from 'node:assert/strict';
 import { money, money2, count, date, excerptText } from '../../web/js/format.js';
-import { askStream, parseFrame, api, ApiError } from '../../web/js/api.js';
+import { askStream, parseFrame, api, ApiError, setCsrf, whenSignedOut } from '../../web/js/api.js';
 
 assert.equal(money(123456789), '$1,234,568');
 assert.equal(money(0), '$0');
@@ -53,4 +53,20 @@ await assert.rejects(() => api('/x'), (e) => e.detail === 'field required');
 globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
 await assert.rejects(() => api('/x'), (e) => e.status === 0 && /Could not reach Loreg/.test(e.detail));
 await assert.rejects(async () => { for await (const _ of askStream('q')) { /* nothing */ } }, (e) => e.status === 0);
+// the CSRF token goes with every request that is not a GET, the chat stream included; a 401 tells the page to show sign-in
+setCsrf('tok-123');
+const sent = [];
+globalThis.fetch = async (url, init) => { sent.push([url, init.method, (init.headers || {})['X-CSRF-Token']]); return new Response('{}', { status: 200 }); };
+await api('/summary');
+await api('/notifications/refresh', { method: 'POST' });
+await api('/upload', { method: 'POST', form: new FormData() });
+for await (const _ of askStream('q')) { /* nothing */ }
+assert.deepEqual(sent, [['/api/summary', 'GET', undefined], ['/api/notifications/refresh', 'POST', 'tok-123'], ['/api/upload', 'POST', 'tok-123'],
+  ['/api/ask', 'POST', 'tok-123']]);
+let out = 0;
+whenSignedOut(() => { out += 1; });
+globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Sign in first.' }), { status: 401 });
+await assert.rejects(() => api('/summary'), (e) => e.status === 401 && e.detail === 'Sign in first.');
+await assert.rejects(() => api('/session'), (e) => e.status === 401);
+assert.equal(out, 1);                                                    // /session itself never triggers it
 console.log('web units ok');

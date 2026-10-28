@@ -2,6 +2,7 @@
 Offline, SYNTHETIC articles, injected clock."""
 
 from test_launch_tracker import LAUNCH, MOVED, ON_SALE, Shop, at
+from auth import AuthedClient
 
 
 def counts(s):
@@ -21,13 +22,15 @@ def test_get_routes_write_nothing_even_when_the_day_comes(tmp_path, catalog_dir)
     assert [w["state"] for w in body["watches"] if "QN90D" in w["line"]] == ["unverified"]
 
 
-def test_an_empty_database_has_no_watches_and_no_notifications_and_gets_no_shop(tmp_path):
+def test_signed_out_the_tracker_is_refused_and_a_new_shop_has_no_watches_and_no_notifications(tmp_path):
+    import sqlite3
     from fastapi.testclient import TestClient
     from app.api.main import create_app
-    c = TestClient(create_app(tmp_path / "e.sqlite", as_of="2026-10-26"))
+    app = create_app(tmp_path / "e.sqlite", as_of="2026-10-26")
+    assert TestClient(app).get("/api/launch/tracker").status_code == 401 and TestClient(app).get("/api/notifications").status_code == 401
+    assert sqlite3.connect(tmp_path / "e.sqlite").execute("SELECT COUNT(*) FROM shops").fetchone()[0] == 0     # reading created nothing
+    c = AuthedClient(app)
     assert c.get("/api/launch/tracker").json()["watches"] == [] and c.get("/api/notifications").json() == {"unread": 0, "items": []}
-    import sqlite3
-    assert sqlite3.connect(tmp_path / "e.sqlite").execute("SELECT COUNT(*) FROM shops").fetchone()[0] == 0
 
 
 def test_app_open_and_check_for_news_add_each_notification_once(tmp_path, catalog_dir):

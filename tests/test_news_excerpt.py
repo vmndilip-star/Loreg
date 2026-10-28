@@ -12,6 +12,7 @@ from app.storage.db import SCHEMA_VERSION, init_db
 from app.watch.excerpt import make_excerpt
 from app.watch.sanitize import sanitize_html
 from test_watch import BASE, FakeModel, FakeWeb, article, rss
+from auth import AuthedClient
 
 T0 = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
 LONG = ("SYNTHETIC. " + "An opening sentence about the weather and nothing else. " * 3
@@ -25,7 +26,7 @@ def db(path):
 
 
 def make(tmp_path, web, clock=None, llm=None, name="e.sqlite"):
-    return TestClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=web.factory(), clock=clock or (lambda: T0), llm=llm))
+    return AuthedClient(create_app(tmp_path / name, as_of="2026-10-26", http_factory=web.factory(), clock=clock or (lambda: T0), llm=llm))
 
 
 # ------------------------------------------------------------------------------ the excerpt itself

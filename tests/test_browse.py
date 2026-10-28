@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.catalog import CATEGORY_LABEL, load_catalog
 from csv_truth import Truth
+from auth import AuthedClient
 
 pytestmark = pytest.mark.usefixtures("no_model")
 AS_OF = "2026-10-26"
@@ -27,14 +28,14 @@ def upload(client, path):
 
 @pytest.fixture(scope="module")
 def demo(catalog_dir, tmp_path_factory):
-    client = TestClient(create_app(tmp_path_factory.mktemp("browse") / "d.sqlite", as_of=AS_OF))
+    client = AuthedClient(create_app(tmp_path_factory.mktemp("browse") / "d.sqlite", as_of=AS_OF))
     upload(client, catalog_dir / "upload_demo_200.csv")
     return client
 
 
 @pytest.fixture(scope="module")
 def full(catalog_dir, tmp_path_factory):
-    client = TestClient(create_app(tmp_path_factory.mktemp("browse_full") / "f.sqlite", as_of=AS_OF))
+    client = AuthedClient(create_app(tmp_path_factory.mktemp("browse_full") / "f.sqlite", as_of=AS_OF))
     upload(client, catalog_dir / "skus_master.csv")
     return client
 
