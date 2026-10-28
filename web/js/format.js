@@ -25,6 +25,14 @@ export function date(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
+// An excerpt is a stretch of the article's own words, cut to a limit. It never starts inside a word (the server sees to that), but it can
+// start or stop partway through a sentence; "…" says so. The words themselves are shown exactly as stored.
+export function excerptText(s) {
+  const t = (s || '').trim();
+  if (!t) return '';
+  return `${/^[a-z]/.test(t) ? '… ' : ''}${t}${/[.!?"”’)\]]$/.test(t) ? '' : ' …'}`;
+}
+
 // "1 item", "2 items". English only; this is a display helper like the others here.
 export function plural(n, word) {
   return `${count(n)} ${word}${n === 1 ? '' : 's'}`;

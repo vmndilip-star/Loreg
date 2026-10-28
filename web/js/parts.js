@@ -1,6 +1,6 @@
 // Small shared pieces. Text from the API goes in as text nodes only.
 import { el } from './dom.js';
-import { date, money, count } from './format.js';
+import { date, money, count, excerptText } from './format.js';
 
 const STATUS = {
   dead: ['chip-red', 'Dead'], slow: ['chip-amber', 'Slow'], new: ['chip-blue', 'New'],
@@ -39,7 +39,7 @@ export function sourceBlock(source, note, pace) {
     el('div', { class: 'soft small d-flex flex-wrap gap-3', 'data-testid': 'source-dates' },
       el('span', {}, `Published ${date(source.published)}`), el('span', {}, `Fetched ${date(source.fetched)}`),
       source.checked ? el('span', {}, `Last checked ${date(source.checked)}`) : null),
-    source.excerpt ? el('blockquote', { class: 'excerpt small mb-0', 'data-testid': 'excerpt' }, source.excerpt) : null,
+    source.excerpt ? el('blockquote', { class: 'excerpt small mb-0', 'data-testid': 'excerpt' }, excerptText(source.excerpt)) : null,
     el('div', { class: 'soft small' }, source.launch_date ? `Launch date, as written in the article: ${source.launch_date}.` : 'Announced. The article gives no launch date.'),
     pace && pace.text ? el('div', { class: 'soft small', 'data-testid': 'pace' }, pace.text) : null,      // worded by the server: a required pace, not a forecast
     source.cached && source.cache_note ? el('div', { class: 'banner banner-info', role: 'note', 'data-testid': 'cache-note' }, source.cache_note) : null,

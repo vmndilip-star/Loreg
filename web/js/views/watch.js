@@ -1,7 +1,7 @@
 // Watch: launch alerts, the news behind them, and (only after the owner asks for help) one option per item.
 import { api, ApiError } from '../api.js';
 import { append, clear, el } from '../dom.js';
-import { count, date, money } from '../format.js';
+import { count, date, excerptText, money } from '../format.js';
 import { alertSummary, freshnessNotice, humanCode, sourceBlock } from '../parts.js';
 import { planCard } from '../plan.js';
 
@@ -102,7 +102,7 @@ function newsTile(items, ctx, afterScan) {
       el('div', {}, i.label ? el('span', { class: `chip ${i.origin === 'demo_synthetic' ? 'chip-amber' : 'chip-blue'} me-2` }, i.label) : el('span', { class: 'untrusted-tag me-2' }, 'From the web'),
         el('span', { class: 'fw-semibold' }, i.title)),
       el('div', { class: 'soft small' }, `${i.source}${i.domain ? ` (${i.domain})` : ''}. ${i.undated ? 'No publication date' : `Published ${date(i.published_at)}`}. Fetched ${date(i.fetched_at)}.`),
-      i.excerpt ? el('blockquote', { class: 'excerpt small mb-0' }, i.excerpt) : null,
+      i.excerpt ? el('blockquote', { class: 'excerpt small mb-0' }, excerptText(i.excerpt)) : null,
       i.undated ? el('div', { class: 'chip chip-amber align-self-start' }, 'Not used: an article without a publication date is never a source') : null,
       i.flagged ? el('div', { class: 'chip chip-amber align-self-start' }, `Not used: contains instruction-like text (${i.injection_flags.map(humanCode).join(', ')})`) : null,
       ...i.events.map((e) => el('div', { class: 'soft small' }, `${e.brand} ${e.family}: ${e.launch_date ? `launch date as written: ${e.launch_date}` : 'announced, no date'}${e.matched_line_ids.length ? `. Matches ${count(e.matched_line_ids.length)} of your product lines.` : '. No match with your product lines.'}`)))));

@@ -1,6 +1,6 @@
 // Runs under plain Node (no DOM). Checks formatting and the SSE reader, with a fake fetch that splits frames at awkward places.
 import assert from 'node:assert/strict';
-import { money, money2, count, date } from '../../web/js/format.js';
+import { money, money2, count, date, excerptText } from '../../web/js/format.js';
 import { askStream, parseFrame, api, ApiError } from '../../web/js/api.js';
 
 assert.equal(money(123456789), '$1,234,568');
@@ -13,6 +13,15 @@ assert.equal(count(3000), '3,000');
 assert.equal(date('2026-10-26'), 'Oct 26, 2026');
 assert.equal(date('2026-10-26T08:00:00Z'), 'Oct 26, 2026');
 assert.equal(date('March 12'), 'March 12');   // never guessed
+
+// an excerpt that starts or stops partway through a sentence says so; a whole sentence is shown as it is
+assert.equal(excerptText('Samsung will launch it. Done.'), 'Samsung will launch it. Done.');
+assert.equal(excerptText('comfort and awareness of one’s surroundings are no'), '… comfort and awareness of one’s surroundings are no …');
+assert.equal(excerptText('Launched in 1957, the home speaker'), 'Launched in 1957, the home speaker …');
+assert.equal(excerptText('can also easily access Care+.'), '… can also easily access Care+.');
+assert.equal(excerptText('Rogers: “They’ll feel it.”'), 'Rogers: “They’ll feel it.”');
+assert.equal(excerptText(''), '');
+assert.equal(excerptText(undefined), '');
 
 assert.deepEqual(parseFrame('event: status\ndata: {"text":"hi"}'), { event: 'status', data: { text: 'hi' } });
 assert.equal(parseFrame(': comment only'), null);
