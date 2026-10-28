@@ -526,11 +526,18 @@ def share(a, b):
     return f"{a / b:.1%}" if b else "0.0%"
 
 
-def build_demo_upload(skus, seed):
+def build_demo_upload(skus, seed, as_of):
     """200 rows from the database: 10 Samsung launch-family TVs (7 dead or slow, 3 not), 70 other TVs, 62 phones, 25 laptops,
     20 washers, 12 washer-dryers (199 unique) plus 1 duplicate; 3 seeded errors: missing cost, negative quantity, duplicate SKU.
 
     Ten launch-family rows keep the demo's at-risk share of stock near the full database's (an earlier 23 pushed it to 43%).
+
+    The three biggest at-risk Samsung rows are shaped so the plan shows three different outcomes (only price, return date and
+    map_price change; quantity, cost and dates of sale do not, so no status or total moves):
+      1st  25% margin, no return window          -> the rules propose a discount
+      2nd  2% margin, return window open         -> every discount would go below cost, so the rules propose a return
+      3rd  25% margin, map_price just under price -> a discount would go below the minimum advertised price, so a bundle
+    The upload has an extra optional column, map_price (minimum advertised price); it is blank for every other row.
     """
     rr = R(seed, "demo")
     ok = [s for s in skus if not s["fixed"] and s["category"] != "refrigerator"]
@@ -546,8 +553,17 @@ def build_demo_upload(skus, seed):
     chosen += others["tv"][:70] + others["phone"][:62] + others["laptop"][:25] + others["washer"][:20] + others["washer_dryer"][:12]
     assert len(chosen) == 199, len(chosen)
     rows = [master_row(s) for s in chosen]
-    rr.shuffle(rows)
     ix = {h: i for i, h in enumerate(HEADER)}
+    for r in rows:
+        r.append("")                                             # map_price: blank unless planted below
+    biggest = sorted(range(7), key=lambda i: (-chosen[i]["qty"] * round(chosen[i]["cost"] * 100), chosen[i]["sku"]))[:3]
+    first, second, third = (rows[i] for i in biggest)
+    cost = lambda i: float(rows[i][ix["unit_cost"]])             # noqa: E731
+    first[ix["sell_price"]], first[ix["return_window_end"]] = money(cost(biggest[0]) * 1.25), ""
+    second[ix["sell_price"]], second[ix["return_window_end"]] = money(cost(biggest[1]) * 1.02), (as_of + timedelta(days=30)).isoformat()
+    third[ix["sell_price"]], third[ix["return_window_end"]] = money(cost(biggest[2]) * 1.25), ""
+    third[len(HEADER)] = money(float(third[ix["sell_price"]]) * 0.99)
+    rr.shuffle(rows)
     rows[7][ix["unit_cost"]] = ""            # MISSING_COST
     rows[41][ix["qty_on_hand"]] = -2         # NEGATIVE_QTY
     rows.append(list(rows[93]))              # DUPLICATE_SKU (row 200)
@@ -688,7 +704,7 @@ def generate(args):
                "slow_capital_ex_fixtures", "slow_pct_ex_fixtures"],
               [summ_row(c, [s for s in skus if s["category"] == c]) for c in CATEGORY_ORDER] + [summ_row("TOTAL", skus)])
 
-    write_csv(out / "upload_demo_200.csv", HEADER, build_demo_upload(skus, seed))
+    write_csv(out / "upload_demo_200.csv", HEADER + ["map_price"], build_demo_upload(skus, seed, as_of))
     defects, manifest = build_defects(skus, as_of)
     write_csv(out / "upload_defects.csv", HEADER, defects)
     write_csv(out / "defects_manifest.csv", ["data_row", "expected_code", "note"], manifest)

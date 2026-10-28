@@ -90,6 +90,9 @@ def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
     by_sku = {i["sku"]: i for i in truth.items}
     assert [p["sku"] for p in plan] == [i["sku"] for i in exposed[:3]]
     assert all(p["option"] in ALLOWED and p["tied_cents"] == by_sku[p["sku"]]["cap"] and p["status"] == "proposed" for p in plan)
+    # the demo is shaped to show three different outcomes: a discount, a return, and a bundle because a discount would go below the MAP
+    assert [(p["option"], p["discount_pct"]) for p in plan] == [("discount", 5), ("return", 0), ("bundle", 0)]
+    assert "minimum advertised price" in plan[2]["reasons"][0] and "supplier return window is open" in plan[1]["reasons"][0]
     events = sse(c.post("/api/ask", json={"question": ASK}).text)
     assert [x["type"] for e, d in events if e == "cards" for x in d["cards"]] == ["plan", "plan", "plan"]
 
