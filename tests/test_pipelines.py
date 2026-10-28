@@ -2,6 +2,7 @@
 
 import json
 import random
+import re
 import socket
 import sqlite3
 import threading
@@ -425,3 +426,61 @@ def test_the_ask_routes_use_the_mock_backend_by_default(shop):
     assert shop.app.state.llm is None or shop.app.state.llm.is_mock
     ask(shop, ASK)
     assert shop.app.state.llm.is_mock
+
+
+# ------------------------------------------------------------------------------ questions whose answer is not stored
+SAMSUNG_QUESTION = "What will Samsung charge for its next TV and when does it ship?"
+UNKNOWN_FACT_QUESTIONS = [
+    SAMSUNG_QUESTION, "How much will the new Samsung TV cost?", "When will Samsung launch the new QN90 line?",
+    "What is the release date of the next Sony TV?", "What do competitors charge for the LG B4?", "Will the next Pixel be cheaper?",
+    "What date does the new model ship?", "What will the future price of OLEDs be?",
+]
+ORDINARY_QUESTIONS = [
+    ASK, "How much money is tied up?", "Give me today's summary.", "What should I clear before the launch?", "Why is TV-SAM-0040 stuck?",
+    "What is dead stock?", "Which items are slow?", "Help me with my Samsung TVs", "How much is tied up in washers?",
+]
+
+
+def test_the_samsung_question_gets_not_enough_data_with_stored_alert_figures(shop, tmp_path):
+    shop.app.state.llm = model = FakeModel()
+    before = counts(tmp_path)
+    ev = ask(shop, SAMSUNG_QUESTION)
+    names = [n for n, _ in ev]
+    assert names[0] == "status" and names[-1] == "done" and "error" not in names
+    reply = text_of(ev)
+    group = shop.get("/api/launch/exposed").json()["groups"][0]
+    assert reply.startswith("Not enough data: I don't have a price or a date for that.")
+    assert f"{group['n']} of your Samsung TVs are dead or slow, with ${(group['cap_cents'] + 50) // 100:,} tied up" in reply   # the stored alert's figures
+    assert "No dated news source is attached" in reply and "no launch date is claimed" in reply
+    assert not re.search(r"20[2-9]\d", reply)                                          # no date appears that was not stored
+    assert [c["type"] for c in cards_of(ev)] == ["alert"] and cards_of(ev)[0]["alert_id"] == group["alert_id"]
+    done = ev[-1][1]
+    assert done["pipeline"] is None and done["agents"] == [] and model.calls == 0      # decided by code: no model was asked
+    assert counts(tmp_path) == before                                                  # nothing was planned, helped or changed
+    assert any(n == "tool" and d["name"] == "router" and d["intent"] == "unknown_fact" for n, d in ev)
+
+
+@pytest.mark.parametrize("question", UNKNOWN_FACT_QUESTIONS)
+def test_questions_for_a_future_price_or_date_are_never_answered_with_numbers_we_do_not_have(shop, question):
+    ev = ask(shop, question)
+    assert text_of(ev).startswith("Not enough data:") and "plan" not in {c["type"] for c in cards_of(ev)}
+
+
+@pytest.mark.parametrize("question", ORDINARY_QUESTIONS)
+def test_ordinary_questions_are_not_mistaken_for_unknown_facts(question):
+    from app.agents.router import unknown_fact_kinds
+    assert unknown_fact_kinds(question) == []
+
+
+def test_a_model_cannot_talk_the_router_out_of_not_enough_data(shop):
+    shop.app.state.llm = FakeModel(intent="plan_request")                              # a router that tries to steer everything to a plan
+    assert text_of(ask(shop, SAMSUNG_QUESTION)).startswith("Not enough data:")
+
+
+def test_the_reply_is_the_alert_sentences_only_and_the_cards_carry_the_item_detail(shop):
+    ev = ask(shop, ASK)
+    reply = text_of(ev)
+    items = [c for c in cards_of(ev) if c["type"] == "item"]
+    assert items and all(c["explanation"] for c in items)
+    assert all(c["sku"] not in reply and c["name"] not in reply for c in items)         # item text lives in the cards
+    assert reply.count(". ") <= 4 and reply.rstrip().endswith(pipelines.ASK_PROMPT)

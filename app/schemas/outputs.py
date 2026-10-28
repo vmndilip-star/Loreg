@@ -60,7 +60,7 @@ class DailyBrief(BaseModel):
     citations: list[str]
 
 
-Intent = Literal["stock_question", "launch_risk", "plan_request", "daily", "unclear"]
+Intent = Literal["stock_question", "launch_risk", "plan_request", "daily", "unknown_fact", "unclear"]
 AgentName = Literal["inventory", "market", "recommender", "daily", "none"]
 
 

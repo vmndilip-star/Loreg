@@ -527,3 +527,15 @@ def test_the_chat_says_when_the_source_is_not_fresh(shop):
     body = client.post("/api/ask", json={"question": "What should I clear before the launch?"}).text
     reply = "".join(json.loads(f.split("data: ", 1)[1])["text"] for f in body.split("\n\n") if f.startswith("event: token"))
     assert "this source is 239 days old, so it is not fresh news" in reply
+
+
+def test_a_date_question_is_answered_from_a_stored_dated_article_and_nothing_else(shop):
+    import json
+    client, _ = run_scan(None, shop, FakeWeb(rss([article()])))                    # a synthetic article that states March 12, 2027
+    def reply_to(question):
+        body = client.post("/api/ask", json={"question": question}).text
+        return "".join(json.loads(f.split("data: ", 1)[1])["text"] for f in body.split("\n\n") if f.startswith("event: token"))
+    when = reply_to("When will Samsung launch the new QN90D?")
+    assert when.startswith("From your stored news only:") and "March 12, 2027 (as written in the article)" in when and "Not enough data" not in when
+    price = reply_to("What will Samsung charge for the new QN90D?")                # the article gives no price
+    assert price.startswith("Not enough data: I don't have a price for that.") and "$" in price

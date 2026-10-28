@@ -162,6 +162,24 @@ def _recommender_call(ctx: Ctx, row) -> AgentCall:
 
 
 # ------------------------------------------------------------------------------ pipelines
+def alert_text(g: dict) -> str:
+    """The alert in plain sentences, from stored figures only: how many items, how much money, and the real source or its absence."""
+    src = g["source"]
+    when = (f" Source: {src['name']}, published {str(src['published'])[:10]}. Launch date: {src['launch_date']} (as written in the article)."
+            if src["attached"] and src["launch_date"] else
+            f" Source: {src['name']}, published {str(src['published'])[:10]}. Announced, no launch date given in the article."
+            if src["attached"] else f" {g['source_note']}")
+    if src["attached"] and src["freshness"] != "fresh":
+        old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
+        when += f" Caution: this source is {old_note}, so it is not fresh news."
+    return f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {money(g['cap_cents'])} tied up.{when}"
+
+
+def _alert_card(g: dict) -> dict:
+    return {"type": "alert", "alert_id": g["alert_id"], "title": g["title"], "n": g["n"], "cap_cents": g["cap_cents"],
+            "source": g["source"], "help_requested": g["help_requested"], "question": ASK_PROMPT}
+
+
 def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield ev("status", message="Checking your stored launch news")
     groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
@@ -182,23 +200,11 @@ def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
         yield ev("tool", name="inventory_agent", sku=row["sku"], source=res.source)
         explained.append((row, _strip_marks(res.output.summary)))
 
-    cap = money(g["cap_cents"])
-    src = g["source"]
-    when = (f" Source: {src['name']}, published {str(src['published'])[:10]}. Launch date: {src['launch_date']} (as written in the article)."
-            if src["attached"] and src["launch_date"] else
-            f" Source: {src['name']}, published {str(src['published'])[:10]}. Announced, no launch date given in the article."
-            if src["attached"] else f" {g['source_note']}")
-    if src["attached"] and src["freshness"] != "fresh":
-        old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
-        when += f" Caution: this source is {old_note}, so it is not fresh news."
-    text = f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {cap} tied up.{when}"
-    for row, summary in explained:
-        text += f" {row['brand']} {row['model']}: {summary}"
+    text = alert_text(g)                                          # the reply is the alert sentences only
     help_given = g["help_requested"]
     if not help_given:                                          # alert first: ask, and stop
         yield from tokens(f"{text} {ASK_PROMPT}")
-        yield ev("cards", cards=[{"type": "alert", "alert_id": g["alert_id"], "title": g["title"], "n": g["n"], "cap_cents": g["cap_cents"],
-                                  "source": src, "help_requested": False, "question": ASK_PROMPT}] + [_item_card(r, s, ctx.th) for r, s in explained])
+        yield ev("cards", cards=[_alert_card(g)] + [_item_card(r, s, ctx.th) for r, s in explained])   # the cards carry the item detail
         yield done(ctx, "launch_clear", started, alert_id=g["alert_id"], help_requested=False)
         return
 
@@ -214,6 +220,33 @@ def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield from tokens(f"{text} Here is one option for each item. You decide: nothing changes until you accept.")
     yield ev("cards", cards=[{"type": "plan", **p} for p in plans])
     yield done(ctx, "launch_clear", started, alert_id=g["alert_id"], help_requested=True)
+
+
+def not_enough_data(ctx: Ctx, started: float, question: str) -> Iterator[dict]:
+    """A question whose answer is not in anything stored (a future price or date, a rival's price). No model is used.
+    It says so plainly and cites only what is stored: the alert's figures and its real source, or their absence."""
+    kinds = router.unknown_fact_kinds(question)
+    what = " or ".join({"price": "a price", "date": "a date"}[k] for k in kinds) or "that information"
+    text = (f"{NOT_ENOUGH_DATA}: I don't have {what} for that. Loreg only knows your own stock numbers and the dated news it has stored, "
+            "so it cannot say what a product will cost, when it will ship or what a rival charges.")
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
+    if groups:
+        g = groups[0]
+        yield ev("tool", name="stored_alert", source=g["source"])
+        src = g["source"]
+        if kinds == ["date"] and src["attached"] and src["launch_date"]:      # a stored, dated article does answer a date question
+            yield from tokens(f"From your stored news only: {alert_text(g)} I have no other source for launch dates. {ASK_PROMPT}")
+            yield ev("cards", cards=[_alert_card(g)])
+            yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
+            return
+        yield from tokens(f"{text} What is stored: {alert_text(g)} {ASK_PROMPT}")
+        yield ev("cards", cards=[_alert_card(g)])
+        yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
+        return
+    at_risk = repo.money_at_risk(ctx.conn, ctx.shop_id)["money_at_risk_cents"]
+    yield from tokens(f"{text} What is stored: {money(at_risk)} of your stock is dead or slow, and no launch alert applies to it right now.")
+    yield ev("cards", cards=[])
+    yield done(ctx, None, started, intent="unknown_fact")
 
 
 def sku_question(ctx: Ctx, started: float, sku: str) -> Iterator[dict]:
@@ -260,6 +293,8 @@ def choose(ctx: Ctx, question: str, skus: set[str]) -> RouteDecision:
     agent timeout) returns only an intent, and the SKU must exist."""
     if detect_injection(question):
         return RouteDecision(intent="unclear", agent="none", sku="")
+    if router.unknown_fact_kinds(question):                      # a future price or date is not in anything we store
+        return RouteDecision(intent="unknown_fact", agent="none", sku="")
     call = AgentCall(ctx, "router", lambda: AgentResult(router.route(ctx.llm, question, skus), "mock" if ctx.llm.is_mock else "model"),
                      lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=question[:300])
     return call.result().output
@@ -279,6 +314,9 @@ def answer(ctx: Ctx, question: str, sku: str | None = None) -> Iterator[dict]:
         sku = next((s for s in skus if s.upper() == sku.upper()), None)
     decision = RouteDecision(intent="stock_question", agent="inventory", sku=sku) if sku else choose(ctx, question, skus)
     yield ev("tool", name="router", intent=decision.intent)
+    if decision.intent == "unknown_fact":
+        yield from not_enough_data(ctx, started, question)
+        return
     pipeline = PIPELINE_FOR_INTENT.get(decision.intent)
     if pipeline not in PIPELINES:                                # unknown or unsafe: ask, never guess
         yield from tokens(CLARIFY)
