@@ -16,6 +16,15 @@ def offline_mock_backend(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def tests_never_read_a_local_env_file(monkeypatch):
+    """A developer's .env (the README tells you to make one, and to switch the demo on in it) must not change what the tests check."""
+    from app.llm import client
+    monkeypatch.setattr(client, "load_dotenv", lambda *a, **k: False)
+    for key in ("LOREG_DEMO", "LOREG_AS_OF", "LOREG_DB"):
+        monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def stored_news_file_is_absent_unless_a_test_supplies_one(monkeypatch, tmp_path_factory):
     """data/demo/news_items.json (real items captured for the demo) would add stored copies to every demo-mode database. Tests that want it say so."""
     from app.api import routes
