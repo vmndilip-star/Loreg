@@ -47,7 +47,7 @@ def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowe
     """Sanitize and store new entries. Duplicates (same canonical URL or same content) are ignored."""
     news = news or NEWS
     allowed = allowed if allowed is not None else news.allowed_hosts
-    new = dup_url = dup_content = skipped = offsite = 0
+    new = dup_url = dup_content = skipped = offsite = refreshed = 0
     for e in entries[:MAX_ENTRIES]:
         link = (e.get("link") or "").strip()
         if not link.startswith(("http://", "https://")):
@@ -57,7 +57,16 @@ def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowe
             offsite += 1
             continue
         canon = canonical_url(link)
-        if conn.execute("SELECT 1 FROM market_items WHERE canonical_url = ?", (canon,)).fetchone():
+        existing = conn.execute("SELECT id, origin FROM market_items WHERE canonical_url = ?", (canon,)).fetchone()
+        if existing and existing["origin"] == "stored_copy":          # read live now: it is a real, freshly fetched item from here on
+            title = sanitize_title(e.get("title") or "")
+            text, flags = sanitize_html(_entry_html(e))
+            conn.execute("UPDATE market_items SET origin = 'feed', fetched_at = ?, text = ?, excerpt = ?, content_hash = ?, injection_flags = ?, extracted = 0,"
+                         " body_cleared_at = NULL WHERE id = ?", (ts, text, make_excerpt(text, news.excerpt_chars), content_hash(title, text),
+                                                                  json.dumps(list(dict.fromkeys(flags + sanitize_html(e.get('title') or '')[1]))), existing["id"]))
+            refreshed += 1
+            continue
+        if existing:
             dup_url += 1
             continue
         title = sanitize_title(e.get("title") or "")
@@ -73,7 +82,7 @@ def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowe
                      (source["id"], link, canon, title or "(no title)", _published(e), ts, text, make_excerpt(text, news.excerpt_chars),
                       (urlsplit(link).hostname or "").rstrip("."), chash, json.dumps(flags)))
         new += 1
-    return {"new": new, "duplicate_url": dup_url, "duplicate_content": dup_content, "skipped": skipped, "offsite_links": offsite}
+    return {"new": new, "duplicate_url": dup_url, "duplicate_content": dup_content, "skipped": skipped, "offsite_links": offsite, "refreshed": refreshed}
 
 
 def _verbatim(quote: str | None, body: str, limit: int) -> str | None:
@@ -218,7 +227,7 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
         conn.execute("ROLLBACK")
         raise
     bad = [s for s in report["sources"] if s["status"] not in ("ok", "not_modified")]
-    newest = conn.execute("SELECT MAX(fetched_at) AS t FROM market_items WHERE origin = 'feed'").fetchone()["t"]
+    newest = conn.execute("SELECT MAX(fetched_at) AS t FROM market_items WHERE origin IN ('feed', 'stored_copy')").fetchone()["t"]
     report["cached"] = bool(bad)
     report["checked_at"] = ts
     report["message"] = ("; ".join(f"{s['source']}: {s['message']}" for s in bad)

@@ -15,6 +15,13 @@ def offline_mock_backend(monkeypatch):
     monkeypatch.delenv("META_API_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def stored_news_file_is_absent_unless_a_test_supplies_one(monkeypatch, tmp_path_factory):
+    """data/demo/news_items.json (real items captured for the demo) would add stored copies to every demo-mode database. Tests that want it say so."""
+    from app.api import routes
+    monkeypatch.setattr(routes, "NEWS_ITEMS", tmp_path_factory.getbasetemp() / "no-such-news-items.json")
+
+
 @pytest.fixture
 def no_model(monkeypatch):
     """For the numbers API: any attempt to build a model client inside the test fails loudly."""
