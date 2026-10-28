@@ -119,7 +119,7 @@ def test_a_poisoned_article_changes_no_number_and_is_shown_as_data(tmp_path, mon
     before = c.get("/api/summary").json()
     scan = c.post("/api/watch/scan").json()
     assert scan["network"] == "ok"
-    item = c.get("/api/watch/items").json()["items"][0]
+    item = next(i for i in c.get("/api/watch/items").json()["items"] if i["origin"] == "feed")        # not items[0]: the demo article is dated two days before the real clock
     assert "<" not in item["title"] and ">" not in item["title"]                       # markup is stripped from the title
     assert item["flagged"] is True and all(not e["attachable"] for e in item["events"])
     assert c.get("/api/summary").json() == before                                     # no number moved

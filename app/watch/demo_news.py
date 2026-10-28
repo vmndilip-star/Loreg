@@ -23,7 +23,7 @@ from app.watch.feeds import canonical_url
 from app.watch.matching import catalog_lines, match_lines
 
 SYNTHETIC_URL = "https://demo.invalid/loreg-synthetic-demo-article"
-SYNTHETIC_TITLE = "Demo article (synthetic): a newer QN90D Neo QLED generation is announced"
+SYNTHETIC_TITLE = "A newer QN90D Neo QLED generation is announced"      # no "(synthetic)" here: the label chip beside it already says so
 SYNTHETIC_LAUNCH_DAYS = 25         # the made-up launch is this many days after the stock list's date, so the demo has a date to work with
 _SYNTHETIC_EXCERPT = ("Demo article (synthetic). This is not real news; it was written for Loreg's demo. "
                       "In this made-up example, a newer generation of the QN90D Neo QLED line goes on sale on {when}.")
@@ -40,7 +40,7 @@ def synthetic_excerpt(as_of: date) -> str:
 
 
 # The synthetic article has its own source row. No real publisher's name appears on it anywhere.
-SYNTHETIC_SOURCE = {"name": "Loreg demo (synthetic)", "brand": "Samsung", "url": "https://demo.invalid/", "kind": "demo"}   # "brand" is the product brand, for matching
+SYNTHETIC_SOURCE = {"name": "Loreg demo", "brand": "Samsung", "url": "https://demo.invalid/", "kind": "demo"}   # "brand" is the product brand, for matching
 
 
 def load_stored_copy(path, lines, news=NEWS) -> dict | None:
@@ -137,9 +137,10 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
             (source["id"], url, canon, title, published, fetched, excerpt, "demo.invalid" if kind == "demo_synthetic" else _host(url), kind, chash, ts)).lastrowid
     else:
         item_id = item["id"]
-        if kind == "demo_synthetic":                          # the synthetic article is the demo's own: its dates follow the demo clock
-            conn.execute("UPDATE market_items SET published_at = ?, fetched_at = ?, source_id = ?, excerpt = ?, content_hash = ? WHERE id = ?",
-                         (published, fetched, source["id"], excerpt, chash, item_id))
+        if kind == "demo_synthetic":                          # the synthetic article is the demo's own: its title, name and dates follow the demo
+            conn.execute("UPDATE market_sources SET name = ? WHERE id = ?", (SYNTHETIC_SOURCE["name"], source["id"]))
+            conn.execute("UPDATE market_items SET title = ?, published_at = ?, fetched_at = ?, source_id = ?, excerpt = ?, content_hash = ? WHERE id = ?",
+                         (title, published, fetched, source["id"], excerpt, chash, item_id))
     if conn.execute("SELECT 1 FROM market_events WHERE item_id = ?", (item_id,)).fetchone() is None:
         conn.execute("INSERT INTO market_events (item_id, brand, family, launch_date, launch_iso, date_stated, quote, matched_line_ids, flagged, created_at)"
                      " VALUES (?,?,?,?,?,?,?,?,0,?)", (item_id, brand, "QN90D Neo QLED" if kind == "demo_synthetic" else title[:80], launch, launch_iso,

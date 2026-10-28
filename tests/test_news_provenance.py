@@ -322,18 +322,18 @@ def test_nothing_about_the_synthetic_article_names_a_real_publisher_anywhere_it_
     scan_item = next(i for i in c.post("/api/watch/scan").json()["items"] if i["origin"] == "demo_synthetic")
     sources = [group["source"], alert["source"]]
     for src in sources:
-        assert (src["name"], src["label"], src["domain"], src["url"]) == ("Loreg demo (synthetic)", "Demo article (synthetic)", "demo.invalid", SYNTHETIC_URL)
+        assert (src["name"], src["label"], src["domain"], src["url"]) == ("Loreg demo", "Demo article (synthetic)", "demo.invalid", SYNTHETIC_URL)
     for item in (listed, scan_item):
-        assert (item["source"], item["label"], item["domain"]) == ("Loreg demo (synthetic)", "Demo article (synthetic)", "demo.invalid")
+        assert (item["source"], item["label"], item["domain"]) == ("Loreg demo", "Demo article (synthetic)", "demo.invalid")
     without_events = lambda item: {k: v for k, v in item.items() if k != "events"}      # an event's "brand" is the PRODUCT brand used for matching  # noqa: E731
     shown = json.dumps([sources, without_events(listed), without_events(scan_item), group["source_note"], alert["source_note"]])
     for publisher in ("Samsung", "samsung", "Newsroom", "news.samsung.com"):
         assert publisher not in shown, publisher                               # not in a name, address, title, excerpt, label or note
     reply = reply_to(c, "What should I clear before the launch?")
     cited = reply[reply.index("Source:"):reply.index("published")]
-    assert cited == "Source: Loreg demo (synthetic) (Demo article (synthetic)), "
+    assert cited == "Source: Loreg demo (Demo article (synthetic)), "
     con = sqlite3.connect(tmp_path / "d.sqlite")
     row = con.execute("SELECT s.name, s.url, i.domain FROM market_items i JOIN market_sources s ON s.id = i.source_id WHERE i.origin = 'demo_synthetic'").fetchone()
-    assert row == ("Loreg demo (synthetic)", "https://demo.invalid/", "demo.invalid")      # in the database too, not only in the labels
+    assert row == ("Loreg demo", "https://demo.invalid/", "demo.invalid")      # in the database too, not only in the labels
     real = con.execute("SELECT s.name FROM market_items i JOIN market_sources s ON s.id = i.source_id WHERE i.origin = 'feed'").fetchone()
     assert real == ("Samsung Global Newsroom",)                                  # the real item keeps its real publisher
