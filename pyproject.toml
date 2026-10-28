@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx"]
+dev = ["pytest", "httpx", "playwright"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
