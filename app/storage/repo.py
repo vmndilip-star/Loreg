@@ -202,11 +202,12 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
             rw = date.fromisoformat(it["return_window_end"]) if it["return_window_end"] else None
             opts = actions.allowed_options(qty=it["qty"], unit_cost=it["unit_cost_cents"], sell_price=it["sell_price_cents"], dsls=it["dsls"],
                                            units_sold_90d=it["units_sold_90d"], category=it["category"], seasonal=bool(it["is_seasonal"]),
-                                           return_window_end=rw, as_of=as_of, th=th)
+                                           return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])               # cents, like cost and price
             option, pct = actions.default_option(opts)
             dos = metrics.days_of_stock(it["qty"], it["units_sold_90d"])
             reasons = plan_reasons(option=option, discount_pct=pct, qty=it["qty"], cost_cents=it["unit_cost_cents"], sell_cents=it["sell_price_cents"],
-                                   dsls=it["dsls"], dos=dos, category=it["category"], opts=opts, return_end=rw, th=th)
+                                   dsls=it["dsls"], dos=dos, category=it["category"], opts=opts, return_end=rw, th=th,
+                                   map_cents=it["map_cents"])
             facts = [{"id": f"{it['sku']}:capital", "label": "Money tied up", "value": money(it["capital_cents"])},
                      {"id": f"{it['sku']}:dsls", "label": "Days since last sale", "value": "none" if it["dsls"] is None else str(it["dsls"])},
                      {"id": f"{it['sku']}:status", "label": "Status", "value": it["status"]}]

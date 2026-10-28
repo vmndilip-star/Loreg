@@ -16,17 +16,19 @@ STATUS_TEXT = {"dead": "dead stock", "slow": "slow stock", "healthy": "healthy",
 
 def item_facts(row, th: Thresholds, as_of: date) -> list[Fact]:
     """Facts about one stocked item. `row` is a skus row joined with its product (sqlite3.Row or dict)."""
+    map_cents = row["map_cents"] if "map_cents" in row.keys() else None      # older rows and tests have no minimum advertised price
     sku, cat = row["sku"], row["category"]
     cost, sell, qty, dsls = row["unit_cost_cents"], row["sell_price_cents"], row["qty"], row["dsls"]
     rw = date.fromisoformat(row["return_window_end"]) if row["return_window_end"] else None
     dos = metrics.days_of_stock(qty, row["units_sold_90d"])
     opts = actions.allowed_options(qty=qty, unit_cost=cost, sell_price=sell, dsls=dsls, units_sold_90d=row["units_sold_90d"], category=cat,
-                                   seasonal=bool(row["is_seasonal"]), return_window_end=rw, as_of=as_of, th=th)
+                                   seasonal=bool(row["is_seasonal"]), return_window_end=rw, as_of=as_of, th=th,
+                                   map_price=map_cents)                # cents, like cost and price
 
     def f(key, label, value, number=None):
         return Fact(id=f"{sku}:{key}", sku=sku, key=key, label=label, value=value, number=number, as_of=as_of.isoformat())
 
-    return [
+    facts = [
         f("qty", "On the shelf", f"{qty}", float(qty)),
         f("capital_tied", "Money tied up", money(row["capital_cents"]), row["capital_cents"] / 100.0),
         f("days_since_last_sale", "Days since last sale", "never sold" if dsls is None else f"{dsls} days", None if dsls is None else float(dsls)),
@@ -39,6 +41,11 @@ def item_facts(row, th: Thresholds, as_of: date) -> list[Fact]:
           float(max(opts.discounts_pct)) if opts.discounts_pct else 0.0),
         f("bundle_allowed", "Bundling allowed", "yes" if opts.bundle_allowed else "no", 1.0 if opts.bundle_allowed else 0.0),
     ]
+    if map_cents is not None:                         # only items that have a minimum advertised price carry this fact
+        facts.append(f("map_price", "Minimum advertised price", money(map_cents), map_cents / 100.0))
+        facts.append(f("discount_blocked_by_map", "A discount is blocked by that price", "yes" if opts.map_blocked else "no",
+                       1.0 if opts.map_blocked else 0.0))
+    return facts
 
 
 def summary_facts(summary: dict, launch_groups: list[dict]) -> list[Fact]:

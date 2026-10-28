@@ -38,7 +38,8 @@ def why_flagged(status: str, dsls: int | None, slow_dsls: float) -> str:
 
 
 def plan_reasons(*, option: str, discount_pct: int, qty: int, cost_cents: int, sell_cents: int, dsls: int | None,
-                 dos: float | None, category: str, opts: OptionSet, return_end: date | None, th: Thresholds) -> list[str]:
+                 dos: float | None, category: str, opts: OptionSet, return_end: date | None, th: Thresholds,
+                 map_cents: int | None = None) -> list[str]:
     """Two short reasons for the proposed option, from the same numbers the rules used."""
     t = th.categories[category]
     noun = SINGULAR[category]
@@ -50,8 +51,11 @@ def plan_reasons(*, option: str, discount_pct: int, qty: int, cost_cents: int, s
                 f"The {discount_pct}% step is the smallest one that keeps the price at or above your cost."]
     if option == "return":
         when = return_end.strftime("%b %d, %Y").replace(" 0", " ") if return_end else "a date on file"
-        return [f"The supplier return window is open until {when}.",
-                f"Returning {qty} items frees about {money(qty * cost_cents)} in cash."]
+        out = [f"The supplier return window is open until {when}.",
+               f"Returning {qty} items frees about {money(qty * cost_cents)} in cash."]
+        if opts.map_blocked and map_cents:
+            out.append(f"A discount would take the price below the minimum advertised price of {money(map_cents)}, so none is offered.")
+        return out
     if option == "discount":  # below cost, only after twice the dead limit
         d = discount_pct / 100.0
         loss = max(round(qty * (cost_cents - sell_cents * (1 - d))), 0)
@@ -62,6 +66,8 @@ def plan_reasons(*, option: str, discount_pct: int, qty: int, cost_cents: int, s
         loss5 = max(round(qty * (cost_cents - sell_cents * 0.95)), 0)
         pace = (f"{round(dos)} days of stock at the current pace, against the {t.slow_days_of_stock:g} Loreg allows for a {noun}."
                 if dos is not None else "No sales in the last 90 days.")
+        if opts.map_blocked and map_cents:
+            return [f"A discount would take the price below the minimum advertised price of {money(map_cents)}, so none is offered.", pace]
         return [f"A 5% discount would sell below your cost: about {money(loss5)} lost across the {qty}.", pace]
     return ["A discount would sell below your cost.",
             f"It is still selling: last sale {dsls} days ago." if dsls is not None else "It has no sale history yet."]

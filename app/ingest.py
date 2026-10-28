@@ -89,7 +89,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
             " VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)",
             (shop_id, filename, ts, as_of.isoformat(), th.rule_version)).lastrowid
 
-        unsorted_rows, kept, bad_date_rows = set(), 0, set()
+        unsorted_rows, kept, bad_date_rows, bad_map_rows = set(), 0, set(), set()
         for n, r in enumerate(rows, start=1):
             sku = str(r.get("sku") or "").strip()
             for code in sorted(codes_by_row.get(n, ())):
@@ -107,6 +107,11 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
             if parse_date(r.get("received_date")) == "BAD" or parse_date(r.get("last_sale_date")) == "BAD":
                 bad_date_rows.add(n)
             rw = _as_date(r.get("return_window_end"))
+            map_text = str(r.get("map_price") or "").strip()                 # optional column; blank means no minimum advertised price
+            map_cents = to_cents(map_text) if map_text else None
+            if map_text and (map_cents is None or map_cents <= 0):           # present but unreadable: ignored, and the row is flagged
+                map_cents = None
+                bad_map_rows.add(n)
             u30, u90 = parse_int(r.get("units_sold_30d")) or 0, parse_int(r.get("units_sold_90d")) or 0
             seasonal = 1 if str(r.get("is_seasonal") or "0").strip() in ("1", "true", "True", "yes") else 0
 
@@ -131,13 +136,15 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                 reasons.append("UNSORTED_LINE")
             if n in bad_date_rows:
                 reasons.append("UNREADABLE_DATE")
+            if n in bad_map_rows:
+                reasons.append("UNREADABLE_MAP")
             if cat not in th.categories:
                 reasons.append("UNKNOWN_CATEGORY")
             conn.execute(
-                "INSERT INTO skus (shop_id, product_id, sku, upload_id, qty, unit_cost_cents, sell_price_cents, msrp_cents, last_sale_date,"
+                "INSERT INTO skus (shop_id, product_id, sku, upload_id, qty, unit_cost_cents, sell_price_cents, msrp_cents, map_cents, last_sale_date,"
                 " received_date, units_sold_30d, units_sold_90d, is_seasonal, supplier, return_window_end, status, rule_version, dsls,"
-                " capital_cents, needs_look, look_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (shop_id, product_id, sku, upload_id, qty, cost, sell, to_cents(r.get("msrp")),
+                " capital_cents, needs_look, look_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (shop_id, product_id, sku, upload_id, qty, cost, sell, to_cents(r.get("msrp")), map_cents,
                  last_sale.isoformat() if last_sale else None, received.isoformat() if received else None, u30, u90, seasonal,
                  (r.get("supplier") or "").strip() or None, rw.isoformat() if rw else None,
                  status, th.rule_version, dsls, capital, 1 if reasons else 0, ",".join(reasons) or None))
@@ -147,7 +154,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                          (upload_id, sku, status, th.rule_version, dsls, ts))
             kept += 1
 
-        look_rows = (warn_rows | unsorted_rows | bad_date_rows) - err_rows
+        look_rows = (warn_rows | unsorted_rows | bad_date_rows | bad_map_rows) - err_rows
         counts = dict(rows=len(rows), kept=kept, blocked=len(err_rows), look=len(look_rows),
                       zero_qty=len({i.row for i in issues if i.code == "ZERO_QTY" and i.row not in err_rows}),
                       unsorted=len(unsorted_rows))

@@ -57,6 +57,8 @@ python -m uvicorn app.main:app             # then open http://127.0.0.1:8000/
 `LLM_BACKEND=mock` (the default) needs no key. For the real Meta model, put `META_API_KEY` in a local `.env` (never committed) and set `LLM_BACKEND=meta`.
 `python scripts/journey_meta.py` runs the whole demo journey once on the Meta backend and saves a transcript under `data/generated/`.
 
+The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). Our rule, an assumption rather than a sourced one: a discount step is only offered while the price stays at or above both cost and that price.
+
 Tests: `python -m pytest -q`. They run offline. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself if Playwright or Chrome is missing.
 
 ## Status

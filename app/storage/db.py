@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS skus (
     unit_cost_cents INTEGER NOT NULL,
     sell_price_cents INTEGER NOT NULL,
     msrp_cents INTEGER,
+    map_cents INTEGER,                      -- minimum advertised price, optional (blank in the upload = none)
     last_sale_date TEXT,
     received_date TEXT,
     units_sold_30d INTEGER NOT NULL,
@@ -235,7 +236,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
           "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs")
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -254,7 +255,7 @@ def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief."""
+    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version >= SCHEMA_VERSION:
         return
@@ -269,6 +270,8 @@ def migrate(conn: sqlite3.Connection) -> None:
                 conn.execute(f"ALTER TABLE alerts ADD COLUMN {col} {decl}")
         if not _has_column(conn, "recommendations", "source"):
             conn.execute("ALTER TABLE recommendations ADD COLUMN source TEXT NOT NULL DEFAULT 'rules'")
+    if version < 3 and not _has_column(conn, "skus", "map_cents"):
+        conn.execute("ALTER TABLE skus ADD COLUMN map_cents INTEGER")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
