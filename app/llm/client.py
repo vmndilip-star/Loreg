@@ -62,10 +62,10 @@ class _Chat:
     """OpenAI-compatible chat transport with 429 backoff."""
 
     def __init__(self, name: str, base_url: str, api_key: str, model: str, reasoning_effort: str | None = None,
-                 timeout_s: float = DEFAULT_TIMEOUT_S):
+                 timeout_s: float = DEFAULT_TIMEOUT_S, http_client=None):
         self.name, self.model, self._key = name, model, api_key
         self.reasoning_effort, self.timeout_s = reasoning_effort, timeout_s
-        self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
+        self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0, http_client=http_client)
 
     def _scrub(self, text) -> str:
         return str(text).replace(self._key, "***") if self._key else str(text)
@@ -91,7 +91,8 @@ class _Chat:
 
 
 class LLMClient:
-    def __init__(self, backend: str | None = None, reasoning_effort: str | None = None, timeout_s: float | None = None):
+    def __init__(self, backend: str | None = None, reasoning_effort: str | None = None, timeout_s: float | None = None, http_client=None):
+        """`http_client`: an httpx.Client for the requests (tests pass one with a fake transport); None uses the openai default."""
         load_dotenv(_ENV_FILE)
         self.backend = (backend or os.environ.get("LLM_BACKEND") or "mock").strip().lower()
         effort = (reasoning_effort or os.environ.get("LLM_REASONING_EFFORT") or "").strip().lower() or None
@@ -106,13 +107,13 @@ class LLMClient:
             key = os.environ.get("META_API_KEY", "")
             if not key:
                 raise LLMError("LLM_BACKEND=meta but META_API_KEY is not set")
-            self._chat = _Chat("meta", META_BASE_URL, key, os.environ.get("META_MODEL", DEFAULT_META_MODEL), effort, timeout)
+            self._chat = _Chat("meta", META_BASE_URL, key, os.environ.get("META_MODEL", DEFAULT_META_MODEL), effort, timeout, http_client)
         elif self.backend == "openai_compat":
             base, key, model = (os.environ.get(k, "") for k in
                                 ("OPENAI_COMPAT_BASE_URL", "OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_MODEL"))
             if not (base and model):
                 raise LLMError("LLM_BACKEND=openai_compat needs OPENAI_COMPAT_BASE_URL and OPENAI_COMPAT_MODEL")
-            self._chat = _Chat("openai_compat", base, key or "none", model, effort, timeout)
+            self._chat = _Chat("openai_compat", base, key or "none", model, effort, timeout, http_client)
         elif self.backend != "mock":
             raise LLMError(f"unknown LLM_BACKEND {self.backend!r} (use meta, openai_compat or mock)")
 
