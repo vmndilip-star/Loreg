@@ -157,10 +157,11 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
 
 @pytest.mark.parametrize("pub, banner", [("Sun, 01 Mar 2026 08:00:00 +0000", True), ("Mon, 26 Oct 2026 08:00:00 +0000", False)])
 def test_an_old_source_gets_a_stale_banner_and_a_fresh_one_does_not(browser, tmp_path, monkeypatch, pub, banner):
-    monkeypatch.setenv("LOREG_DEMO", "1")
+    monkeypatch.delenv("LOREG_DEMO", raising=False)             # a real article only becomes the alert's source outside demo mode
     web = FakeWeb(rss([article(pub=pub)]))                       # a synthetic article that really matches the Samsung line
     with LiveServer(tmp_path / "stale.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
-        httpx.post(server.url + "/api/demo/load")
+        with open(DEMO_FILE, "rb") as f:
+            assert httpx.post(server.url + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
         scan = httpx.post(server.url + "/api/watch/scan").json()
         assert scan["matched_events"] == 1
         page = browser.new_page(viewport={"width": 1280, "height": 900})
@@ -261,19 +262,20 @@ def test_browse_and_search_in_chrome_show_the_numbers_the_api_returns(browser, c
         page.close()
 
 
-def test_news_provenance_labels_and_stored_copies_in_chrome(browser, tmp_path, monkeypatch):
-    from datetime import timedelta
+def feed_with_an_undated_story():
+    return rss([article()]).replace(b"</channel>", (b"<item><title>SYNTHETIC undated story</title><link>https://news.samsung.com/global/synthetic-undated</link>"
+                                                     b"<guid>u</guid><description>short</description><content:encoded><![CDATA[<p>SYNTHETIC. Samsung will launch a thing in 2027.</p>]]></content:encoded></item></channel>"))
+
+
+def test_the_demo_alert_stays_pinned_while_real_items_reach_the_news_list(browser, tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
-    now = {"t": NOW}
-    undated = rss([article()]).replace(b"</channel>", (b"<item><title>SYNTHETIC undated story</title><link>https://news.samsung.com/global/synthetic-undated</link>"
-                                                      b"<guid>u</guid><description>short</description><content:encoded><![CDATA[<p>SYNTHETIC. Samsung will launch a thing in 2027.</p>]]></content:encoded></item></channel>"))
-    web = FakeWeb(undated)
-    with LiveServer(tmp_path / "prov.sqlite", http_factory=web.factory(), clock=lambda: now["t"]) as server:
+    web = FakeWeb(feed_with_an_undated_story())
+    with LiveServer(tmp_path / "pin.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
         httpx.post(server.url + "/api/demo/load")
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         problems = []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
-        src = page.locator("[data-testid=alert] [data-testid=source], [data-testid=source]").first
+        src = page.locator("[data-testid=source]").first
 
         # the labelled synthetic demo source: label, dates, excerpt, and no link to a made-up address
         page.goto(server.url + "/#home")
@@ -288,20 +290,44 @@ def test_news_provenance_labels_and_stored_copies_in_chrome(browser, tmp_path, m
         expect(card.locator("[data-testid=source-label]")).to_have_text("Demo article (synthetic)")
         expect(card.locator("[data-testid=source-dates]")).to_contain_text("Fetched Oct 26, 2026")
 
-        # a real fetched article replaces it: the three dates, the excerpt, and a link that opens safely
+        # a scan adds the real items to the list; the demo alert does not move
         page.goto(server.url + "/#watch")
         page.locator("[data-testid=scan]").click()
         alert = page.get_by_label("Launch alert")
+        expect(page.locator("[data-testid=news-item]")).to_have_count(3)                       # the real article, the undated story, the demo article
+        expect(alert.locator("[data-testid=source-label]")).to_have_text("Demo article (synthetic)")
+        expect(alert.locator("[data-testid=source-dates]")).to_have_text("Published Oct 24, 2026Fetched Oct 26, 2026")
+        assert alert.locator("a").count() == 0
+        undated_item = page.locator("[data-testid=news-item]").filter(has_text="undated story")
+        expect(undated_item).to_contain_text("No publication date")
+        expect(undated_item).to_contain_text("Not used: an article without a publication date is never a source")
+        assert problems == [], problems
+        page.close()
+
+
+def test_a_real_fetched_source_its_stored_copy_and_its_age_in_chrome(browser, catalog_dir, tmp_path, monkeypatch):
+    from datetime import timedelta
+    monkeypatch.delenv("LOREG_DEMO", raising=False)
+    now = {"t": NOW}
+    web = FakeWeb(rss([article()]))
+    with LiveServer(tmp_path / "prov.sqlite", http_factory=web.factory(), clock=lambda: now["t"]) as server:
+        with open(DEMO_FILE, "rb") as f:
+            assert httpx.post(server.url + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        problems = []
+        page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+        page.goto(server.url + "/#watch")
+        alert = page.get_by_label("Launch alert")
+        expect(alert).to_contain_text("No dated news source is attached")                      # honest: nothing real has matched yet
+
+        # a real fetched article: the three dates, the excerpt, and a link that opens safely
+        page.locator("[data-testid=scan]").click()
         expect(alert.locator("[data-testid=source-label]")).to_have_count(0)
         expect(alert.locator("[data-testid=source-dates]")).to_have_text("Published Oct 26, 2026Fetched Oct 26, 2026Last checked Oct 26, 2026")
         expect(alert.locator("[data-testid=excerpt]")).to_contain_text("QN90D Neo QLED")
         link = alert.locator("a[href^='https://news.samsung.com/']")
         expect(link).to_have_count(1)
         assert link.get_attribute("rel") == "noopener noreferrer" and link.get_attribute("target") == "_blank"
-        undated_item = page.locator("[data-testid=news-item]").filter(has_text="undated story")
-        expect(undated_item).to_contain_text("No publication date")
-        expect(undated_item).to_contain_text("Not used: an article without a publication date is never a source")
-        assert page.locator("[data-testid=news-item]").filter(has_text="Demo article (synthetic)").count() == 1     # still listed, still labelled
 
         # the feed cannot be reached: the alert becomes a labelled stored copy with its true dates
         web.down, now["t"] = True, NOW + timedelta(days=3)
@@ -310,10 +336,5 @@ def test_news_provenance_labels_and_stored_copies_in_chrome(browser, tmp_path, m
         expect(alert.locator("[data-testid=source-label]")).to_have_text("Stored copy")
         expect(alert.locator("[data-testid=source-dates]")).to_contain_text("Fetched Oct 26, 2026")                 # not today's date
         expect(page.get_by_text("Showing stored copies; the newest was fetched on 2026-10-26")).to_be_visible()
-
-        # old news is aged against today and says so
-        web.down, now["t"] = False, NOW + timedelta(days=40)
-        page.reload()
-        expect(page.locator("[data-testid=stale-banner]")).to_contain_text("40 days old")
         assert problems == [], problems
         page.close()

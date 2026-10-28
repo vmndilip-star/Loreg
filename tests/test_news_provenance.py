@@ -199,15 +199,35 @@ def test_without_the_demo_switch_an_alert_is_honestly_unsourced_and_nothing_synt
     assert sqlite3.connect(tmp_path / "p.sqlite").execute("SELECT COUNT(*) FROM market_items").fetchone()[0] == 0
 
 
-def test_a_real_matching_article_replaces_the_synthetic_one_and_the_synthetic_one_stays_labelled_in_the_list(tmp_path, catalog_dir, demo):
-    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(rss([article()])).factory(), clock=Clock()))
+def test_with_the_demo_switch_a_scan_never_replaces_the_synthetic_alert_but_real_items_reach_the_list(tmp_path, catalog_dir, demo):
+    web = FakeWeb(rss([article()]))                                            # a real-looking article that matches the alert's line
+    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
+    c.post("/api/demo/load")
+    before = source(c)
+    assert before["origin"] == "demo_synthetic"
+    for n in range(2):                                                         # a scan, then another (the feed is unchanged the second time)
+        rep = c.post("/api/watch/scan").json()
+        assert rep["matched_events"] == (1 if n == 0 else 0)                   # the article was read and does match the line ...
+        assert source(c) == before                                             # ... and the demo alert did not move at all
+    c.post("/api/demo/load")                                                   # nor does loading the stock list again
+    assert source(c) == before
+    items = {i["origin"]: i for i in c.get("/api/watch/items").json()["items"]}
+    assert set(items) == {"feed", "demo_synthetic"}                            # the real item is in the news list, labelled as what it is
+    assert items["feed"]["label"] == "" and items["demo_synthetic"]["label"] == "Demo article (synthetic)"
+    assert items["feed"]["events"][0]["matched_line_ids"]                      # and it really matches: only the pin kept it off the alert
+
+
+def test_without_the_demo_switch_the_newest_real_article_replaces_the_alerts_source(tmp_path, catalog_dir, monkeypatch):
+    monkeypatch.setenv("LOREG_DEMO", "1")                                      # a database that was loaded in demo mode ...
+    web = FakeWeb(rss([article()]))
+    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=web.factory(), clock=Clock()))
     c.post("/api/demo/load")
     assert source(c)["origin"] == "demo_synthetic"
+    monkeypatch.delenv("LOREG_DEMO")                                           # ... and then used normally
     c.post("/api/watch/scan")
     s = source(c)
     assert s["origin"] == "feed" and s["label"] == "" and s["url"].startswith("https://news.samsung.com/")
-    labels = {i["origin"]: i["label"] for i in c.get("/api/watch/items").json()["items"]}
-    assert labels == {"feed": "", "demo_synthetic": "Demo article (synthetic)"}
+    assert {i["origin"]: i["label"] for i in c.get("/api/watch/items").json()["items"]} == {"feed": "", "demo_synthetic": "Demo article (synthetic)"}
 
 
 # ------------------------------------------------------------------------------ the stored copy of a real article
