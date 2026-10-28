@@ -60,13 +60,19 @@ copy .env.example .env                    # macOS / Linux: cp .env.example .env
 python -m uvicorn app.main:app
 ```
 
-Then open http://127.0.0.1:8000/. In `.env`, remove the `#` in front of `LOREG_DEMO=1` to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). `.env` is local and never committed; `.env.example` fixes the stock date at 2026-10-26 so the demo's numbers do not change with the calendar, and uses `LLM_BACKEND=mock`.
+Then open http://127.0.0.1:8000/ and create an account (made-up details are fine: nothing is sent anywhere, and no email is checked). In `.env`, remove the `#` in front of `LOREG_DEMO=1` to be signed in to a demo shop automatically and to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). **Never run with `LOREG_DEMO=1` on a host other people can reach:** anyone who opens the page is signed in to the demo shop. `.env` is local and never committed; `.env.example` fixes the stock date at 2026-10-26 so the demo's numbers do not change with the calendar, and uses `LLM_BACKEND=mock`.
 
 - **Real Meta model:** put `META_API_KEY` in `.env` and set `LLM_BACKEND=meta`. `python scripts/journey_meta.py` runs the whole demo journey once on it and saves a redacted transcript under `data/generated/`.
 - **More synthetic data (optional):** `python data/generate_catalog.py` writes the 3,000-product database and the demo files under `data/generated/`.
 - **Tests:** `python -m pytest -q`. They run offline on the mock model. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself, with a message, if Playwright or Chrome is missing. `LOREG_DEMO=1 python -m pytest -q -k "browser or journey"` runs the journey tests with the demo switch already on.
 
 The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). See "Honest limits" for what the rule does and does not do.
+
+## How it is built
+
+Custom code, with no agent framework (no LangChain, LangGraph, LlamaIndex, CrewAI, AutoGen, Semantic Kernel or an agents SDK). One file, `app/llm/client.py`, calls a model; each agent is one structured-output call whose answer code checks before it is used, with a deterministic fallback. The steps of every pipeline are fixed in code: the model never chooses the next step or a tool. [`docs/AGENT_FRAMEWORK_REPORT.md`](docs/AGENT_FRAMEWORK_REPORT.md) lists every agent, prompt, check, fallback and test, and the gaps.
+
+Each shop has its own account. Every `/api` route needs a signed-in session, every POST carries a CSRF token, and every query that reads or writes one shop's rows filters by that shop (`tests/test_isolation.py` walks every route as a second shop). Fetched news is shared by all shops.
 
 ## Honest limits
 
@@ -80,6 +86,12 @@ The stock list may include an optional `map_price` column (minimum advertised pr
 - **The sales history is assumed long enough.** Loreg assumes the export's sales history covers at least the dead threshold (see `config/thresholds.yaml`) and does not verify it. An item with no recorded sale and a received date older than that threshold is called dead; if the export only covers a shorter period, that is wrong. An item that was never sold and has no received date is shown as "Not enough data" instead of being guessed (the demo has one).
 - **`openai_compat` has not been tried against a real endpoint.** The backend for any OpenAI-compatible host exists and is tested only against fakes.
 - **The open-weights run was skipped.** No open-weights partner key was available, so nothing was run on an open-weights model. Every real-model run so far used the Meta Model API.
+- **The model's numbers are checked, its words are not.** Every number in a model's answer must appear in one of the facts code gave it, and every citation must be a real fact, or the deterministic answer is used instead. The check does not prove a number was used with the right fact, and it does not check claims made in words.
+- **The model API's own tool calling is not used.** Every model call is one request for structured JSON; the "tool" steps in the chat stream are code steps, not tools the model chose. `scripts/api_check.py` holds a one-off tool-calling check for the Meta API, whose current result is not recorded; nothing in the app depends on tool calling.
+- **Account existence can be inferred at signup.** Signing up with a registered email says so (409), so someone can learn that an email has an account. Sign-in gives one message for a wrong email or a wrong password.
+- **No email verification and no password reset.** An account is created without checking that its email is real, and a forgotten password cannot be reset.
+- **Rate limits live in memory.** Signup (5 per address per 15 minutes) and sign-in back-off reset when the app restarts, and are per app process. The address is the direct connection's: behind a proxy every visitor would share the proxy's address, and the session cookie is marked Secure only when the app itself sees https. No proxy headers are trusted.
+- **Data from before accounts belongs to a shop no one can sign in to.** A database made before accounts keeps its rows under its first shop; only demo mode (which takes that shop over as the demo shop) can open them.
 - **Everything else is synthetic.** All stock data, prices and sales are generated; they show that the app works, not that any price is true.
 
 ## Live news (Loreg Watch)
@@ -90,4 +102,6 @@ In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a st
 
 ## Status
 
-The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock with browse and search, Watch, Ask, Upload) work end to end on synthetic data. The QuickBooks import and the open-weights run are not done. See "Honest limits".
+The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock with browse and search, Watch, Ask, Upload) work end to end on synthetic data. Accounts (signup, sign-in, sign-out, sessions, CSRF, per-shop data) work too. The QuickBooks import and the open-weights run are not done. See "Honest limits".
+
+**Roadmap (not built):** bill and invoice generation from the organization profile. Nothing in Loreg creates, sends or stores a bill or an invoice today.

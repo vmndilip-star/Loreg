@@ -173,16 +173,14 @@ These reasons come from what the code does. No framework was tried and no compar
 
 - **Pins are tested on one platform.** `requirements*.txt` were resolved and tested on Windows with Python 3.13; other platforms or
   Python versions are untested. `pyproject.toml` itself is not pinned.
-- **Client error paths have no test.**
-  - The repair attempt in `complete_json` (a second request after a validation error).
-  - The 429 backoff with `Retry-After`.
-  - The `finish_reason == "length"` error.
-
-  A search of `tests/` for those code paths finds no test.
+- **Client error paths: now tested, through a fake transport only.** The repair attempt, the 429 backoff with `Retry-After` and the
+  `finish_reason == "length"` error are covered by `tests/test_llm_transport.py` (added after this report was first written), which
+  runs the real openai library against `httpx.MockTransport`. They have not been exercised against the live API.
 - **`openai_compat` has never run against a real host.** Only its configuration checks are tested.
 - **`stream_text` is unused by the app.** It is tested only with the mock backend.
-- **The market agent's scan has no overall time limit.** The call has no 20 s `AgentCall` bound: one scan can make up to 10
-  model calls in a row, each with a 20 s request timeout and up to 5 attempts on 429.
+- **The market agent's scan has an overall deadline, not a per-call `AgentCall`.** Since this report was first written, one news
+  check stops starting model calls after `scan_deadline_s` (60 s, `config/news_sources.yaml`) and stops waiting for a call still
+  running then (`tests/test_scan_deadline.py`). A call it stopped waiting for still runs to its own end in a background thread.
 - **The number check does not check meaning.** `check_grounding` only checks that each number in the text appears somewhere in the
   facts (in an id, SKU, label, value or date) and that the citations exist. It does not check that a number is used with the fact it
   came from, or check claims made in words.
@@ -190,9 +188,8 @@ These reasons come from what the code does. No framework was tried and no compar
   flagged. The article is still sent only as wrapped data and the model's output is still checked, but how well that resists
   injection against the live model has only been checked by the poisoned articles in the tests (mock backend) and by one injection-like chat question in the journey
   script (which never reaches a model), not in general.
-- **The router's cache key ignores the stock list.** It is the question text only, up to 300 characters, and the SKU set is not part
-  of it. A cached route can name a SKU that is no longer in stock; `sku_question` then answers with an error event. This is not
-  tested.
+- **The router's cache key: fixed.** It now includes the shop and its latest upload, so a cached route is reused only for the same
+  stock list (`tests/test_pipelines.py`, the router cache test).
 - **The in-memory cache is lost on restart.** Stored plans and briefs are in SQLite and survive.
 - **Live model behaviour is shown only by the three journey runs** in `docs/JOURNEY_META_FINAL.md`. The cause of the daily brief
   fallback in run 1 was not captured. No open-weights model has been run.
