@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
+<title>Loreg</title>
+<link href="vendor/bootstrap.min.css" rel="stylesheet">
+<link href="styles.css" rel="stylesheet">
+</head>
+<body>
+<svg width="0" height="0" class="sr-live" aria-hidden="true" focusable="false">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 10v10h12V10"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17h12l-1.5-2V11a4.5 4.5 0 0 0-9 0v4L6 17zM10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+</svg>
+
+<div class="blobs" aria-hidden="true"><div class="blob amber"></div><div class="blob blue"></div><div class="blob gray"></div><div class="blob amber2"></div></div>
+<div id="live" class="sr-live" aria-live="polite"></div>
+
+<div class="container-xxl app">
+  <header class="top glass d-flex align-items-center gap-3 mb-3">
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="2" width="24" height="24" rx="7" fill="#3FB68B"/><path d="M9 8v11h8" stroke="#0B0F14" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand">Loreg</span>
+    <span id="viewName" class="fw-bold soft">Home</span>
+    <span id="asOf" class="ms-auto soft small d-none d-md-inline"></span>
+  </header>
+
+  <div id="banner" class="mb-3" role="status"></div>
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<nav class="dock glass" aria-label="Main">
+  <a href="#home" data-nav="home"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span>Home</a>
+  <a href="#stock" data-nav="stock"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg></span>Stock</a>
+  <a href="#watch" data-nav="watch"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></span>Watch</a>
+  <a href="#ask" data-nav="ask"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></span>Ask</a>
+  <a href="#upload" data-nav="upload"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg></span>Upload</a>
+</nav>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
