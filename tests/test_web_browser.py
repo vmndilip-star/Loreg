@@ -220,7 +220,8 @@ def test_browse_and_search_in_chrome_show_the_numbers_the_api_returns(browser, c
         want = [i for i in truth.items if "qn85d" in i["name"].lower() or "qn85d" in i["sku"].lower()]
         page.keyboard.press("ArrowDown")
         page.keyboard.press("Enter")
-        expect(rows.first).to_be_visible()
+        expect(page.locator("[data-testid=filter-summary]")).to_contain_text(f"{len(want)} item")     # wait for the new table, not the old one
+        expect(rows).to_have_count(len(want))
         shown = {rows.nth(n).get_attribute("data-sku"): rows.nth(n).inner_text() for n in range(rows.count())}
         assert set(shown) == {i["sku"] for i in want}
         assert all(dollars(i["cap"]) in shown[i["sku"]] for i in want)
