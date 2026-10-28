@@ -156,3 +156,9 @@ main h1:focus { outline: none; }
 .table-glass td:first-child { min-width: 11rem; }
 
 .excerpt { border-left: 4px solid rgba(255, 255, 255, 0.4); padding: 4px 0 4px 12px; margin: 4px 0; color: var(--soft); font-style: italic; }
+
+/* On narrow screens the results drop from the whole header, not from the small search box, so they stay inside the screen. */
+@media (max-width: 767.98px) {
+  .search { position: static; }
+  .search-list { left: 8px; right: 8px; min-width: 0; }
+}

@@ -356,3 +356,26 @@ def test_a_real_fetched_source_its_stored_copy_and_its_age_in_chrome(browser, ca
         expect(page.get_by_text("Showing stored copies; the newest was fetched on 2026-10-26")).to_be_visible()
         assert problems == [], problems
         page.close()
+
+
+@pytest.mark.parametrize("width", [320, 360, 390, 576, 640, 768, 1024, 1280])
+def test_the_header_search_dropdown_stays_inside_the_screen_with_no_sideways_scroll(browser, tmp_path, monkeypatch, width):
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    with LiveServer(tmp_path / "w.sqlite", clock=lambda: NOW) as server:
+        httpx.post(server.url + "/api/demo/load")
+        page = browser.new_page(viewport={"width": width, "height": 800})
+        page.goto(server.url + "/#stock")
+        expect(page.locator("[data-testid=products]")).to_be_visible()
+        page.locator("#siteSearch").click()
+        page.keyboard.type("qn85d", delay=15)
+        listbox = page.locator("#searchList")
+        expect(listbox.get_by_role("option").first).to_be_visible()
+        box = listbox.bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= width + 0.5, box                      # the list is fully on screen
+        assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth"), "the page scrolls sideways"
+        for option in listbox.get_by_role("option").all():                                            # and so is every result inside it
+            ob = option.bounding_box()
+            assert ob["x"] >= 0 and ob["x"] + ob["width"] <= width + 0.5, ob
+        page.keyboard.press("Escape")
+        assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+        page.close()
