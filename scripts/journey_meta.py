@@ -9,6 +9,7 @@ answer failed validation, cited something unreal, or used a number the code did 
 
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -28,6 +29,19 @@ ALLOWED = {"discount", "bundle", "return", "hold"}
 ASK = "What should I clear before the launch?"
 lines: list[str] = []
 checks: list[tuple[str, bool, str]] = []
+metrics: dict = {}
+REDACT = [(re.compile(r"(?i)bearer\s+\S+"), "Bearer [redacted]"), (re.compile(r"(?i)META_API_KEY\s*[=:]\s*\S+"), "META_API_KEY=[redacted]"),
+          (re.compile(r"[A-Za-z]:[\\/]Users[\\/][^\s\"']+"), "[local path]")]
+
+
+def redact(text: str) -> str:
+    """Nothing secret is ever written here, but the saved file is checked anyway: key-like text, the key itself and local paths go."""
+    key = os.environ.get("META_API_KEY", "")
+    if key:
+        text = text.replace(key, "[redacted]")
+    for rx, repl in REDACT:
+        text = rx.sub(repl, text)
+    return text
 
 
 def say(text: str = "") -> None:
@@ -76,15 +90,19 @@ def main() -> int:
     say("\n## 2. Daily brief")
     t = time.perf_counter()
     brief = client.post("/api/daily/run").json()
-    say(f"({round(time.perf_counter() - t, 1)} s) source={brief['source']}\n\n> {brief['headline']}\n" + "\n".join(f"> - {b}" for b in brief["bullets"]))
+    metrics["daily_s"] = round(time.perf_counter() - t, 1)
+    say(f"({metrics['daily_s']} s) source={brief['source']}\n\n> {brief['headline']}\n" + "\n".join(f"> - {b}" for b in brief["bullets"]))
     check("daily brief written by the model, not the fallback", brief["source"] not in ("fallback", "mock"), f"source={brief['source']}")
 
     say("\n## 3. Chat before help (alert first)")
     code, events, reply, cards, done, secs = stream(client, ASK)
+    metrics["chat_before_help_s"] = secs
     say(f"({secs} s) agents: {agents_line(done)}\n\n> {reply}\n\ncards: {[c['type'] for c in cards]}")
     check("first event is a status", events[0][0] == "status")
     check("alert card then item cards, and no plan yet", [c["type"] for c in cards][:1] == ["alert"] and "plan" not in [c["type"] for c in cards])
     check("reply ends with the question", reply.endswith("Want me to plan what to do with them?"))
+    items = [c for c in cards if c["type"] == "item"]
+    check("reply is the alert sentences only; item detail is in the cards", bool(items) and all(c["name"] not in reply and c["sku"] not in reply for c in items))
     inv = [a for a in done["agents"] if a["agent"] == "inventory"]
     check("inventory explanations used the model", all(a["source"] not in ("fallback", "mock") for a in inv), agents_line(done))
     known = {i["sku"] for i in client.get("/api/inventory/top?limit=50").json()["items"]}
@@ -96,12 +114,17 @@ def main() -> int:
     client.post(f"/api/alerts/{aid}/help")
     code, events, reply, cards, done, secs = stream(client, ASK)
     plans = [c for c in cards if c["type"] == "plan"]
+    metrics["chat_after_help_s"] = secs
     say(f"({secs} s) agents: {agents_line(done)}\n\n> {reply}")
     for p in plans:
-        say(f"- {p['sku']} {p['name']}: **{p['option_label']}**{' ' + str(p['discount_pct']) + '%' if p['discount_pct'] else ''}; reasons: {'; '.join(p['reasons'])}")
+        say(f"- {p['sku']} {p['name']}: **{p['option_label']}**; reasons: {'; '.join(p['reasons'])}")
     check("one option per item, all in the allowed set", len(plans) == 3 and all(p["option"] in ALLOWED for p in plans))
     rec = [a for a in done["agents"] if a["agent"] == "recommender"]
     check("recommender used the model", all(a["source"] not in ("fallback", "mock") for a in rec), agents_line(done))
+    metrics["options"] = {p["sku"]: p["option"] for p in plans}
+    rules = {"TV-SAM-0040": "discount", "TV-SAM-0060": "return", "TV-SAM-0032": "bundle"}
+    metrics["agrees_with_rules"] = sum(metrics["options"].get(k) == v for k, v in rules.items())
+    check("no discount is offered on the item whose discount would go below its minimum advertised price", metrics["options"].get("TV-SAM-0032") != "discount")
     check("every plan card carries its citations (numbers were checked by code before display)", all(p["citations"] for p in plans))
 
     say("\n## 5. Accept, then undo")
@@ -127,18 +150,19 @@ def main() -> int:
     say(f"injection -> ({secs} s) agents: {agents_line(done)}\n\n> {reply}")
     check("injection-like text never reaches a model and plans nothing", not done.get("agents") and not [c for c in cards if c["type"] == "plan"])
     code, events, reply, cards, done, secs = stream(client, "What will Samsung charge for its next TV and when does it ship?")
-    say(f"question the data cannot answer -> ({secs} s)\n\n> {reply}")
-    import re
-    before = set(re.findall(r"\$[\d,]+", launch_reply))
-    check("no invented price or date for an unknowable question", set(re.findall(r"\$[\d,]+", reply)) <= before and "2027" not in reply,
-          "every $ figure in the reply was already in the launch answer (code-computed); it does not say the price is unknown")
+    say(f"question the data cannot answer -> ({secs} s) agents: {agents_line(done)}\n\n> {reply}")
+    stored = set(re.findall(r"\$[\d,]+", launch_reply))
+    check("an unknowable question gets 'not enough data' without a model call", reply.startswith("Not enough data:") and not done.get("agents"))
+    check("it cites only stored figures and invents no date", set(re.findall(r"\$[\d,]+", reply)) <= stored and "2027" not in reply)
 
     failed = [c for c in checks if not c[1]]
     say(f"\n## Result: {len(checks) - len(failed)} of {len(checks)} checks passed" + ("" if not failed else "; FAILED: " + "; ".join(c[0] for c in failed)))
     out = ROOT / "data" / "generated" / f"journey_meta_{datetime.now():%Y%m%d_%H%M%S}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\nsaved: {out}")
+    out.write_text(redact("\n".join(lines) + "\n"), encoding="utf-8")
+    metrics["checks_passed"], metrics["checks_total"], metrics["failed"] = len(checks) - len(failed), len(checks), [c[0] for c in failed]
+    out.with_suffix(".json").write_text(json.dumps(metrics, indent=1), encoding="utf-8")
+    print(f"\nsaved: {out.name}")
     return 1 if failed else 0
 
 
