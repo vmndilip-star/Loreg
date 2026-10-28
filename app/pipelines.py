@@ -344,8 +344,10 @@ def choose(ctx: Ctx, question: str, skus: set[str]) -> RouteDecision:
         return RouteDecision(intent="unclear", agent="none", sku="")
     if router.unknown_fact_kinds(question):                      # a future price or date is not in anything we store
         return RouteDecision(intent="unknown_fact", agent="none", sku="")
+    up = repo.latest_upload(ctx.conn, ctx.shop_id)
+    stock = f"shop {ctx.shop_id}, upload {up['id'] if up else 0}"     # a route names a SKU, so it is only reused for the same stock list
     call = AgentCall(ctx, "router", lambda: AgentResult(router.route(ctx.llm, question, skus), "mock" if ctx.llm.is_mock else "model"),
-                     lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=question[:300])
+                     lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=f"{stock}: {question[:300]}")
     return call.result().output
 
 

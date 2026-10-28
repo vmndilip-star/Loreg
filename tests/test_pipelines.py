@@ -243,6 +243,46 @@ def test_the_pipeline_allowlist_is_fixed():
     assert pipelines.PIPELINE_FOR_INTENT.get("unclear") is None and pipelines.PIPELINE_FOR_INTENT.get("anything_else") is None
 
 
+class RouterOnly(FakeModel):
+    """Counts router calls and always answers with a real SKU of the shop it was asked about."""
+
+    def __init__(self):
+        super().__init__()
+        self.routes = 0
+
+    def complete_json(self, *, system, user, schema, mock_output=None, max_completion_tokens=0):
+        if schema is RouteDecision:
+            self.routes += 1
+        return super().complete_json(system=system, user=user, schema=schema, mock_output=mock_output, max_completion_tokens=max_completion_tokens)
+
+
+def router_ctx(client, model, shop_id):
+    s = client.app.state
+    return Ctx(conn=connect(s.db_path), shop_id=shop_id, th=s.th, as_of=date(2026, 10, 26), today=date(2026, 10, 26), llm=model, cache=s.cache,
+               executor=s.executor)
+
+
+def test_the_router_cache_is_per_stock_list_and_per_shop(catalog_dir, tmp_path):
+    model = RouterOnly()
+    client = make_client(tmp_path, llm=model)
+    upload(client, catalog_dir / "upload_demo_200.csv")
+    q = "tell me something interesting"
+    ctx = router_ctx(client, model, 1)
+    skus = repo_ai.known_skus(ctx.conn, 1)
+    choose(ctx, q, skus)
+    choose(ctx, q, skus)
+    assert model.routes == 1                                                            # the same question on the same stock: cached
+    upload(client, catalog_dir / "upload_demo_200.csv")                                 # a new stock list, even with the same rows
+    choose(ctx, q, skus)
+    assert model.routes == 2
+    ctx.conn.execute("INSERT INTO shops (name, created_at) VALUES ('second', 'x')")
+    other = router_ctx(client, model, 2)
+    choose(other, q, set())
+    assert model.routes == 3                                                            # another shop never gets this shop's route
+    ctx.conn.close()
+    other.conn.close()
+
+
 def question_cases(sku):
     return [
         (ASK, "launch_clear"), ("any news about a new model?", "launch_clear"), ("give me today's summary", "daily_brief"),
