@@ -35,7 +35,7 @@ def make_ctx(request: Request, conn, shop_id: int, llm) -> Ctx:
     s = request.app.state
     up = repo.latest_upload(conn, shop_id)
     as_of = date.fromisoformat(up["as_of"]) if up else (s.default_as_of or date.today())
-    return Ctx(conn=conn, shop_id=shop_id, th=s.th, as_of=as_of, llm=llm, cache=s.cache, executor=s.executor, timeout_s=s.agent_timeout_s)
+    return Ctx(conn=conn, shop_id=shop_id, th=s.th, as_of=as_of, today=s.clock().date(), llm=llm, cache=s.cache, executor=s.executor, timeout_s=s.agent_timeout_s)
 
 
 @router.post("/ask")

@@ -15,31 +15,18 @@ import httpx
 
 from app.agents.market import Article, read_article, written_date_to_iso
 from app.llm.client import LLMClient
-from app.watch.allowlist import check_url, load_news_config
-from app.watch.attach import attach_events_to_alerts
+from app.watch.allowlist import check_url
+from app.watch.common import NEWS, ensure_source, stamp
+from app.watch.attach import attach_events_to_alerts, is_dated
 from app.watch.excerpt import LAUNCH_CUE as _LAUNCH_CUE, make_excerpt
 from app.watch.feeds import FeedResult, canonical_url, content_hash, fetch_feed
 from app.watch.matching import catalog_lines, match_lines
 from app.watch.sanitize import INVISIBLE_FLAG, sanitize_html, sanitize_title
 
-NEWS = load_news_config()                 # config/news_sources.yaml: the allowed hosts and the feeds on them
 DEFAULT_SOURCES = [dict(s) for s in NEWS.sources]
 MAX_ENTRIES = 100
 MAX_EXTRACT_PER_SCAN = 10
 _ANY_DATE = re.compile(r"\b\d{4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE)
-
-
-def stamp(now: datetime | None = None) -> str:
-    return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def ensure_source(conn: sqlite3.Connection, shop_id: int, src: dict, ts: str):
-    row = conn.execute("SELECT * FROM market_sources WHERE url = ?", (src["url"],)).fetchone()
-    if row:
-        return row
-    conn.execute("INSERT INTO market_sources (shop_id, name, brand, url, kind, created_at) VALUES (?,?,?,?,?,?)",
-                 (shop_id, src["name"], src["brand"], src["url"], src["kind"], ts))
-    return conn.execute("SELECT * FROM market_sources WHERE url = ?", (src["url"],)).fetchone()
 
 
 def _published(entry) -> str | None:
@@ -157,7 +144,9 @@ def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
                            (it["id"],)).fetchall()
         flags = json.loads(it["injection_flags"])
         out.append({"id": it["id"], "source": it["source_name"], "title": it["title"], "url": it["url"], "published_at": it["published_at"],
-                    "fetched_at": it["fetched_at"], "excerpt": it["excerpt"], "domain": it["domain"], "origin": it["origin"], "untrusted": bool(it["untrusted"]), "injection_flags": flags, "flagged": bool(flags),
+                    "fetched_at": it["fetched_at"], "excerpt": it["excerpt"], "domain": it["domain"], "origin": it["origin"],
+                    "label": "Demo article (synthetic)" if it["origin"] == "demo_synthetic" else ("Stored copy" if it["origin"] == "stored_copy" else ""),
+                    "undated": not is_dated(it["published_at"]), "untrusted": bool(it["untrusted"]), "injection_flags": flags, "flagged": bool(flags),
                     "extracted": it["extracted"],
                     "events": [{"brand": e["brand"], "family": e["family"],
                                 "launch_date": e["launch_date"] if e["date_stated"] else None,
@@ -228,6 +217,10 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
         conn.execute("ROLLBACK")
         raise
     bad = [s for s in report["sources"] if s["status"] not in ("ok", "not_modified")]
-    report["message"] = ("; ".join(f"{s['source']}: {s['message']}" for s in bad) + ". Showing the items already stored.") if bad else "scan complete"
+    newest = conn.execute("SELECT MAX(fetched_at) AS t FROM market_items WHERE origin = 'feed'").fetchone()["t"]
+    report["cached"] = bool(bad)
+    report["checked_at"] = ts
+    report["message"] = ("; ".join(f"{s['source']}: {s['message']}" for s in bad)
+                         + (f". Showing stored copies; the newest was fetched on {newest[:10]}." if newest else ". Nothing is stored yet.")) if bad else "scan complete"
     report["items_stored"] = conn.execute("SELECT COUNT(*) AS n FROM market_items").fetchone()["n"]
     return report

@@ -72,8 +72,11 @@ class FakeWeb:
         return [r.url.path for r in self.requests]
 
 
-def make_client(tmp_path, web: FakeWeb, name="t.sqlite"):
-    return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory()))
+NOW = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)      # the tests' "today": the same day as the stock list
+
+
+def make_client(tmp_path, web: FakeWeb, name="t.sqlite", clock=None):
+    return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory(), clock=clock or (lambda: NOW)))
 
 
 def db(tmp_path, name="t.sqlite"):
@@ -249,10 +252,11 @@ def test_a_matching_article_attaches_a_real_dated_source_to_the_alert(shop):
     client, rep = run_scan(None, shop, FakeWeb(rss([article()])))
     assert rep["new_items"] == 1 and rep["events"] == 1 and rep["matched_events"] == 1 and rep["alerts_with_a_source"] == 1
     src = alert_source(client)
-    assert src == {"attached": True, "name": "SYNTHETIC Test Newsroom" if False else src["name"], "url": "https://news.samsung.com/global/synthetic-a1",
-                   "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z",
-                   "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written",
-                   "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
+    expected = {"attached": True, "url": "https://news.samsung.com/global/synthetic-a1", "domain": "news.samsung.com",
+                "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z", "fetched": "2026-10-26T12:00:00Z",
+                "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written", "origin": "feed", "label": "", "cached": False,
+                "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
+    assert {k: src[k] for k in expected} == expected and src["checked"] == "2026-10-26T12:00:00Z" and "QN90D Neo QLED" in src["excerpt"]
     assert src["name"] == "Samsung Global Newsroom"
     note = client.get("/api/launch/exposed").json()["groups"][0]["source_note"]
     assert "March 12, 2027" in note and "published 2026-10-26" in note and "No dated news source" not in note
@@ -375,7 +379,7 @@ def test_network_down_returns_the_stored_items_and_says_so(shop):
     client, _ = run_scan(None, shop, web)
     web.down = True
     rep = client.post("/api/watch/scan").json()
-    assert rep["network"] == "unavailable" and "Showing the items already stored" in rep["message"]
+    assert rep["network"] == "unavailable" and "Showing stored copies" in rep["message"]
     assert len(rep["items"]) == 1 and rep["items"][0]["title"].startswith("SYNTHETIC")
     assert alert_source(client)["attached"] is True                                             # what was stored is still there
 
@@ -440,7 +444,7 @@ def test_soft_hyphens_and_direction_marks_are_removed_without_a_flag():
 def _age_robots(client, days):
     """White box: pretend the stored robots.txt decision was made `days` ago."""
     con = sqlite3.connect(client.app.state.db_path)
-    stamp = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stamp = (NOW - __import__("datetime").timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     con.execute("UPDATE market_sources SET robots_checked_at = ?", (stamp,))
     con.commit()
     con.close()

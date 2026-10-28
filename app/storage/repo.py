@@ -100,25 +100,51 @@ def _group_items(conn, brand: str, category: str, shop_id: int):
 
 
 DEFAULT_STALE_DAYS = 30
+DEMO_LABEL = "Demo article (synthetic)"
+_WHY_NOT_CHECKED = {"robots_unavailable": "the site's robots.txt could not be read", "network_error": "the site could not be reached",
+                    "blocked_by_robots": "the site's robots.txt does not allow it", "blocked_host": "the address is not on the allowed list",
+                    "blocked_redirect": "a redirect left the allowed list", "too_large": "the feed was too large", "bad_feed": "the answer was not a readable feed"}
 
 
-def _freshness(published: str | None, as_of: date | None, stale_after_days: int) -> dict:
-    """How old the source is on the stock list's as-of date. A missing or unreadable date is "unknown", never "fresh"."""
+def _freshness(published: str | None, today: date | None, stale_after_days: int, as_of: date | None = None) -> dict:
+    """How old the source is today (the clock), and, secondarily, on the stock list's date. An unreadable date is "unknown", never "fresh"."""
     try:
-        age = (as_of - date.fromisoformat(str(published)[:10])).days
+        pub = date.fromisoformat(str(published)[:10])
+        age = (today - pub).days
     except (TypeError, ValueError):
-        return {"freshness": "unknown", "age_days": None, "stale_after_days": stale_after_days}
-    return {"freshness": "stale" if age > stale_after_days else "fresh", "age_days": age, "stale_after_days": stale_after_days}
+        return {"freshness": "unknown", "age_days": None, "age_at_stock_date_days": None, "stale_after_days": stale_after_days}
+    at_stock = (as_of - pub).days if as_of else None
+    return {"freshness": "stale" if age > stale_after_days else "fresh", "age_days": age, "age_at_stock_date_days": at_stock,
+            "stale_after_days": stale_after_days}
 
 
-def _source(a, as_of: date | None = None, stale_after_days: int = DEFAULT_STALE_DAYS) -> dict:
-    """The real, dated source behind an alert, or a plain statement that there is none."""
+def _day(stamp: str | None) -> str:
+    return str(stamp)[:10] if stamp else ""
+
+
+def _source(conn: sqlite3.Connection, a, today: date | None = None, as_of: date | None = None, stale_after_days: int = DEFAULT_STALE_DAYS) -> dict:
+    """The real, dated source behind an alert, with where and when it came from, or a plain statement that there is none."""
     if a["source_item_id"] is None:
         return {"attached": False, "status": "no dated source attached"}
-    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "title": a["source_title"], "published": a["source_published"],
+    today = today or date.today()
+    it = conn.execute("SELECT i.*, s.last_ok_at, s.last_fetch_at, s.last_status FROM market_items i JOIN market_sources s ON s.id = i.source_id"
+                      " WHERE i.id = ?", (a["source_item_id"],)).fetchone()
+    origin = it["origin"] if it else "feed"
+    cached, note = False, ""
+    if origin == "stored_copy":
+        cached, note = True, f"Stored copy of an article fetched on {_day(it['fetched_at'])}. It was not fetched again here."
+    elif origin == "feed" and it is not None and it["last_status"] not in ("ok", "not_modified"):
+        why = _WHY_NOT_CHECKED.get(it["last_status"] or "", "it has not been checked yet")
+        cached = True
+        note = (f"Stored copy. Published {_day(a['source_published'])}, fetched {_day(it['fetched_at'])}. "
+                f"Could not check for newer news on {_day(it['last_fetch_at'])} ({why}).")
+    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "domain": it["domain"] if it else None, "title": a["source_title"],
+            "published": a["source_published"], "fetched": it["fetched_at"] if it else None, "checked": it["last_ok_at"] if it else None,
+            "excerpt": it["excerpt"] if it else "", "origin": origin, "label": DEMO_LABEL if origin == "demo_synthetic" else ("Stored copy" if cached else ""),
+            "cached": cached, "cache_note": note,
             "launch_date": a["launch_date"] if a["date_stated"] else None,
             "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date",
-            **_freshness(a["source_published"], as_of, stale_after_days)}
+            **_freshness(a["source_published"], today, stale_after_days, as_of)}
 
 
 def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
@@ -126,7 +152,7 @@ def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
     return date.fromisoformat(up["as_of"]) if up else None
 
 
-def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None) -> list[dict]:
+def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None, today: date | None = None) -> list[dict]:
     """Launch-family items that are dead or slow, per alert. Deliberately no options: plans come only after the owner asks."""
     out = []
     as_of, stale = _shop_as_of(conn, shop_id), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
@@ -135,7 +161,7 @@ def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None) -> list[dict
         top3 = items[:3]
         out.append({
             "alert_id": a["id"], "label": f"{a['brand']} {CATEGORY_LABEL.get(a['category'], a['category'])}", "brand": a["brand"],
-            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale),
+            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(conn, a, today, as_of, stale),
             "n": len(items), "cap_cents": sum(i["capital_cents"] for i in items),
             "top": [{"sku": i["sku"], "name": _name(i), "shelf": i["qty"], "cap_cents": i["capital_cents"]} for i in top3],
             "rest_n": len(items) - len(top3), "rest_cap_cents": sum(i["capital_cents"] for i in items[3:]),
@@ -150,17 +176,17 @@ def get_alert(conn: sqlite3.Connection, alert_id: int):
     return a
 
 
-def alert_state(conn: sqlite3.Connection, alert_id: int, th=None) -> dict:
+def alert_state(conn: sqlite3.Connection, alert_id: int, th=None, today: date | None = None) -> dict:
     a = get_alert(conn, alert_id)
     as_of, stale = _shop_as_of(conn, a["shop_id"]), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
     recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? GROUP BY status", (alert_id,)).fetchall()
-    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale), "n_items": a["n_items"],
+    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(conn, a, today, as_of, stale), "n_items": a["n_items"],
             "cap_cents": a["capital_cents"],
             "help_requested": a["help_requested_at"] is not None, "help_requested_at": a["help_requested_at"],
             "recommendations": {r["status"]: r["n"] for r in recs}}
 
 
-def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None) -> dict:
+def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None, today: date | None = None) -> dict:
     a = get_alert(conn, alert_id)
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
@@ -173,7 +199,7 @@ def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None)
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return alert_state(conn, alert_id, th)
+    return alert_state(conn, alert_id, th, today)
 
 
 def item_options(it, as_of: date, th: Thresholds) -> actions.OptionSet:

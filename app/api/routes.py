@@ -9,8 +9,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.deps import get_conn, get_shop_id
+from app.demo import NEWS_COPY, demo_enabled
 from app.ingest import MAX_BYTES, UploadError, commit_upload
 from app.storage import repo
+from app.watch.demo_news import ensure_demo_source
 
 router = APIRouter(prefix="/api")
 
@@ -52,6 +54,14 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
     except UploadError as e:
         raise HTTPException(422, str(e)) from None
     result["issues_url"] = f"/api/uploads/{result['upload_id']}/issues"
+    if demo_enabled():                                    # the demo alert always carries a labelled source, whichever way the stock list arrived
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY)
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
     return result
 
 
@@ -79,7 +89,7 @@ def inventory_top(request: Request, limit: int = Query(8, ge=1, le=50), conn=Dep
 @router.get("/launch/exposed")
 def launch_exposed(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Launch-family items that are dead or slow. No options here: plans come only after the owner asks for help."""
-    return {"groups": repo.launch_exposed(conn, shop_id, request.app.state.th)}
+    return {"groups": repo.launch_exposed(conn, shop_id, request.app.state.th, request.app.state.clock().date())}
 
 
 @router.get("/needs-look")
@@ -90,7 +100,7 @@ def needs_look(limit: int = Query(100, ge=1, le=500), conn=Depends(get_conn), sh
 @router.get("/alerts/{alert_id}")
 def alert(alert_id: int, request: Request, conn=Depends(get_conn)):
     try:
-        return repo.alert_state(conn, alert_id, request.app.state.th)
+        return repo.alert_state(conn, alert_id, request.app.state.th, request.app.state.clock().date())
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 
@@ -99,7 +109,7 @@ def alert(alert_id: int, request: Request, conn=Depends(get_conn)):
 def alert_help(alert_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """The owner asks Loreg to help with this alert. Recorded once; nothing is planned or changed by this call."""
     try:
-        return repo.request_help(conn, shop_id, alert_id, request.app.state.th)
+        return repo.request_help(conn, shop_id, alert_id, request.app.state.th, request.app.state.clock().date())
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 

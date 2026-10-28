@@ -180,5 +180,5 @@ def test_the_scan_route_reports_a_refused_redirect_in_plain_words(tmp_path):
                ("news.samsung.com", "/global/feed"): httpx.Response(302, headers={"location": "https://news.samsung.com.evil.test/global/feed"})})
     client = TestClient(create_app(tmp_path / "r.sqlite", as_of="2026-10-26", http_factory=web.client))
     rep = client.post("/api/watch/scan").json()
-    assert rep["sources"][0]["status"] == "blocked_redirect" and "was refused" in rep["message"] and "Showing the items already stored" in rep["message"]
+    assert rep["sources"][0]["status"] == "blocked_redirect" and "was refused" in rep["message"] and "Nothing is stored yet" in rep["message"]
     assert web.hosts() == {"news.samsung.com"}

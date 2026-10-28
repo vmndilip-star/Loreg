@@ -4,21 +4,13 @@ Only available when LOREG_DEMO=1. Otherwise the route answers 404, as if it did 
 This route only supplies the file; parsing, data checks, quarantine and storage are the upload route's own code.
 """
 
-import os
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_conn, get_shop_id
 from app.api.routes import store_upload
+from app.demo import DEMO_FILE, demo_enabled  # noqa: F401  (DEMO_FILE is re-exported for the tests)
 
 router = APIRouter(prefix="/api")
-
-DEMO_FILE = Path(__file__).resolve().parents[2] / "data" / "demo" / "upload_demo_200.csv"
-
-
-def demo_enabled() -> bool:
-    return os.environ.get("LOREG_DEMO") == "1"
 
 
 @router.get("/demo")

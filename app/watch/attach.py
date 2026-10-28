@@ -7,13 +7,23 @@ that no dated source is attached.
 
 import json
 import sqlite3
+from datetime import date
 
 NO_SOURCE_NOTE = ("No dated news source is attached. These items are in the catalog's launch family (a newer generation is expected); "
                   "no launch date is claimed.")
 
 
+def is_dated(published: str | None) -> bool:
+    """True only if the publication date can be read. An article without one is never a source for an alert."""
+    try:
+        date.fromisoformat(str(published)[:10])
+        return True
+    except ValueError:
+        return False
+
+
 def _note(name: str, published: str | None, launch: str | None, date_stated: bool) -> str:
-    when = f"published {published[:10]}" if published else "publication date unknown"
+    when = f"published {published[:10]}"
     if date_stated and launch:
         return f"Source: {name}, {when}. Launch date: {launch} (as written in the article)."
     return f"Source: {name}, {when}. Announced, no launch date given in the article."
@@ -30,8 +40,9 @@ def attach_events_to_alerts(conn: sqlite3.Connection, shop_id: int) -> int:
         for ev in conn.execute(
                 "SELECT e.*, i.title AS title, i.published_at AS published_at, i.url AS url, s.name AS source_name FROM market_events e"
                 " JOIN market_items i ON i.id = e.item_id JOIN market_sources s ON s.id = i.source_id WHERE e.flagged = 0"
-                " ORDER BY i.published_at DESC, e.id DESC"):
-            if line_ids & set(json.loads(ev["matched_line_ids"])):
+                " AND i.published_at IS NOT NULL"
+                " ORDER BY (i.origin = 'demo_synthetic'), i.published_at DESC, e.id DESC"):        # real articles before the synthetic demo one
+            if is_dated(ev["published_at"]) and line_ids & set(json.loads(ev["matched_line_ids"])):
                 chosen = ev
                 break
         if chosen is None:

@@ -78,7 +78,8 @@ class Ctx:
     conn: sqlite3.Connection
     shop_id: int
     th: Thresholds
-    as_of: date
+    as_of: date                                   # the stock list's date
+    today: date                                   # the clock's date: news is aged against this
     llm: LLMClient
     cache: ResultCache
     executor: ThreadPoolExecutor
@@ -165,13 +166,18 @@ def _recommender_call(ctx: Ctx, row) -> AgentCall:
 def alert_text(g: dict) -> str:
     """The alert in plain sentences, from stored figures only: how many items, how much money, and the real source or its absence."""
     src = g["source"]
-    when = (f" Source: {src['name']}, published {str(src['published'])[:10]}. Launch date: {src['launch_date']} (as written in the article)."
-            if src["attached"] and src["launch_date"] else
-            f" Source: {src['name']}, published {str(src['published'])[:10]}. Announced, no launch date given in the article."
-            if src["attached"] else f" {g['source_note']}")
-    if src["attached"] and src["freshness"] != "fresh":
-        old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
-        when += f" Caution: this source is {old_note}, so it is not fresh news."
+    if src["attached"]:
+        who = f"Source: {src['name']}" + (f" ({src['label']})" if src["label"] else "")
+        launch = (f"Launch date: {src['launch_date']} (as written in the article)." if src["launch_date"]
+                  else "Announced, no launch date given in the article.")
+        when = f" {who}, published {str(src['published'])[:10]}, fetched {str(src['fetched'])[:10]}. {launch}"
+        if src["cached"] and src["cache_note"]:
+            when += f" {src['cache_note']}"
+        if src["freshness"] != "fresh":
+            old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
+            when += f" Caution: this source is {old_note}, so it is not fresh news."
+    else:
+        when = f" {g['source_note']}"
     return f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {money(g['cap_cents'])} tied up.{when}"
 
 
@@ -225,7 +231,7 @@ def plan_alert(ctx: Ctx, alert_id: int, limit: int) -> Iterator[dict]:
 
 def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield ev("status", message="Checking your stored launch news")
-    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today)
     if not groups:
         yield from tokens(f"{NOT_ENOUGH_DATA}: none of your launch-family items is dead or slow right now.")
         yield ev("cards", cards=[])
@@ -265,7 +271,7 @@ def not_enough_data(ctx: Ctx, started: float, question: str) -> Iterator[dict]:
     what = " or ".join({"price": "a price", "date": "a date"}[k] for k in kinds) or "that information"
     text = (f"{NOT_ENOUGH_DATA}: I don't have {what} for that. Loreg only knows your own stock numbers and the dated news it has stored, "
             "so it cannot say what a product will cost, when it will ship or what a rival charges.")
-    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today)
     if groups:
         g = groups[0]
         yield ev("tool", name="stored_alert", source=g["source"])
@@ -309,7 +315,7 @@ def daily_brief(ctx: Ctx, started: float) -> Iterator[dict]:
         yield ev("cards", cards=[])
         yield done(ctx, "daily_brief", started)
         return
-    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th))
+    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today))
     yield ev("tool", name="shop_facts", facts=len(facts))
     res = AgentCall(ctx, "daily", lambda: daily.brief(ctx.llm, facts), lambda: AgentResult(daily._fallback(facts), "fallback"), facts).result()
     brief: DailyBrief = res.output

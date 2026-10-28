@@ -68,7 +68,9 @@ def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
     group = c.get("/api/launch/exposed").json()["groups"][0]
     exposed = truth.launch_exposed()
     assert group["n"] == len(exposed) and group["cap_cents"] == sum(i["cap"] for i in exposed)
-    assert group["help_requested"] is False and group["source"] == {"attached": False, "status": "no dated source attached"}
+    assert group["help_requested"] is False
+    src = group["source"]                                                         # in demo mode the alert is never unsourced and never unlabelled
+    assert src["attached"] and src["label"] == "Demo article (synthetic)" and src["origin"] == "demo_synthetic" and src["published"] and src["fetched"]
     assert c.get(f"/api/alerts/{group['alert_id']}").json()["recommendations"] == {}
     assert c.post(f"/api/alerts/{group['alert_id']}/plan").status_code == 409
 
@@ -121,4 +123,4 @@ def test_a_poisoned_article_changes_no_number_and_is_shown_as_data(tmp_path, mon
     assert "<" not in item["title"] and ">" not in item["title"]                       # markup is stripped from the title
     assert item["flagged"] is True and all(not e["attachable"] for e in item["events"])
     assert c.get("/api/summary").json() == before                                     # no number moved
-    assert c.get("/api/launch/exposed").json()["groups"][0]["source"]["attached"] is False
+    assert c.get("/api/launch/exposed").json()["groups"][0]["source"]["origin"] == "demo_synthetic"       # the poisoned article attached nothing
