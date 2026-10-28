@@ -146,7 +146,7 @@ def test_a_version_3_database_keeps_an_excerpt_and_loses_the_bodies(tmp_path):
     v3_database(path, [(LONG * 10, 1), (LONG, 0), ("short body about nothing", -1)])
     init_db(path)
     con = db(path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 4
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     rows = con.execute("SELECT * FROM market_items ORDER BY id").fetchall()
     assert all(r["text"] == "" and r["body_cleared_at"] and r["domain"] == "news.samsung.com" and r["origin"] == "feed" for r in rows)
     assert rows[0]["excerpt"] in LONG * 10 and len(rows[0]["excerpt"]) <= 280 and rows[0]["excerpt"].startswith("Samsung will launch")
@@ -157,11 +157,11 @@ def test_a_version_3_database_keeps_an_excerpt_and_loses_the_bodies(tmp_path):
     assert [r["excerpt"] for r in con.execute("SELECT excerpt FROM market_items ORDER BY id")] == [r["excerpt"] for r in rows]
 
 
-def test_an_empty_database_starts_at_version_4_with_the_new_columns(tmp_path):
+def test_an_empty_database_starts_at_the_current_version_with_the_excerpt_columns(tmp_path):
     init_db(tmp_path / "n.sqlite")
     con = db(tmp_path / "n.sqlite")
     cols = {r["name"] for r in con.execute("PRAGMA table_info(market_items)")}
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 4 and {"excerpt", "domain", "origin", "body_cleared_at"} <= cols
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION and {"excerpt", "domain", "origin", "body_cleared_at"} <= cols
 
 
 def test_a_launch_cue_deep_inside_a_long_sentence_still_gives_an_excerpt_that_starts_on_a_word():

@@ -239,9 +239,54 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 """
 
+# Launch tracker (schema version 5). A watch follows one catalog line. Its dates live only in launch_history, which can be added to
+# but never updated or deleted (the triggers refuse both). Its state is worked out when it is read and is never stored.
+LAUNCH_SCHEMA = """
+CREATE TABLE IF NOT EXISTS launch_watch (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL REFERENCES shops(id),
+    line_id TEXT NOT NULL,                  -- the catalog line the news named, matched by code (app/watch/matching.py)
+    synthetic INTEGER NOT NULL DEFAULT 0,   -- 1: follows only the synthetic demo article; real news never dates or confirms it
+    created_at TEXT NOT NULL,
+    UNIQUE (shop_id, line_id, synthetic)
+);
+
+CREATE TABLE IF NOT EXISTS launch_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    watch_id INTEGER NOT NULL REFERENCES launch_watch(id),
+    old_date TEXT,                          -- as written; NULL for the first date
+    old_iso TEXT,
+    new_date TEXT NOT NULL,                 -- as written in the source
+    new_iso TEXT,                           -- YYYY-MM-DD only for an exact day with a year
+    source_url TEXT NOT NULL,
+    published_at TEXT,
+    fetched_at TEXT,
+    recorded_at TEXT NOT NULL,
+    UNIQUE (watch_id, source_url, new_date) -- one source and one date are recorded once, however often the news is checked
+);
+CREATE TRIGGER IF NOT EXISTS launch_history_no_update BEFORE UPDATE ON launch_history
+BEGIN SELECT RAISE(ABORT, 'launch_history is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS launch_history_no_delete BEFORE DELETE ON launch_history
+BEGIN SELECT RAISE(ABORT, 'launch_history is append-only'); END;
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL REFERENCES shops(id),
+    watch_id INTEGER NOT NULL REFERENCES launch_watch(id),
+    state TEXT NOT NULL,
+    date_key TEXT NOT NULL,                 -- the date the state is about, as written ('' when there is none)
+    text TEXT NOT NULL,                     -- from a fixed template
+    created_at TEXT NOT NULL,
+    read_at TEXT,                           -- NULL: unread
+    UNIQUE (watch_id, state, date_key)
+);
+"""
+SCHEMA += LAUNCH_SCHEMA
+
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
-          "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs")
-SCHEMA_VERSION = 4
+          "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs",
+          "launch_watch", "launch_history", "notifications")
+SCHEMA_VERSION = 5
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -260,7 +305,8 @@ def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents; version 4 keeps only an excerpt of each article."""
+    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents; version 4 keeps only an excerpt of each article;
+    version 5 adds the launch tracker (its tables only: no existing row is changed)."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version >= SCHEMA_VERSION:
         return
@@ -279,6 +325,8 @@ def migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE skus ADD COLUMN map_cents INTEGER")
     if version < 4:
         _migrate_to_4(conn)
+    if version < 5:
+        conn.executescript(LAUNCH_SCHEMA)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
