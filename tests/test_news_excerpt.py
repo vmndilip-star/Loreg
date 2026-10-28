@@ -35,6 +35,10 @@ def make(tmp_path, web, clock=None, llm=None, name="e.sqlite"):
 def test_an_excerpt_is_a_short_exact_stretch_of_the_article(text, limit):
     e = make_excerpt(text, limit)
     assert len(e) <= limit and e in text and e == e.strip()
+    i = text.find(e)
+    assert i == 0 or text[i - 1].isspace(), "the excerpt starts in the middle of a word"
+    j = i + len(e)
+    assert j == len(text) or text[j].isspace() or j - i == limit, "the excerpt stops in the middle of a word"
 
 
 def test_the_excerpt_starts_at_the_sentence_with_the_launch_cue():
@@ -158,3 +162,13 @@ def test_an_empty_database_starts_at_version_4_with_the_new_columns(tmp_path):
     con = db(tmp_path / "n.sqlite")
     cols = {r["name"] for r in con.execute("PRAGMA table_info(market_items)")}
     assert con.execute("PRAGMA user_version").fetchone()[0] == 4 and {"excerpt", "domain", "origin", "body_cleared_at"} <= cols
+
+
+def test_a_launch_cue_deep_inside_a_long_sentence_still_gives_an_excerpt_that_starts_on_a_word():
+    text = ("Opening words " * 5 + "and then a very long sentence that keeps going with many ordinary words about nothing in particular " * 6
+            + "until Samsung will launch the thing next year, with some more words after it that finish the sentence.")
+    for limit in (280, 150, 90, 40):
+        e = make_excerpt(text, limit)
+        i = text.find(e)
+        assert "launch" in e and (i == 0 or text[i - 1].isspace()) and len(e) <= limit and e in text
+    assert make_excerpt("mmon launch here", 280) == "mmon launch here"            # text that really starts that way is kept as it is
