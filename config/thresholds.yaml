@@ -30,6 +30,10 @@ actions:
   below_cost_max_pct: 10                 # and never deeper than this
   holding_cost_rate: 0.25                # yearly holding cost as a share of capital (assumption)
 
+# Loreg Watch: a news source older than this many days (counted from the stock list's as-of date) is shown as old, never as fresh news.
+watch:
+  stale_after_days: 30                   # assumption: chosen by us, not taken from any rule or source
+
 # Used by the synthetic database generator only.
 generator:
   status_mix: {dead: 0.13, slow: 0.13, new: 0.06}   # share of SKUs per category; the rest are healthy

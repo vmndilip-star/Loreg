@@ -99,24 +99,43 @@ def _group_items(conn, brand: str, category: str, shop_id: int):
         (shop_id, brand, category, *AT_RISK)).fetchall()
 
 
-def _source(a) -> dict:
+DEFAULT_STALE_DAYS = 30
+
+
+def _freshness(published: str | None, as_of: date | None, stale_after_days: int) -> dict:
+    """How old the source is on the stock list's as-of date. A missing or unreadable date is "unknown", never "fresh"."""
+    try:
+        age = (as_of - date.fromisoformat(str(published)[:10])).days
+    except (TypeError, ValueError):
+        return {"freshness": "unknown", "age_days": None, "stale_after_days": stale_after_days}
+    return {"freshness": "stale" if age > stale_after_days else "fresh", "age_days": age, "stale_after_days": stale_after_days}
+
+
+def _source(a, as_of: date | None = None, stale_after_days: int = DEFAULT_STALE_DAYS) -> dict:
     """The real, dated source behind an alert, or a plain statement that there is none."""
     if a["source_item_id"] is None:
         return {"attached": False, "status": "no dated source attached"}
     return {"attached": True, "name": a["source_name"], "url": a["source_url"], "title": a["source_title"], "published": a["source_published"],
             "launch_date": a["launch_date"] if a["date_stated"] else None,
-            "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date"}
+            "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date",
+            **_freshness(a["source_published"], as_of, stale_after_days)}
 
 
-def launch_exposed(conn: sqlite3.Connection, shop_id: int) -> list[dict]:
+def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
+    up = latest_upload(conn, shop_id)
+    return date.fromisoformat(up["as_of"]) if up else None
+
+
+def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None) -> list[dict]:
     """Launch-family items that are dead or slow, per alert. Deliberately no options: plans come only after the owner asks."""
     out = []
+    as_of, stale = _shop_as_of(conn, shop_id), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
     for a in conn.execute("SELECT * FROM alerts WHERE shop_id = ? AND kind = 'launch_family' ORDER BY capital_cents DESC, id", (shop_id,)):
         items = _group_items(conn, a["brand"], a["category"], shop_id)
         top3 = items[:3]
         out.append({
             "alert_id": a["id"], "label": f"{a['brand']} {CATEGORY_LABEL.get(a['category'], a['category'])}", "brand": a["brand"],
-            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(a),
+            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale),
             "n": len(items), "cap_cents": sum(i["capital_cents"] for i in items),
             "top": [{"sku": i["sku"], "name": _name(i), "shelf": i["qty"], "cap_cents": i["capital_cents"]} for i in top3],
             "rest_n": len(items) - len(top3), "rest_cap_cents": sum(i["capital_cents"] for i in items[3:]),
@@ -131,16 +150,17 @@ def get_alert(conn: sqlite3.Connection, alert_id: int):
     return a
 
 
-def alert_state(conn: sqlite3.Connection, alert_id: int) -> dict:
+def alert_state(conn: sqlite3.Connection, alert_id: int, th=None) -> dict:
     a = get_alert(conn, alert_id)
+    as_of, stale = _shop_as_of(conn, a["shop_id"]), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
     recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? GROUP BY status", (alert_id,)).fetchall()
-    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(a), "n_items": a["n_items"],
+    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale), "n_items": a["n_items"],
             "cap_cents": a["capital_cents"],
             "help_requested": a["help_requested_at"] is not None, "help_requested_at": a["help_requested_at"],
             "recommendations": {r["status"]: r["n"] for r in recs}}
 
 
-def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int) -> dict:
+def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None) -> dict:
     a = get_alert(conn, alert_id)
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
@@ -153,7 +173,7 @@ def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int) -> dict:
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return alert_state(conn, alert_id)
+    return alert_state(conn, alert_id, th)
 
 
 def _rec_json(rec, item) -> dict:

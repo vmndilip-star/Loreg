@@ -251,7 +251,8 @@ def test_a_matching_article_attaches_a_real_dated_source_to_the_alert(shop):
     src = alert_source(client)
     assert src == {"attached": True, "name": "SYNTHETIC Test Newsroom" if False else src["name"], "url": "https://news.example.test/a1",
                    "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z",
-                   "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written"}
+                   "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written",
+                   "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
     assert src["name"] == "Samsung Global Newsroom"
     note = client.get("/api/launch/exposed").json()["groups"][0]["source_note"]
     assert "March 12, 2027" in note and "published 2026-10-26" in note and "No dated news source" not in note
@@ -485,3 +486,44 @@ def test_a_first_ever_scan_with_robots_txt_down_fetches_nothing(shop, monkeypatc
     web = FakeWeb(rss([article()]), robots_status=503)
     client, rep = run_scan(None, shop, web)
     assert rep["sources"][0]["status"] == "robots_unavailable" and "/global/feed" not in web.paths()
+
+
+# ------------------------------------------------------------------------------ freshness
+@pytest.mark.parametrize("pub, freshness, age", [
+    ("Mon, 26 Oct 2026 08:00:00 +0000", "fresh", 0),
+    ("Sat, 26 Sep 2026 08:00:00 +0000", "fresh", 30),        # exactly 30 days: still within the limit
+    ("Fri, 25 Sep 2026 08:00:00 +0000", "stale", 31),        # one day over
+    ("Sun, 01 Mar 2026 08:00:00 +0000", "stale", 239),
+])
+def test_an_attached_source_older_than_the_limit_is_marked_stale_by_code(shop, pub, freshness, age):
+    client, _ = run_scan(None, shop, FakeWeb(rss([article(pub=pub)])))
+    src = alert_source(client)
+    assert src["attached"] and src["freshness"] == freshness and src["age_days"] == age and src["stale_after_days"] == 30
+    assert client.get(f"/api/alerts/{client.get('/api/launch/exposed').json()['groups'][0]['alert_id']}").json()["source"]["freshness"] == freshness
+
+
+def test_freshness_unknown_when_the_date_cannot_be_read():
+    from datetime import date
+    from app.storage import repo
+    assert repo._freshness(None, date(2026, 10, 26), 30)["freshness"] == "unknown"
+    assert repo._freshness("not a date", date(2026, 10, 26), 30)["freshness"] == "unknown"
+    assert repo._freshness("2026-10-26", None, 30)["freshness"] == "unknown"        # no stock list, no as-of date
+
+
+def test_the_stale_limit_comes_from_the_config_file(tmp_path):
+    import yaml
+    from app.core.thresholds import DEFAULT_PATH, load_thresholds
+    raw = yaml.safe_load(DEFAULT_PATH.read_text(encoding="utf-8"))
+    assert load_thresholds().stale_source_days == raw["watch"]["stale_after_days"] == 30
+    raw["watch"]["stale_after_days"] = 7
+    path = tmp_path / "t.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    assert load_thresholds(path).stale_source_days == 7
+
+
+def test_the_chat_says_when_the_source_is_not_fresh(shop):
+    client, _ = run_scan(None, shop, FakeWeb(rss([article(pub="Sun, 01 Mar 2026 08:00:00 +0000")])))
+    import json
+    body = client.post("/api/ask", json={"question": "What should I clear before the launch?"}).text
+    reply = "".join(json.loads(f.split("data: ", 1)[1])["text"] for f in body.split("\n\n") if f.startswith("event: token"))
+    assert "this source is 239 days old, so it is not fresh news" in reply

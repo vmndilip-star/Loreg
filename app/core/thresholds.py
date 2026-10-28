@@ -29,6 +29,7 @@ class Thresholds:
     below_cost_max_pct: int
     holding_cost_rate: float
     generator: dict
+    stale_source_days: int = 30
 
     def for_category(self, category: str, seasonal: bool = False) -> CategoryThresholds:
         """Thresholds for a category; seasonal items get slow, dead and days-of-stock x multiplier (not grace)."""
@@ -56,4 +57,5 @@ def load_thresholds(path: Path | str | None = None) -> Thresholds:
         below_cost_max_pct=int(act["below_cost_max_pct"]),
         holding_cost_rate=float(act["holding_cost_rate"]),
         generator=raw["generator"],
+        stale_source_days=int(raw.get("watch", {}).get("stale_after_days", 30)),
     )

@@ -164,7 +164,7 @@ def _recommender_call(ctx: Ctx, row) -> AgentCall:
 # ------------------------------------------------------------------------------ pipelines
 def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield ev("status", message="Checking your stored launch news")
-    groups = repo.launch_exposed(ctx.conn, ctx.shop_id)
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
     if not groups:
         yield from tokens(f"{NOT_ENOUGH_DATA}: none of your launch-family items is dead or slow right now.")
         yield ev("cards", cards=[])
@@ -188,6 +188,9 @@ def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
             if src["attached"] and src["launch_date"] else
             f" Source: {src['name']}, published {str(src['published'])[:10]}. Announced, no launch date given in the article."
             if src["attached"] else f" {g['source_note']}")
+    if src["attached"] and src["freshness"] != "fresh":
+        old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
+        when += f" Caution: this source is {old_note}, so it is not fresh news."
     text = f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {cap} tied up.{when}"
     for row, summary in explained:
         text += f" {row['brand']} {row['model']}: {summary}"
@@ -237,7 +240,7 @@ def daily_brief(ctx: Ctx, started: float) -> Iterator[dict]:
         yield ev("cards", cards=[])
         yield done(ctx, "daily_brief", started)
         return
-    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id))
+    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th))
     yield ev("tool", name="shop_facts", facts=len(facts))
     res = AgentCall(ctx, "daily", lambda: daily.brief(ctx.llm, facts), lambda: AgentResult(daily._fallback(facts), "fallback"), facts).result()
     brief: DailyBrief = res.output
