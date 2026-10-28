@@ -45,7 +45,9 @@ Test data is **synthetic**. Brand and model names are real product lines; prices
 Meta Model API request formats, model IDs, pricing and rate limits come from Meta's current docs (dev.meta.ai/docs). Hackathon rules come from the participant guide and the Official Rules. Anything unconfirmed is marked as an assumption. We never claim a domain, handle or trademark for "Loreg" is available.
 
 ## Status
-Planning is done and a synthetic dataset exists. **No application code has been written in this repo yet.** Open items before building: read the Official Rules, review the submission form, test the Meta API once for real, and replace estimated price anchors with a live source.
+Updated 2026-10-27. The backend is built and tested offline: deterministic core, CSV upload with data-quality checks, SQLite storage, Loreg Watch (Samsung newsroom feed), the agents, the three pipelines, the streamed chat and the daily brief. The Meta Model API has been called for real. The web frontend (`web/`) is in progress; see `docs/WEB_PLAN.md`. This file is a copy of `prior/docs/CONTEXT.md`, which is left unchanged.
+
+Still open: read the Official Rules and review the submission form (neither has been done), replace estimated price anchors with a live source, verify the product names in `data/names_to_verify.csv`, and the open-weights run (no partner key yet).
 
 ## Glossary
 - **Dead stock:** no sale for longer than a per-category threshold.
