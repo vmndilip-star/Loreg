@@ -47,26 +47,43 @@ Hackathon work starts at the git tag **`hackathon-start`**. Everything in the co
 
 ## Run it
 
+From an empty folder, on the offline mock model (no key, no network needed for the app itself):
+
 ```
+git clone https://github.com/vmndilip-star/Loreg.git
+cd Loreg
+python -m venv .venv
+.venv\Scripts\activate                    # macOS / Linux: source .venv/bin/activate
 pip install -e ".[dev]"
-python data/generate_catalog.py            # synthetic data (optional; the demo file is bundled in data/demo/)
-set LOREG_DEMO=1                           # optional: adds a "Use the demo stock list" button (PowerShell: $env:LOREG_DEMO = "1")
-python -m uvicorn app.main:app             # then open http://127.0.0.1:8000/
+copy .env.example .env                    # macOS / Linux: cp .env.example .env
+python -m uvicorn app.main:app
 ```
 
-`LLM_BACKEND=mock` (the default) needs no key. For the real Meta model, put `META_API_KEY` in a local `.env` (never committed) and set `LLM_BACKEND=meta`.
-`python scripts/journey_meta.py` runs the whole demo journey once on the Meta backend and saves a transcript under `data/generated/`.
+Then open http://127.0.0.1:8000/. In `.env`, remove the `#` in front of `LOREG_DEMO=1` to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). `.env` is local and never committed; `.env.example` fixes the stock date at 2026-10-26 so the demo's numbers do not change with the calendar, and uses `LLM_BACKEND=mock`.
 
-The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). Our rule, an assumption rather than a sourced one: a discount step is only offered while the price stays at or above both cost and that price.
+- **Real Meta model:** put `META_API_KEY` in `.env` and set `LLM_BACKEND=meta`. `python scripts/journey_meta.py` runs the whole demo journey once on it and saves a redacted transcript under `data/generated/`.
+- **More synthetic data (optional):** `python data/generate_catalog.py` writes the 3,000-product database and the demo files under `data/generated/`.
+- **Tests:** `python -m pytest -q`. They run offline on the mock model. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself, with a message, if Playwright or Chrome is missing. `LOREG_DEMO=1 python -m pytest -q -k "browser or journey"` runs the journey tests with the demo switch already on.
 
-Tests: `python -m pytest -q`. They run offline. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself if Playwright or Chrome is missing.
+The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). See "Honest limits" for what the rule does and does not do.
+
+## Honest limits
+
+- **One news source.** Loreg Watch reads only `news.samsung.com` (see `config/news_sources.yaml`). Other brands' feeds are not added until their `robots.txt` and terms have been read.
+- **robots.txt times out.** The Samsung `robots.txt` often does not answer within the 10-second limit. A successful answer is cached for 24 hours; if it cannot be read and nothing is cached, the scan stops and does not fetch the feed. The Watch page then shows stored copies with their true dates, never as fresh.
+- **The demo alert's article is synthetic.** None of the 50 real items read on 2026-10-28 announced a newer generation of a line in our catalog, so in demo mode the alert uses an article labelled "Demo article (synthetic)". Real items captured earlier are listed as "Stored copy". A real article only becomes an alert's source outside demo mode.
+- **The 30-day stale limit is our assumption.** News older than `watch.stale_after_days` (30, in `config/thresholds.yaml`) is flagged as not fresh. No source or rule gave that number.
+- **The MAP rule is a conservative simplification.** The `map_price` column and the rule (a discount is offered only while the price stays at or above both cost and MAP) are our own design. Real minimum-advertised-price policies are more nuanced (per brand, per channel, bundles, promotions); Loreg never offers a discount that could break the simple rule, and says why when one is blocked.
+- **`openai_compat` has not been tried against a real endpoint.** The backend for any OpenAI-compatible host exists and is tested only against fakes.
+- **The open-weights run was skipped.** No open-weights partner key was available, so nothing was run on an open-weights model. Every real-model run so far used the Meta Model API.
+- **Everything else is synthetic.** All stock data, prices and sales are generated; they show that the app works, not that any price is true.
 
 ## Live news (Loreg Watch)
 
 News is read only from the hosts listed in `config/news_sources.yaml` (today: `news.samsung.com`), over https, with `robots.txt`, conditional GET, a size cap and hand-checked redirects. Only a short verbatim excerpt (280 characters or fewer), the title, address, dates and a content hash are kept; the article body is cleared once it has been read. An alert shows a source only if the article has a readable publication date, and it cites the address, the published date, the fetched date and the last check. If the feed cannot be reached the alert says "Stored copy" with its true dates. News is aged against today's date.
 
-In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a stored copy of a real article if `data/demo/news_copy.json` exists (make one with `python scripts/capture_demo_news.py`), otherwise a synthetic article labelled "Demo article (synthetic)".
+In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a stored copy of a real article if `data/demo/news_copy.json` exists, otherwise a synthetic article labelled "Demo article (synthetic)". `python scripts/capture_demo_news.py` reads the feed once (when `robots.txt` answers) and writes `data/demo/news_items.json`, the real items listed as "Stored copy" on the Watch page; with `--pick N` it also writes the alert's stored copy. In demo mode a news scan adds real items to the list but never replaces the demo alert.
 
 ## Status
 
-The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock, Watch, Ask, Upload) work end to end on synthetic data. Search and browse on Stock, the QuickBooks import, and the open-weights run are not done. All test data is synthetic.
+The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock with browse and search, Watch, Ask, Upload) work end to end on synthetic data. The QuickBooks import and the open-weights run are not done. See "Honest limits".

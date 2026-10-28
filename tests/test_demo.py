@@ -59,3 +59,21 @@ def test_the_bundled_demo_file_is_what_the_generator_makes(tmp_path):
     assert r.returncode == 0, r.stderr[-500:]
     norm = lambda b: b.replace(b"\r\n", b"\n")      # git may check the file out with CRLF on Windows
     assert norm((out / "upload_demo_200.csv").read_bytes()) == norm(DEMO_FILE.read_bytes())
+
+
+def test_a_local_env_file_is_read_before_the_app_is_created(tmp_path, monkeypatch):
+    """LOREG_AS_OF and LOREG_DEMO written in .env must take effect: the app reads them when it is created. (Values here are not secrets.)"""
+    from app.api.main import load_env
+    env = tmp_path / ".env"
+    env.write_text("LOREG_AS_OF=2026-10-26\nLOREG_DEMO=1\n", encoding="utf-8")
+    for key in ("LOREG_AS_OF", "LOREG_DEMO"):          # load_env writes into os.environ directly, so register the clean-up first
+        monkeypatch.setenv(key, "x")
+        monkeypatch.delenv(key)
+    load_env(env)
+    c = TestClient(create_app(tmp_path / "e.sqlite"))
+    assert c.get("/api/demo").json() == {"enabled": True}
+    assert c.post("/api/demo/load").json()["as_of"] == "2026-10-26"
+    monkeypatch.setenv("LOREG_AS_OF", "2026-11-01")               # a value already in the environment wins over the file
+    load_env(env)
+    import os
+    assert os.environ["LOREG_AS_OF"] == "2026-11-01"

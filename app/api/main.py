@@ -21,6 +21,15 @@ from app.pipelines import AGENT_TIMEOUT_S, ResultCache
 from app.storage.db import DEFAULT_DB_PATH, init_db
 
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+
+def load_env(path=ENV_FILE) -> None:
+    """Read a local .env into the environment (values already set in the environment win). Without this, LOREG_AS_OF and LOREG_DEMO in .env
+    would be read too late: the app reads them when it is created. The file is never committed and its values are never printed."""
+    from dotenv import load_dotenv
+    load_dotenv(path)
+
 mimetypes.add_type("text/javascript", ".js")   # Windows registries sometimes say text/plain, which browsers refuse for module scripts
 
 
