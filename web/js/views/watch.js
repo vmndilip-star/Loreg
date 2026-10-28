@@ -4,6 +4,7 @@ import { append, clear, el } from '../dom.js';
 import { count, date, excerptText, money } from '../format.js';
 import { alertSummary, freshnessNotice, humanCode, sourceBlock } from '../parts.js';
 import { planCard } from '../plan.js';
+import { trackerTile } from '../tracker.js';
 
 export async function mount(root, ctx) {
   let summary;
@@ -51,13 +52,16 @@ export async function mount(root, ctx) {
     if (fresh && fresh.help_requested) await showPlan(fresh);
   }
   drawAlert(g);
+  const tracker = trackerTile(ctx);
   append(root, [el('h1', { class: 'h3 mb-3' }, 'Loreg Watch'), staleSlot,
     el('div', { class: 'row g-3' },
       el('div', { class: 'col-12 col-lg-4' }, el('section', { class: 'tile tile-amber d-flex flex-column gap-2', 'aria-label': 'Money at risk' },
         el('div', { class: 'label' }, 'Money at risk'), moneyNumber, acceptedLine)),
       alertCol,
       planSlot,
-      el('div', { class: 'col-12' }, newsTile(items, ctx, redrawAlert)))]);
+      el('div', { class: 'col-12' }, tracker.tile),
+      el('div', { class: 'col-12' }, newsTile(items, ctx, async () => { await redrawAlert(); await tracker.redraw(); })))]);
+  await tracker.redraw();
 
   async function showPlan(group) {
     clear(planSlot);

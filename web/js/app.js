@@ -17,6 +17,13 @@ const ctx = {
   signal: null,
   params: new URLSearchParams(),   // the part of the address after ?, for example #stock?category=tv
   announce(text) { live.textContent = text; },
+  // The header's unread count, from the server's number. Hidden at zero.
+  setUnread(n) {
+    const badge = document.getElementById('unread');
+    badge.hidden = !(n > 0);
+    badge.textContent = n > 0 ? `${n} new` : '';
+    badge.setAttribute('aria-label', `${n} unread launch notification${n === 1 ? '' : 's'}`);
+  },
   setAsOf(iso) { document.getElementById('asOf').textContent = iso ? `Stock as of ${date(iso)}. Synthetic data.` : ''; },
   showBanner(kind, text) {
     clear(banner);
@@ -68,5 +75,7 @@ async function show(name) {
 }
 
 initSearch(ctx);
+// Opening the app records what the launch tracker has newly noticed (each change once) and shows the unread count.
+api('/notifications/refresh', { method: 'POST' }).then((r) => ctx.setUnread(r.unread)).catch(() => {});
 window.addEventListener('hashchange', () => show(currentName()));
 show(currentName());

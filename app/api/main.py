@@ -15,6 +15,7 @@ from app.api.routes_demo import router as demo_router
 from app.api.routes_plan import router as plan_router
 from app.api.routes_ask import router as ask_router
 from app.api.routes_watch import router as watch_router
+from app.api.routes_tracker import router as tracker_router
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
 from app.pipelines import AGENT_TIMEOUT_S, ResultCache
@@ -65,6 +66,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.include_router(browse_router)
     app.include_router(plan_router)
     app.include_router(watch_router)
+    app.include_router(tracker_router)
     app.include_router(ask_router)
     if web_dir and Path(web_dir).is_dir():
         app.mount("/", WebFiles(directory=str(web_dir), html=True), name="web")   # last, so /api routes win
