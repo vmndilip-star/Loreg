@@ -57,4 +57,5 @@ def test_the_bundled_demo_file_is_what_the_generator_makes(tmp_path):
     r = subprocess.run([sys.executable, str(ROOT / "data" / "generate_catalog.py"), "--seed", "2026", "--as-of", "2026-10-26", "--out", str(out)],
                        capture_output=True, text=True, cwd=ROOT)
     assert r.returncode == 0, r.stderr[-500:]
-    assert (out / "upload_demo_200.csv").read_bytes() == DEMO_FILE.read_bytes()
+    norm = lambda b: b.replace(b"\r\n", b"\n")      # git may check the file out with CRLF on Windows
+    assert norm((out / "upload_demo_200.csv").read_bytes()) == norm(DEMO_FILE.read_bytes())
