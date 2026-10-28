@@ -30,3 +30,6 @@ data/generated/
 
 # Article excerpts captured for the demo stay on the machine that captured them
 data/demo/*.local.json
+
+# setuptools output of "pip install -e ."
+build/

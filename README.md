@@ -54,7 +54,8 @@ git clone https://github.com/vmndilip-star/Loreg.git
 cd Loreg
 python -m venv .venv
 .venv\Scripts\activate                    # macOS / Linux: source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt         # exact versions, the ones the tests ran on
+pip install --no-deps -e .
 copy .env.example .env                    # macOS / Linux: cp .env.example .env
 python -m uvicorn app.main:app
 ```

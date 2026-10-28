@@ -5,11 +5,13 @@ or from a result stored in this repository, it is marked **UNVERIFIED**.
 
 ## 1. Dependencies
 
-There is no lockfile and no requirements file. `pyproject.toml` lists the runtime dependencies without pinned versions (only
-`pydantic>=2` and `openai>=1.40` have a lower bound). The versions below are the ones installed in the development environment
-where the test suite was run (`pip show`, Python 3.13.2); another install may resolve to different versions.
+`requirements.txt` pins every runtime package to an exact version and `requirements-dev.txt` adds the test tools, also exact. The
+direct dependencies are pinned to the versions the live Meta journey ran on; the transitive ones are what pip resolved under those
+pins in a clean venv (Python 3.13). `pyproject.toml` still lists loose ranges (only `pydantic>=2` and `openai>=1.40` have a lower
+bound), so an install from it alone can resolve differently: a clean resolve on 2026-10-28 picked `openai 3.40.0`, which no test or
+live run has used. Install from the requirements files.
 
-| Runtime dependency (pyproject.toml) | Constraint | Installed here | Used for |
+| Runtime dependency (pyproject.toml) | Constraint there | Pinned in requirements.txt | Used for |
 |---|---|---|---|
 | fastapi | none | 0.162.0 | HTTP API (`app/api/`) |
 | uvicorn | none | 0.49.0 | ASGI server (`python -m uvicorn app.main:app`, `tests/live_server.py`) |
@@ -22,7 +24,7 @@ where the test suite was run (`pip show`, Python 3.13.2); another install may re
 | httpx | none | 0.28.1 | allowlisted news fetching (`app/watch/feeds.py`) |
 | starlette | (via fastapi) | 1.3.1 | static files, streaming response |
 
-Development only (`[project.optional-dependencies] dev`): pytest 9.1.1, httpx, playwright 1.64.1 (drives the system Chrome).
+Development only (`requirements-dev.txt`): pytest 9.1.1, playwright 1.64.1 (drives the system Chrome) and their dependencies.
 
 **Agent or orchestration framework: none. No agent framework; custom code.**
 
@@ -169,8 +171,8 @@ These reasons come from what the code does. No framework was tried and no compar
 
 ## 5. Gaps: untested or assumed
 
-- **Dependency versions are not pinned.** There is no lockfile, so a fresh install can get different versions from those listed in
-  section 1.
+- **Pins are tested on one platform.** `requirements*.txt` were resolved and tested on Windows with Python 3.13; other platforms or
+  Python versions are untested. `pyproject.toml` itself is not pinned.
 - **Client error paths have no test.**
   - The repair attempt in `complete_json` (a second request after a validation error).
   - The 429 backoff with `Retry-After`.
