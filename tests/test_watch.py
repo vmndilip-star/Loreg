@@ -94,7 +94,7 @@ def shop(catalog_dir, tmp_path):
 
 
 def article(title="SYNTHETIC: Samsung QN90D Neo QLED refresh", html=BASE, slug="a1", pub="Mon, 26 Oct 2026 08:00:00 +0000"):
-    return {"title": title, "link": f"https://news.example.test/{slug}", "html": f"<p>{html}</p>", "pub": pub}
+    return {"title": title, "link": f"https://news.samsung.com/global/synthetic-{slug}", "html": f"<p>{html}</p>", "pub": pub}
 
 
 def alert_source(client):
@@ -249,7 +249,7 @@ def test_a_matching_article_attaches_a_real_dated_source_to_the_alert(shop):
     client, rep = run_scan(None, shop, FakeWeb(rss([article()])))
     assert rep["new_items"] == 1 and rep["events"] == 1 and rep["matched_events"] == 1 and rep["alerts_with_a_source"] == 1
     src = alert_source(client)
-    assert src == {"attached": True, "name": "SYNTHETIC Test Newsroom" if False else src["name"], "url": "https://news.example.test/a1",
+    assert src == {"attached": True, "name": "SYNTHETIC Test Newsroom" if False else src["name"], "url": "https://news.samsung.com/global/synthetic-a1",
                    "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z",
                    "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written",
                    "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
@@ -293,7 +293,7 @@ def test_a_stored_event_attaches_to_alerts_made_by_a_later_upload(catalog_dir, t
 def test_duplicate_articles_are_ignored(shop):
     a = article()
     same_url_tracking = dict(a, link=a["link"] + "?utm_source=x#frag", title="SYNTHETIC: a different headline", html="<p>different words entirely</p>")
-    same_content_other_url = dict(a, link="https://news.example.test/other")
+    same_content_other_url = dict(a, link="https://news.samsung.com/global/synthetic-other")
     web = FakeWeb(rss([a, same_url_tracking, same_content_other_url]))
     client, rep = run_scan(None, shop, web)
     s = rep["sources"][0]

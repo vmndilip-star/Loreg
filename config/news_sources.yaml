@@ -1,0 +1,22 @@
+# Where Loreg Watch may read news from. Nothing outside this file is ever fetched.
+#
+# allowed_hosts: exact host names (https only, default port, no user name in the address). A look-alike such as
+#   news.samsung.com.example or evilnews.samsung.com is NOT the same host and is refused, including after a redirect.
+# sources: the feeds read on "Check for news". Each feed address must be on an allowed host.
+# Only the Samsung newsroom is listed. Other brands' feeds are added here only after their robots.txt and terms
+# have been read by the owner; no address is guessed.
+allowed_hosts:
+  - news.samsung.com
+
+sources:
+  - name: Samsung Global Newsroom
+    brand: Samsung
+    url: https://news.samsung.com/global/feed
+    kind: rss
+
+limits:
+  max_feed_bytes: 2097152     # 2 MB
+  max_redirects: 3
+  timeout_s: 10
+  excerpt_chars: 280          # the most of an article that is kept after it has been read
+  body_keep_days: 7           # an unread article body is cleared after this many days

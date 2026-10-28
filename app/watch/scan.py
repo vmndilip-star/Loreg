@@ -14,12 +14,14 @@ import httpx
 
 from app.agents.market import Article, read_article, written_date_to_iso
 from app.llm.client import LLMClient
+from app.watch.allowlist import check_url, load_news_config
 from app.watch.attach import attach_events_to_alerts
-from app.watch.feeds import SAMSUNG_FEED, FeedResult, canonical_url, content_hash, fetch_feed
+from app.watch.feeds import FeedResult, canonical_url, content_hash, fetch_feed
 from app.watch.matching import catalog_lines, match_lines
 from app.watch.sanitize import INVISIBLE_FLAG, sanitize_html, sanitize_title
 
-DEFAULT_SOURCES = [{"name": "Samsung Global Newsroom", "brand": "Samsung", "url": SAMSUNG_FEED, "kind": "rss"}]
+NEWS = load_news_config()                 # config/news_sources.yaml: the allowed hosts and the feeds on them
+DEFAULT_SOURCES = [dict(s) for s in NEWS.sources]
 MAX_ENTRIES = 100
 MAX_EXTRACT_PER_SCAN = 10
 _LAUNCH_CUE = re.compile(r"\b(launch(?:es|ed|ing)?|unveil(?:s|ed|ing)?|introduc(?:e|es|ed|ing)|announce(?:s|d)?|available|release(?:s|d)?|"
@@ -27,8 +29,8 @@ _LAUNCH_CUE = re.compile(r"\b(launch(?:es|ed|ing)?|unveil(?:s|ed|ing)?|introduc(
 _ANY_DATE = re.compile(r"\b\d{4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE)
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def stamp(now: datetime | None = None) -> str:
+    return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def ensure_source(conn: sqlite3.Connection, shop_id: int, src: dict, ts: str):
@@ -54,13 +56,17 @@ def _entry_html(entry) -> str:
     return entry.get("summary", "") or ""
 
 
-def store_items(conn: sqlite3.Connection, source, entries: list, ts: str) -> dict:
+def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowed=None) -> dict:
     """Sanitize and store new entries. Duplicates (same canonical URL or same content) are ignored."""
-    new = dup_url = dup_content = skipped = 0
+    allowed = allowed if allowed is not None else NEWS.allowed_hosts
+    new = dup_url = dup_content = skipped = offsite = 0
     for e in entries[:MAX_ENTRIES]:
         link = (e.get("link") or "").strip()
         if not link.startswith(("http://", "https://")):
             skipped += 1
+            continue
+        if check_url(link, allowed):                      # a link to another site, or not https: never stored
+            offsite += 1
             continue
         canon = canonical_url(link)
         if conn.execute("SELECT 1 FROM market_items WHERE canonical_url = ?", (canon,)).fetchone():
@@ -78,7 +84,7 @@ def store_items(conn: sqlite3.Connection, source, entries: list, ts: str) -> dic
                      " injection_flags, untrusted, extracted) VALUES (?,?,?,?,?,?,?,?,?,1,0)",
                      (source["id"], link, canon, title or "(no title)", _published(e), ts, text, chash, json.dumps(flags)))
         new += 1
-    return {"new": new, "duplicate_url": dup_url, "duplicate_content": dup_content, "skipped": skipped}
+    return {"new": new, "duplicate_url": dup_url, "duplicate_content": dup_content, "skipped": skipped, "offsite_links": offsite}
 
 
 def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list[dict], ts: str, limit: int = MAX_EXTRACT_PER_SCAN) -> dict:
@@ -143,11 +149,16 @@ def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
     return out
 
 
-def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLMClient, catalog, sources: list[dict] | None = None) -> dict:
-    ts = _now()
+def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLMClient, catalog, sources: list[dict] | None = None,
+         now: datetime | None = None, news=NEWS) -> dict:
+    ts = stamp(now)
     lines = catalog_lines(catalog.variants)
     report = {"scanned_at": ts, "sources": [], "new_items": 0, "events": 0, "matched_events": 0, "network": "ok", "message": ""}
     for src in sources or DEFAULT_SOURCES:
+        refused = check_url(src["url"], news.allowed_hosts)
+        if refused:                                       # never configured, never fetched
+            report["sources"].append({"source": src.get("name", "?"), "url": src["url"], "status": "blocked_host", "message": f"not fetched: {refused}"})
+            continue
         conn.execute("BEGIN IMMEDIATE")
         try:
             source = ensure_source(conn, shop_id, src, ts)
@@ -157,7 +168,8 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
             raise
         res: FeedResult = fetch_feed(http, source["url"], etag=source["etag"], last_modified=source["last_modified"],
                                      robots_allowed=None if source["robots_allowed"] is None else bool(source["robots_allowed"]),
-                                     robots_checked_at=source["robots_checked_at"])
+                                     robots_checked_at=source["robots_checked_at"], now=now, allowed=news.allowed_hosts,
+                                     max_bytes=news.max_feed_bytes, max_redirects=news.max_redirects)
         entry = {"source": source["name"], "url": source["url"], "status": res.status, "message": res.message}
         conn.execute("BEGIN IMMEDIATE")
         try:
@@ -171,7 +183,7 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
                 vals += [res.etag, res.last_modified]
             conn.execute(f"UPDATE market_sources SET {', '.join(sets)} WHERE id = ?", (*vals, source["id"]))
             if res.status == "ok":
-                entry.update(store_items(conn, source, res.entries, ts))
+                entry.update(store_items(conn, source, res.entries, ts, news.allowed_hosts))
                 report["new_items"] += entry["new"]
             conn.execute("COMMIT")
         except BaseException:

@@ -3,7 +3,7 @@
 import mimetypes
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -34,8 +34,9 @@ class WebFiles(StaticFiles):
 
 
 def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=None, catalog_path=None, llm=None, http_factory=None,
-               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR) -> FastAPI:
-    """`llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
+               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None) -> FastAPI:
+    """`clock`: a function returning the current time (timezone-aware). Tests inject one; news freshness and fetch dates use it.
+    `llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
     app = FastAPI(title="Loreg API", version="0.2.0")
     path = Path(db_path or os.environ.get("LOREG_DB") or DEFAULT_DB_PATH)
     init_db(path)
@@ -44,6 +45,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.state.catalog = load_catalog(catalog_path)
     app.state.llm = llm
     app.state.http_factory = http_factory
+    app.state.clock = clock or (lambda: datetime.now(timezone.utc))
     app.state.cache = ResultCache()                       # agent results by hash of their facts
     app.state.executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="agent")
     app.state.agent_timeout_s = agent_timeout_s

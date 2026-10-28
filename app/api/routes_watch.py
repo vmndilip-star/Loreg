@@ -14,7 +14,7 @@ def scan_now(request: Request, conn=Depends(get_conn), shop_id: int = Depends(ge
     """Fetch the configured feed once (robots.txt, conditional GET, 10 s timeout, 2 MB cap), store sanitized items,
     read launch events and match them to catalog lines. If the network is down the stored items are returned and the
     response says so. Nothing is invented: an alert only gets a source that really matched."""
-    report = watch.scan(conn, shop_id, http=http, llm=llm, catalog=request.app.state.catalog)
+    report = watch.scan(conn, shop_id, http=http, llm=llm, catalog=request.app.state.catalog, now=request.app.state.clock())
     return {**report, "items": watch.list_items(conn, 20)}
 
 
