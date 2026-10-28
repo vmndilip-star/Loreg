@@ -63,7 +63,7 @@ def install_stored_items(conn: sqlite3.Connection, shop_id: int, path, now: date
     """Real items read in one earlier scan (data/demo/news_items.json), kept as labelled stored copies with their true dates so the Watch page
     shows real news even when robots.txt times out. They never attach to an alert and are never shown as fresh. Returns how many were added.
 
-    The committed file holds titles, addresses, dates and hashes, and an excerpt for at most three items. An excerpt is optional: an item
+    The committed file holds titles, addresses, dates and hashes, and no article text. An excerpt is optional: an item
     without one renders fine. If the git-ignored local file exists (python scripts/capture_demo_news.py writes it), its excerpts fill in the rest."""
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))

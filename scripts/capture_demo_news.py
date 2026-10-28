@@ -2,7 +2,7 @@
 
     python scripts/capture_demo_news.py              reads the feed once and writes the latest dated items as stored copies, so the demo Watch
                                                      page has real items even when robots.txt times out:
-                                                       data/demo/news_items.json        titles, addresses, dates, hashes and at most 3 excerpts (committed)
+                                                       data/demo/news_items.json        titles, addresses, dates and hashes only (committed)
                                                        data/demo/news_items.local.json  the same with every excerpt (git-ignored, stays on this machine)
                                                      It also lists items that name one of our launch-family lines.
     python scripts/capture_demo_news.py --pick 2     also writes data/demo/news_copy.json: the stored copy of candidate 2, used as the alert's source
@@ -37,7 +37,7 @@ from app.watch.sanitize import sanitize_html, sanitize_title  # noqa: E402
 from app.watch.scan import _entry_html, _published  # noqa: E402  (the same reading of a feed entry that Watch uses)
 
 
-MAX_COMMITTED_EXCERPTS = 3        # how many excerpts the file that is committed to the public repo may carry
+COMMITTED_FIELDS = ("url", "title", "published_at", "fetched_at", "content_hash", "domain")      # copyright: no article text goes into the public repo
 
 
 def candidates(entries, news, lines, launch_ids):
@@ -86,12 +86,12 @@ def main() -> int:
     items = snapshot(res.entries, news, now)
     meta = {"brand": "Samsung", "source": news.sources[0]["name"], "captured_by": "scripts/capture_demo_news.py", "robots_checked_on": res.robots_checked_on}
     NEWS_ITEMS.parent.mkdir(parents=True, exist_ok=True)
-    # The committed file keeps titles, addresses, dates and hashes, and an excerpt for at most MAX_COMMITTED_EXCERPTS items.
+    # The committed file keeps titles, addresses, dates and hashes, and no excerpt at all.
     # The full excerpts go to a git-ignored local file that the demo reads when it is there.
-    trimmed = [d if n < MAX_COMMITTED_EXCERPTS else {k: v for k, v in d.items() if k != "excerpt"} for n, d in enumerate(items)]
+    trimmed = [{k: d[k] for k in COMMITTED_FIELDS} for d in items]
     NEWS_ITEMS.write_text(json.dumps({**meta, "items": trimmed}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     NEWS_ITEMS_LOCAL.write_text(json.dumps({**meta, "items": items}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Wrote {NEWS_ITEMS.name} ({len(items)} real items, {MAX_COMMITTED_EXCERPTS} excerpts, safe to commit) and {NEWS_ITEMS_LOCAL.name} "
+    print(f"Wrote {NEWS_ITEMS.name} ({len(items)} real items, no excerpts, safe to commit) and {NEWS_ITEMS_LOCAL.name} "
           f"(all excerpts, git-ignored). Newest published {items[0]['published_at'][:10] if items else '-'}, fetched {now:%Y-%m-%d}.")
     found = candidates(res.entries, news, lines, launch_ids)
     print(f"{len(res.entries)} items in the feed; {len(found)} name one of our launch-family lines (and are dated and clean).")

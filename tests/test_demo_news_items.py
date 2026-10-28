@@ -42,7 +42,7 @@ def demo_app(tmp_path, monkeypatch, items_path, web=None, name="d.sqlite"):
 
 
 # ------------------------------------------------------------------------------ the file that ships with the repo
-def test_the_shipped_file_holds_titles_addresses_dates_and_hashes_and_at_most_three_excerpts():
+def test_the_shipped_file_holds_titles_addresses_dates_and_hashes_and_no_article_text_at_all():
     doc = json.loads(NEWS_ITEMS.read_text(encoding="utf-8"))
     items = doc["items"]
     assert 1 <= len(items) <= 10 and doc["captured_by"] == "scripts/capture_demo_news.py"
@@ -51,9 +51,7 @@ def test_the_shipped_file_holds_titles_addresses_dates_and_hashes_and_at_most_th
         assert check_url(d["url"], ALLOWED) == "" and d["url"].startswith("https://news.samsung.com/global/")
         assert date.fromisoformat(d["published_at"][:10]) <= date.fromisoformat(d["fetched_at"][:10]) <= today          # published, then fetched; nothing in the future
         assert re.fullmatch(r"[0-9a-f]{64}", d["content_hash"]) and d["title"].strip()
-        assert set(d) <= {"url", "title", "published_at", "fetched_at", "excerpt", "content_hash", "domain"}               # no article body, nothing else
-    with_excerpt = [d for d in items if "excerpt" in d]
-    assert len(with_excerpt) <= 3 and all(0 < len(d["excerpt"]) <= 280 for d in with_excerpt)       # copyright: three short quotations at most
+        assert set(d) == {"url", "title", "published_at", "fetched_at", "content_hash", "domain"}               # copyright: not one word of an article is committed
     assert NEWS_ITEMS.stat().st_size < 10_000
     assert len({d["content_hash"] for d in items}) == len(items) and len({d["url"] for d in items}) == len(items)
 
