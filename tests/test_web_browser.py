@@ -122,6 +122,20 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         assert titles == ["Discount 5%", "Return", "Bundle"], titles      # three different outcomes
         assert "minimum advertised price of $822" in cards.nth(2).inner_text()
 
+        # 5b. how far a discount may go, and what stops the next step: the figures are the API's cents, shown as dollars
+        alert_id = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["alert_id"]
+        api_plan = {r["sku"]: r for r in httpx.post(server.url + f"/api/alerts/{alert_id}/plan", params={"limit": 3}).json()["recommendations"]}
+        dollars2 = lambda c: f"${c / 100:,.2f}"  # noqa: E731
+        h = api_plan[exposed[0]["sku"]]["headroom"]
+        note = cards.nth(0).locator("[data-testid=headroom]")
+        expect(note).to_contain_text(f"Largest discount allowed: {h['largest_pct']}% ({dollars2(h['largest_price_cents'])} on the shelf).")
+        expect(note).to_contain_text(f"Next step, {h['next_pct']}% ({dollars2(h['next_price_cents'])}), would go below cost ({dollars2(h['floor_cents'])}).")
+        expect(cards.nth(1).locator("[data-testid=headroom]")).to_have_count(0)                  # a return card has none
+        h = api_plan[exposed[2]["sku"]]["headroom"]
+        note = cards.nth(2).locator("[data-testid=headroom]")
+        expect(note).to_contain_text("No discount step is allowed.")
+        expect(note).to_contain_text(f"Next step, 5% ({dollars2(h['next_price_cents'])}), would go below the minimum advertised price ({dollars2(h['floor_cents'])}).")
+
         # 6. accept the first option: capital at risk drops by exactly that item's money, and the server agrees
         first = exposed[0]
         cards.nth(0).locator("[data-testid=accept]").click()

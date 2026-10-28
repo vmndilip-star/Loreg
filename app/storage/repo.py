@@ -212,17 +212,26 @@ def item_options(it, as_of: date, th: Thresholds) -> actions.OptionSet:
                                    return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])        # money in cents, like cost and price
 
 
-def _rec_json(rec, item) -> dict:
+def _headroom_json(opts: actions.OptionSet, item, th: Thresholds) -> dict:
+    """Read at the moment a card is built, never stored: how far a discount may go and what stops the next step (money in cents)."""
+    h = actions.discount_headroom(opts, sell_price=item["sell_price_cents"], unit_cost=item["unit_cost_cents"], map_price=item["map_cents"], th=th)
+    return {"largest_pct": h.largest_pct, "largest_price_cents": h.largest_price, "next_pct": h.next_pct, "next_price_cents": h.next_price,
+            "blocked_by": h.blocked_by, "floor_cents": h.floor, "map_blocked": opts.map_blocked}
+
+
+def _rec_json(rec, item, as_of: date, th: Thresholds) -> dict:
     reasons = json.loads(rec["reasons_json"])
     d = rec["discount_pct"]
     label = {"discount": f"Discount {d}%", "bundle": "Bundle", "return": "Return", "hold": "Hold"}[rec["action"]]
     dos = metrics.days_of_stock(item["qty"], item["units_sold_90d"])
+    opts = item_options(item, as_of, th)
     chips = [f"SKU {rec['sku']}", "Days of stock " + (str(round(dos)) if dos is not None else "no sales in 90 days")]
     return {"id": rec["id"], "alert_id": rec["alert_id"], "sku": rec["sku"], "name": _name(item), "shelf": item["qty"],
             "tied_cents": rec["capital_cents"], "option": rec["action"], "option_label": label, "discount_pct": d,
             "margin_impact_cents": rec["margin_impact_cents"], "reasons": reasons, "chips": chips,
             "citations": json.loads(rec["citations_json"]), "status": rec["status"], "decided_at": rec["decided_at"],
-            "source": rec["source"]}
+            "source": rec["source"],
+            "headroom": _headroom_json(opts, item, th) if rec["action"] == "discount" or opts.map_blocked else None}       # discount and MAP-blocked cards only
 
 
 def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: Thresholds) -> list[dict]:
@@ -259,7 +268,7 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
         raise
     by_sku = {it["sku"]: it for it in items}
     recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? ORDER BY capital_cents DESC, sku", (alert_id,)).fetchall()
-    return [_rec_json(r, by_sku[r["sku"]]) for r in recs if r["sku"] in by_sku]
+    return [_rec_json(r, by_sku[r["sku"]], as_of, th) for r in recs if r["sku"] in by_sku]
 
 
 def item_plan(conn: sqlite3.Connection, alert_id: int, sku: str):
