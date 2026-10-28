@@ -156,8 +156,9 @@ def sync(conn: sqlite3.Connection, shop_id: int, today: date, th, ts: str, news=
             if d.text == prev[0]:
                 continue
             added["history"] += conn.execute(
-                "INSERT OR IGNORE INTO launch_history (watch_id, old_date, old_iso, new_date, new_iso, source_url, published_at, fetched_at, recorded_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?)", (watch_id, prev[0], prev[1], d.text, d.iso, obs["url"], obs["published"], obs["fetched"], ts)).rowcount
+                "INSERT OR IGNORE INTO launch_history (watch_id, shop_id, old_date, old_iso, new_date, new_iso, source_url, published_at, fetched_at,"
+                " recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (watch_id, shop_id, prev[0], prev[1], d.text, d.iso, obs["url"], obs["published"], obs["fetched"], ts)).rowcount
             prev = (d.text, d.iso)
     for w in tracker(conn, shop_id, today, th, news):                 # again, so the states see the history just added
         added["notifications"] += conn.execute(

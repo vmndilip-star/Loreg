@@ -93,8 +93,8 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
         for n, r in enumerate(rows, start=1):
             sku = str(r.get("sku") or "").strip()
             for code in sorted(codes_by_row.get(n, ())):
-                conn.execute("INSERT INTO dq_issues (upload_id, row_number, sku, code, severity, quarantined) VALUES (?, ?, ?, ?, ?, ?)",
-                             (upload_id, n, sku, code, SEVERITY[code], 1 if n in err_rows else 0))
+                conn.execute("INSERT INTO dq_issues (upload_id, shop_id, row_number, sku, code, severity, quarantined) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                             (upload_id, shop_id, n, sku, code, SEVERITY[code], 1 if n in err_rows else 0))
             if n in err_rows:
                 continue  # quarantined: never reaches the stock tables
 
@@ -148,10 +148,10 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                  last_sale.isoformat() if last_sale else None, received.isoformat() if received else None, u30, u90, seasonal,
                  (r.get("supplier") or "").strip() or None, rw.isoformat() if rw else None,
                  status, th.rule_version, dsls, capital, 1 if reasons else 0, ",".join(reasons) or None))
-            conn.execute("INSERT INTO inventory_snapshots (upload_id, sku, qty, unit_cost_cents, sell_price_cents, status, capital_cents)"
-                         " VALUES (?,?,?,?,?,?,?)", (upload_id, sku, qty, cost, sell, status, capital))
-            conn.execute("INSERT INTO classifications (upload_id, sku, status, rule_version, dsls, classified_at) VALUES (?,?,?,?,?,?)",
-                         (upload_id, sku, status, th.rule_version, dsls, ts))
+            conn.execute("INSERT INTO inventory_snapshots (upload_id, shop_id, sku, qty, unit_cost_cents, sell_price_cents, status, capital_cents)"
+                         " VALUES (?,?,?,?,?,?,?,?)", (upload_id, shop_id, sku, qty, cost, sell, status, capital))
+            conn.execute("INSERT INTO classifications (upload_id, shop_id, sku, status, rule_version, dsls, classified_at) VALUES (?,?,?,?,?,?,?)",
+                         (upload_id, shop_id, sku, status, th.rule_version, dsls, ts))
             kept += 1
 
         look_rows = (warn_rows | unsorted_rows | bad_date_rows | bad_map_rows) - err_rows

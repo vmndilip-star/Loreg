@@ -15,7 +15,24 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS shops (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    email TEXT,                      -- lower case; unique (index made by the version 6 migration). NULL only for a shop made before accounts
+    password_hash TEXT,              -- scrypt$N$r$p$salt$key (app/core/passwords.py); NULL: cannot sign in with a password (the demo shop)
+    org_name TEXT,                   -- the organization profile: plain text, trimmed, length-limited (app/core/accounts.py)
+    street TEXT,
+    city TEXT,
+    state TEXT,
+    zip TEXT,
+    country TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL REFERENCES shops(id),
+    token_hash TEXT NOT NULL UNIQUE, -- SHA-256 of the session cookie's token; the token itself is never stored
+    csrf_token TEXT NOT NULL,        -- must come back in X-CSRF-Token on every POST made with this session
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS uploads (
@@ -87,6 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_skus_product ON skus(product_id);
 CREATE TABLE IF NOT EXISTS inventory_snapshots (
     id INTEGER PRIMARY KEY,
     upload_id INTEGER NOT NULL REFERENCES uploads(id),
+    shop_id INTEGER REFERENCES shops(id),   -- the upload's shop (added in version 6; filled in for older rows)
     sku TEXT NOT NULL,
     qty INTEGER NOT NULL,
     unit_cost_cents INTEGER NOT NULL,
@@ -99,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_upload ON inventory_snapshots(upload_id
 CREATE TABLE IF NOT EXISTS classifications (
     id INTEGER PRIMARY KEY,
     upload_id INTEGER NOT NULL REFERENCES uploads(id),
+    shop_id INTEGER REFERENCES shops(id),   -- the upload's shop (added in version 6; filled in for older rows)
     sku TEXT NOT NULL,
     status TEXT NOT NULL,
     rule_version INTEGER NOT NULL,
@@ -119,6 +138,7 @@ CREATE TABLE IF NOT EXISTS sales_events (
 CREATE TABLE IF NOT EXISTS dq_issues (
     id INTEGER PRIMARY KEY,
     upload_id INTEGER NOT NULL REFERENCES uploads(id),
+    shop_id INTEGER REFERENCES shops(id),   -- the upload's shop (added in version 6; filled in for older rows)
     row_number INTEGER NOT NULL,
     sku TEXT,
     code TEXT NOT NULL,
@@ -254,6 +274,7 @@ CREATE TABLE IF NOT EXISTS launch_watch (
 CREATE TABLE IF NOT EXISTS launch_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     watch_id INTEGER NOT NULL REFERENCES launch_watch(id),
+    shop_id INTEGER REFERENCES shops(id),   -- the watch's shop (added in version 6; filled in for older rows)
     old_date TEXT,                          -- as written; NULL for the first date
     old_iso TEXT,
     new_date TEXT NOT NULL,                 -- as written in the source
@@ -285,8 +306,8 @@ SCHEMA += LAUNCH_SCHEMA
 
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
           "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs",
-          "launch_watch", "launch_history", "notifications")
-SCHEMA_VERSION = 5
+          "launch_watch", "launch_history", "notifications", "sessions")
+SCHEMA_VERSION = 6
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -306,7 +327,8 @@ def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
 
 def migrate(conn: sqlite3.Connection) -> None:
     """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents; version 4 keeps only an excerpt of each article;
-    version 5 adds the launch tracker (its tables only: no existing row is changed)."""
+    version 5 adds the launch tracker (its tables only: no existing row is changed); version 6 adds accounts, sessions and a shop_id on every
+    table that holds one shop's rows."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version >= SCHEMA_VERSION:
         return
@@ -327,7 +349,46 @@ def migrate(conn: sqlite3.Connection) -> None:
         _migrate_to_4(conn)
     if version < 5:
         conn.executescript(LAUNCH_SCHEMA)
+    if version < 6:
+        _migrate_to_6(conn)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+SHOP_COLUMNS = ("email", "password_hash", "org_name", "street", "city", "state", "zip", "country")
+_HISTORY_TRIGGERS = ("CREATE TRIGGER IF NOT EXISTS launch_history_no_update BEFORE UPDATE ON launch_history"
+                     " BEGIN SELECT RAISE(ABORT, 'launch_history is append-only'); END",
+                     "CREATE TRIGGER IF NOT EXISTS launch_history_no_delete BEFORE DELETE ON launch_history"
+                     " BEGIN SELECT RAISE(ABORT, 'launch_history is append-only'); END")
+
+
+def _migrate_to_6(conn: sqlite3.Connection) -> None:
+    """Accounts: profile and password columns on shops, a unique email, a sessions table, and shop_id on the four tables that held one
+    shop's rows only through a parent (filled in from that parent). No row is added or removed and no other value changes.
+
+    launch_history is append-only. Its triggers are dropped for the one UPDATE that fills in shop_id and created again in the same
+    transaction; no date, address or other column is touched."""
+    for col in SHOP_COLUMNS:
+        if not _has_column(conn, "shops", col):
+            conn.execute(f"ALTER TABLE shops ADD COLUMN {col} TEXT")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS shops_email_unique ON shops (lower(email)) WHERE email IS NOT NULL")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        for table in ("inventory_snapshots", "classifications", "dq_issues"):
+            if not _has_column(conn, table, "shop_id"):
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN shop_id INTEGER REFERENCES shops(id)")
+            conn.execute(f"UPDATE {table} SET shop_id = (SELECT u.shop_id FROM uploads u WHERE u.id = {table}.upload_id) WHERE shop_id IS NULL")
+        if not _has_column(conn, "launch_history", "shop_id"):
+            conn.execute("ALTER TABLE launch_history ADD COLUMN shop_id INTEGER REFERENCES shops(id)")
+        if conn.execute("SELECT 1 FROM launch_history WHERE shop_id IS NULL LIMIT 1").fetchone():
+            conn.execute("DROP TRIGGER IF EXISTS launch_history_no_update")
+            conn.execute("UPDATE launch_history SET shop_id = (SELECT w.shop_id FROM launch_watch w WHERE w.id = launch_history.watch_id)"
+                         " WHERE shop_id IS NULL")
+        for ddl in _HISTORY_TRIGGERS:
+            conn.execute(ddl)
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def _migrate_to_4(conn: sqlite3.Connection) -> None:

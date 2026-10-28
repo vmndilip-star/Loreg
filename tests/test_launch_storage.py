@@ -29,10 +29,10 @@ def history(con):
     return [tuple(r) for r in con.execute("SELECT * FROM launch_history ORDER BY id")]
 
 
-def test_a_new_database_is_at_version_5_with_the_tracker_tables(tmp_path):
+def test_a_new_database_has_the_tracker_tables(tmp_path):
     init_db(tmp_path / "n.sqlite")
     con = db(tmp_path / "n.sqlite")
-    assert SCHEMA_VERSION == 5 and con.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert SCHEMA_VERSION >= 5 and con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     names = {r["name"] for r in con.execute("SELECT name FROM sqlite_master")}
     assert {"launch_watch", "launch_history", "notifications", "launch_history_no_update", "launch_history_no_delete"} <= names
     assert {"launch_watch", "launch_history", "notifications"} <= set(TABLES)
@@ -102,7 +102,7 @@ def test_a_version_4_database_is_migrated_in_place_and_keeps_its_rows(tmp_path):
     con.close()
     init_db(path)
     con = db(path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert [tuple(r) for r in con.execute("SELECT * FROM market_items")] == items
     seed = con.execute("INSERT INTO launch_watch (shop_id, line_id, synthetic, created_at) VALUES (1, 'l', 0, 'x')")
     con.execute("INSERT INTO launch_history (watch_id, new_date, source_url, recorded_at) VALUES (?, 'March 12, 2027', 'u', 'x')", (seed.lastrowid,))
