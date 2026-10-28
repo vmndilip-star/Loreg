@@ -496,3 +496,45 @@ def test_the_synthetic_title_and_source_name_follow_the_demo_when_it_is_loaded_a
     item = next(i for i in c2.get("/api/watch/items").json()["items"] if i["origin"] == "demo_synthetic")
     assert (item["source"], item["title"], item["label"]) == ("Loreg demo", "A newer QN90D Neo QLED generation is announced", "Demo article (synthetic)")
     assert not item["title"].startswith(item["label"])
+
+
+def test_the_launch_tracker_and_its_notification_count_in_chrome_at_360_and_1280(browser, tmp_path, monkeypatch):
+    """Tracker rows as text, the synthetic one labelled, the confirmed wording, history, the header count equal to the API's, no sideways scroll."""
+    from test_launch_tracker import LAUNCH, ON_SALE, at
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    web = FakeWeb(rss([LAUNCH, ON_SALE]))
+    with LiveServer(tmp_path / "tracker.sqlite", http_factory=web.factory(), clock=lambda: at(2026, 11, 22)) as server:
+        httpx.post(server.url + "/api/demo/load")
+        problems = []
+        for width, height in ((360, 800), (1280, 900)):
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+            page.goto(server.url + "/#watch")
+            if width == 360:
+                page.locator("[data-testid=scan]").click()                   # "Check for news": the real article is read and confirms its launch
+            rows = page.locator("[data-testid=tracker-row]")
+            expect(rows).to_have_count(2)
+            synthetic = rows.filter(has=page.locator("[data-testid=tracker-label]"))
+            expect(synthetic.locator("[data-testid=tracker-label]")).to_have_text("Demo article (synthetic)")
+            expect(synthetic.locator("[data-testid=tracker-state]")).to_have_text("Due")
+            expect(synthetic.locator("[data-testid=tracker-text]")).to_contain_text("the date alone does not mean it did")
+            real = rows.filter(has=page.locator("[data-testid=tracker-confirmation]"))
+            expect(real.locator("[data-testid=tracker-state]")).to_have_text("Launch confirmed")
+            expect(real.locator("[data-testid=tracker-text]")).to_have_text("Launch confirmed by a source dated 2026-11-21.")
+            real.locator("summary").click()
+            expect(real.locator("[data-testid=history-row]")).to_have_count(1)
+            expect(real.locator("[data-testid=history-row]")).to_contain_text("First date: November 20, 2026")
+            unread = httpx.get(server.url + "/api/notifications").json()["unread"]
+            assert unread >= 2
+            expect(page.locator("[data-testid=unread-count]")).to_have_text(f"{unread} new")
+            assert page.evaluate("document.documentElement.scrollWidth") <= width, f"sideways scroll at {width}px"
+            page.close()
+        page = browser.new_page(viewport={"width": 360, "height": 800})
+        page.goto(server.url + "/#watch")
+        page.locator("[data-testid=note-read]").first.click()
+        expect(page.locator("[data-testid=unread-count]")).to_have_text(f"{unread - 1} new")
+        page.locator("[data-testid=notes-read-all]").click()
+        expect(page.locator("[data-testid=unread-count]")).to_be_hidden()
+        assert httpx.get(server.url + "/api/notifications").json()["unread"] == 0
+        page.close()
+        assert problems == [], problems
