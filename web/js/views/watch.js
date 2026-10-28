@@ -53,7 +53,7 @@ export async function mount(root, ctx) {
   drawAlert(g);
   append(root, [el('h1', { class: 'h3 mb-3' }, 'Loreg Watch'), staleSlot,
     el('div', { class: 'row g-3' },
-      el('div', { class: 'col-12 col-lg-4' }, el('section', { class: 'tile tile-amber h-100 d-flex flex-column gap-2', 'aria-label': 'Money at risk' },
+      el('div', { class: 'col-12 col-lg-4' }, el('section', { class: 'tile tile-amber d-flex flex-column gap-2', 'aria-label': 'Money at risk' },
         el('div', { class: 'label' }, 'Money at risk'), moneyNumber, acceptedLine)),
       alertCol,
       planSlot,
