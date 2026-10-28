@@ -43,8 +43,22 @@ Hackathon work starts at the git tag **`hackathon-start`**. Everything in the co
 
 **Built during the hackathon** (everything after `hackathon-start` is new work):
 - The deterministic core, the API and storage, the model client, the agents, the 3,000-product catalog table and its generator, and the tests. Prior files are reference only; anything needed from them is reimplemented, not imported.
-- [`web/`](web/) is the real frontend. Its markup, styles and layout are **derived from** `prior/web-prototype/`. All of its wiring is new work: API calls, real data, file upload, purchase bills, and state that comes from the backend.
+- [`web/`](web/) is the real frontend. Its markup, styles and layout are **derived from** `prior/web-prototype/`. All of its wiring is new work: API calls, real data, file upload, the alert-first flow, the streamed chat, and state that comes from the backend. The prototype's "purchase bill" screen is not built.
+
+## Run it
+
+```
+pip install -e ".[dev]"
+python data/generate_catalog.py            # synthetic data (optional; the demo file is bundled in data/demo/)
+set LOREG_DEMO=1                           # optional: adds a "Use the demo stock list" button (PowerShell: $env:LOREG_DEMO = "1")
+python -m uvicorn app.main:app             # then open http://127.0.0.1:8000/
+```
+
+`LLM_BACKEND=mock` (the default) needs no key. For the real Meta model, put `META_API_KEY` in a local `.env` (never committed) and set `LLM_BACKEND=meta`.
+`python scripts/journey_meta.py` runs the whole demo journey once on the Meta backend and saves a transcript under `data/generated/`.
+
+Tests: `python -m pytest -q`. They run offline. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself if Playwright or Chrome is missing.
 
 ## Status
 
-Early stage. Planning is done and a synthetic dataset exists; application code is in progress.
+The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock, Watch, Ask, Upload) work end to end on synthetic data. Search and browse on Stock, the QuickBooks import, and the open-weights run are not done. All test data is synthetic.
