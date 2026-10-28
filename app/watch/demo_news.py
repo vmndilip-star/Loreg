@@ -50,37 +50,51 @@ def _unsourced_launch_alerts(conn: sqlite3.Connection, shop_id: int) -> int:
     return conn.execute("SELECT COUNT(*) AS n FROM alerts WHERE shop_id = ? AND kind = 'launch_family' AND source_item_id IS NULL", (shop_id,)).fetchone()["n"]
 
 
-def install_stored_items(conn: sqlite3.Connection, shop_id: int, path, now: datetime, news=NEWS) -> int:
+def _local_excerpts(path, limit: int) -> dict:
+    """url -> excerpt from the git-ignored local file the capture script writes. Anything that is not a short string is ignored."""
+    try:
+        items = json.loads(path.read_text(encoding="utf-8"))["items"]
+        return {d["url"]: d["excerpt"] for d in items if isinstance(d.get("excerpt"), str) and 0 < len(d["excerpt"]) <= limit}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+def install_stored_items(conn: sqlite3.Connection, shop_id: int, path, now: datetime, news=NEWS, local_path=None) -> int:
     """Real items read in one earlier scan (data/demo/news_items.json), kept as labelled stored copies with their true dates so the Watch page
-    shows real news even when robots.txt times out. They never attach to an alert and are never shown as fresh. Returns how many were added."""
+    shows real news even when robots.txt times out. They never attach to an alert and are never shown as fresh. Returns how many were added.
+
+    The committed file holds titles, addresses, dates and hashes, and an excerpt for at most three items. An excerpt is optional: an item
+    without one renders fine. If the git-ignored local file exists (python scripts/capture_demo_news.py writes it), its excerpts fill in the rest."""
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
         items = doc["items"]
     except (OSError, ValueError, KeyError, TypeError):
         return 0
+    local = _local_excerpts(local_path, news.excerpt_chars) if local_path is not None else {}
     ts = stamp(now)
     source = ensure_source(conn, shop_id, dict(news.sources[0]), ts)
     added = 0
     for d in items if isinstance(items, list) else []:
         try:
+            excerpt = d.get("excerpt") or local.get(d["url"], "")
             ok = (not check_url(d["url"], news.allowed_hosts) and is_dated(d["published_at"]) and datetime.fromisoformat(d["fetched_at"].replace("Z", "+00:00"))
-                  and 0 < len(d["excerpt"]) <= news.excerpt_chars and len(d["content_hash"]) == 64 and d["title"].strip())
+                  and isinstance(excerpt, str) and len(excerpt) <= news.excerpt_chars and len(d["content_hash"]) == 64 and d["title"].strip())
         except (KeyError, ValueError, TypeError, AttributeError):
             ok = False
         if not ok or conn.execute("SELECT 1 FROM market_items WHERE canonical_url = ? OR content_hash = ?", (canonical_url(d["url"]), d["content_hash"])).fetchone():
             continue
         conn.execute("INSERT INTO market_items (source_id, url, canonical_url, title, published_at, fetched_at, text, excerpt, domain, origin, content_hash,"
                      " injection_flags, untrusted, extracted, body_cleared_at) VALUES (?,?,?,?,?,?,'',?,?,'stored_copy',?,'[]',1,-1,?)",
-                     (source["id"], d["url"], canonical_url(d["url"]), d["title"][:300], d["published_at"], d["fetched_at"], d["excerpt"], _host(d["url"]),
+                     (source["id"], d["url"], canonical_url(d["url"]), d["title"][:300], d["published_at"], d["fetched_at"], excerpt, _host(d["url"]),
                       d["content_hash"], ts))
         added += 1
     return added
 
 
-def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: datetime, copy_path, items_path=None, news=NEWS) -> str:
+def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: datetime, copy_path, items_path=None, news=NEWS, items_local_path=None) -> str:
     """Give every launch alert that has no source one that is labelled. Returns what was used: "none needed", "stored copy" or "synthetic"."""
     if items_path is not None:
-        install_stored_items(conn, shop_id, items_path, now, news)
+        install_stored_items(conn, shop_id, items_path, now, news, items_local_path)
     if _unsourced_launch_alerts(conn, shop_id) == 0:
         return "none needed"
     lines = catalog_lines(catalog.variants)

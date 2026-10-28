@@ -9,7 +9,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.deps import get_conn, get_shop_id
-from app.demo import NEWS_COPY, NEWS_ITEMS, demo_enabled
+from app.demo import NEWS_COPY, NEWS_ITEMS, NEWS_ITEMS_LOCAL, demo_enabled
 from app.ingest import MAX_BYTES, UploadError, commit_upload
 from app.storage import repo
 from app.watch.demo_news import ensure_demo_source
@@ -57,7 +57,7 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
     if demo_enabled():                                    # the demo alert always carries a labelled source, whichever way the stock list arrived
         conn.execute("BEGIN IMMEDIATE")
         try:
-            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY, NEWS_ITEMS)
+            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY, NEWS_ITEMS, items_local_path=NEWS_ITEMS_LOCAL)
             conn.execute("COMMIT")
         except BaseException:
             conn.execute("ROLLBACK")

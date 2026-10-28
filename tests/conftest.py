@@ -29,6 +29,7 @@ def stored_news_file_is_absent_unless_a_test_supplies_one(monkeypatch, tmp_path_
     """data/demo/news_items.json (real items captured for the demo) would add stored copies to every demo-mode database. Tests that want it say so."""
     from app.api import routes
     monkeypatch.setattr(routes, "NEWS_ITEMS", tmp_path_factory.getbasetemp() / "no-such-news-items.json")
+    monkeypatch.setattr(routes, "NEWS_ITEMS_LOCAL", tmp_path_factory.getbasetemp() / "no-such-news-items.local.json")
 
 
 @pytest.fixture

@@ -379,3 +379,28 @@ def test_the_header_search_dropdown_stays_inside_the_screen_with_no_sideways_scr
         page.keyboard.press("Escape")
         assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
         page.close()
+
+
+def test_stored_copies_without_an_excerpt_render_with_label_and_dates_and_no_empty_quote(browser, tmp_path, monkeypatch):
+    from app.api import routes
+    path = tmp_path / "items.json"
+    base = {"fetched_at": "2026-10-27T09:30:00Z", "content_hash": "b" * 64, "domain": "news.samsung.com"}
+    path.write_text(json.dumps({"items": [
+        {**base, "url": "https://news.samsung.com/global/synthetic-x1", "title": "SYNTHETIC stored without excerpt", "published_at": "2026-10-26T06:00:00Z"},
+        {**base, "url": "https://news.samsung.com/global/synthetic-x2", "title": "SYNTHETIC stored with excerpt", "published_at": "2026-10-25T06:00:00Z",
+         "content_hash": "c" * 64, "excerpt": "SYNTHETIC. A short quotation."}]}), encoding="utf-8")
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    monkeypatch.setattr(routes, "NEWS_ITEMS", path)
+    with LiveServer(tmp_path / "x.sqlite", clock=lambda: NOW) as server:
+        httpx.post(server.url + "/api/demo/load")
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(server.url + "/#watch")
+        bare = page.locator("[data-testid=news-item]").filter(has_text="stored without excerpt")
+        quoted = page.locator("[data-testid=news-item]").filter(has_text="stored with excerpt")
+        for item in (bare, quoted):
+            expect(item).to_contain_text("Stored copy")
+            expect(item).to_contain_text("Fetched Oct 27, 2026")
+        expect(bare).to_contain_text("Published Oct 26, 2026")
+        assert bare.locator("blockquote").count() == 0                          # nothing empty is drawn
+        expect(quoted.locator("blockquote")).to_have_text("SYNTHETIC. A short quotation.")
+        page.close()

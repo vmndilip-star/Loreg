@@ -27,3 +27,6 @@ Thumbs.db
 
 # Generated database (python data/generate_catalog.py); reproducible from the seed
 data/generated/
+
+# Article excerpts captured for the demo stay on the machine that captured them
+data/demo/*.local.json
