@@ -8,7 +8,8 @@ real matches, alerts keep saying that no dated source is attached.
 import json
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -16,6 +17,7 @@ from app.agents.market import Article, read_article, written_date_to_iso
 from app.llm.client import LLMClient
 from app.watch.allowlist import check_url, load_news_config
 from app.watch.attach import attach_events_to_alerts
+from app.watch.excerpt import LAUNCH_CUE as _LAUNCH_CUE, make_excerpt
 from app.watch.feeds import FeedResult, canonical_url, content_hash, fetch_feed
 from app.watch.matching import catalog_lines, match_lines
 from app.watch.sanitize import INVISIBLE_FLAG, sanitize_html, sanitize_title
@@ -24,8 +26,6 @@ NEWS = load_news_config()                 # config/news_sources.yaml: the allowe
 DEFAULT_SOURCES = [dict(s) for s in NEWS.sources]
 MAX_ENTRIES = 100
 MAX_EXTRACT_PER_SCAN = 10
-_LAUNCH_CUE = re.compile(r"\b(launch(?:es|ed|ing)?|unveil(?:s|ed|ing)?|introduc(?:e|es|ed|ing)|announce(?:s|d)?|available|release(?:s|d)?|"
-                         r"pre-?orders?|on sale|ships?|shipping)\b", re.IGNORECASE)
 _ANY_DATE = re.compile(r"\b\d{4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE)
 
 
@@ -56,9 +56,10 @@ def _entry_html(entry) -> str:
     return entry.get("summary", "") or ""
 
 
-def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowed=None) -> dict:
+def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowed=None, news=None) -> dict:
     """Sanitize and store new entries. Duplicates (same canonical URL or same content) are ignored."""
-    allowed = allowed if allowed is not None else NEWS.allowed_hosts
+    news = news or NEWS
+    allowed = allowed if allowed is not None else news.allowed_hosts
     new = dup_url = dup_content = skipped = offsite = 0
     for e in entries[:MAX_ENTRIES]:
         link = (e.get("link") or "").strip()
@@ -80,19 +81,36 @@ def store_items(conn: sqlite3.Connection, source, entries: list, ts: str, allowe
         if conn.execute("SELECT 1 FROM market_items WHERE content_hash = ?", (chash,)).fetchone():
             dup_content += 1
             continue
-        conn.execute("INSERT INTO market_items (source_id, url, canonical_url, title, published_at, fetched_at, text, content_hash,"
-                     " injection_flags, untrusted, extracted) VALUES (?,?,?,?,?,?,?,?,?,1,0)",
-                     (source["id"], link, canon, title or "(no title)", _published(e), ts, text, chash, json.dumps(flags)))
+        conn.execute("INSERT INTO market_items (source_id, url, canonical_url, title, published_at, fetched_at, text, excerpt, domain, origin,"
+                     " content_hash, injection_flags, untrusted, extracted) VALUES (?,?,?,?,?,?,?,?,?,'feed',?,?,1,0)",
+                     (source["id"], link, canon, title or "(no title)", _published(e), ts, text, make_excerpt(text, news.excerpt_chars),
+                      (urlsplit(link).hostname or "").rstrip("."), chash, json.dumps(flags)))
         new += 1
     return {"new": new, "duplicate_url": dup_url, "duplicate_content": dup_content, "skipped": skipped, "offsite_links": offsite}
 
 
-def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list[dict], ts: str, limit: int = MAX_EXTRACT_PER_SCAN) -> dict:
+def _verbatim(quote: str | None, body: str, limit: int) -> str | None:
+    """A quote is kept only if it really is a stretch of the article, and only up to `limit` characters."""
+    q = (quote or "").strip()
+    return q[:limit] if q and q in body else None
+
+
+def clear_old_bodies(conn: sqlite3.Connection, now: datetime, keep_days: int) -> int:
+    """An article body nobody has read within `keep_days` is cleared anyway; the excerpt, hash and dates stay."""
+    cutoff, ts = stamp(now - timedelta(days=keep_days)), stamp(now)
+    cur = conn.execute("UPDATE market_items SET text = '', body_cleared_at = ?, extracted = CASE WHEN extracted = 0 THEN -2 ELSE extracted END"
+                       " WHERE text != '' AND fetched_at < ?", (ts, cutoff))
+    return cur.rowcount
+
+
+def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list[dict], ts: str, limit: int = MAX_EXTRACT_PER_SCAN, news=None) -> dict:
     """Run the Market agent on stored items that look like launch news; match each event to catalog lines by code.
+    Once an item has been read (or skipped) its body is cleared; the excerpt, hash and dates stay.
 
     The model calls happen first, with no database lock held; the results are then written in one short transaction.
     """
-    items = conn.execute("SELECT * FROM market_items WHERE source_id = ? AND extracted = 0 ORDER BY published_at DESC, id DESC",
+    news = news or NEWS
+    items = conn.execute("SELECT * FROM market_items WHERE source_id = ? AND extracted = 0 AND text != '' ORDER BY published_at DESC, id DESC",
                          (source["id"],)).fetchall()
     skipped, outcomes = [], []
     for it in items:
@@ -108,7 +126,7 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
     conn.execute("BEGIN IMMEDIATE")
     try:
         for item_id in skipped:
-            conn.execute("UPDATE market_items SET extracted = -1 WHERE id = ?", (item_id,))
+            conn.execute("UPDATE market_items SET extracted = -1, text = '', body_cleared_at = ? WHERE id = ?", (ts, item_id))
         for it, result in outcomes:
             flagged = any(f != INVISIBLE_FLAG for f in json.loads(it["injection_flags"]))  # hard flags only; see sanitize.py
             for ev in result.output.events:
@@ -118,11 +136,11 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
                 conn.execute("INSERT INTO market_events (item_id, brand, family, launch_date, launch_iso, date_stated, quote, matched_line_ids,"
                              " flagged, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                              (it["id"], brand, ev.product_family, ev.launch_date if stated else None,
-                              written_date_to_iso(ev.launch_date) if stated else None, 1 if stated else 0, ev.quote, json.dumps(ids),
+                              written_date_to_iso(ev.launch_date) if stated else None, 1 if stated else 0, _verbatim(ev.quote, it["text"], news.excerpt_chars), json.dumps(ids),
                               1 if flagged else 0, ts))
                 events += 1
                 matched += 1 if ids else 0
-            conn.execute("UPDATE market_items SET extracted = 1 WHERE id = ?", (it["id"],))
+            conn.execute("UPDATE market_items SET extracted = 1, text = '', body_cleared_at = ? WHERE id = ?", (ts, it["id"]))   # read: the body goes
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
@@ -139,7 +157,7 @@ def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
                            (it["id"],)).fetchall()
         flags = json.loads(it["injection_flags"])
         out.append({"id": it["id"], "source": it["source_name"], "title": it["title"], "url": it["url"], "published_at": it["published_at"],
-                    "fetched_at": it["fetched_at"], "untrusted": bool(it["untrusted"]), "injection_flags": flags, "flagged": bool(flags),
+                    "fetched_at": it["fetched_at"], "excerpt": it["excerpt"], "domain": it["domain"], "origin": it["origin"], "untrusted": bool(it["untrusted"]), "injection_flags": flags, "flagged": bool(flags),
                     "extracted": it["extracted"],
                     "events": [{"brand": e["brand"], "family": e["family"],
                                 "launch_date": e["launch_date"] if e["date_stated"] else None,
@@ -153,6 +171,9 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
          now: datetime | None = None, news=NEWS) -> dict:
     ts = stamp(now)
     lines = catalog_lines(catalog.variants)
+    conn.execute("BEGIN IMMEDIATE")
+    clear_old_bodies(conn, now or datetime.now(timezone.utc), news.body_keep_days)
+    conn.execute("COMMIT")
     report = {"scanned_at": ts, "sources": [], "new_items": 0, "events": 0, "matched_events": 0, "network": "ok", "message": ""}
     for src in sources or DEFAULT_SOURCES:
         refused = check_url(src["url"], news.allowed_hosts)
@@ -178,19 +199,22 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
             if res.robots_checked:
                 sets += ["robots_allowed = ?", "robots_checked_at = ?"]
                 vals += [None if res.robots_allowed is None else int(res.robots_allowed), ts]
+            if res.status in ("ok", "not_modified"):
+                sets += ["last_ok_at = ?"]
+                vals += [ts]
             if res.status == "ok":
                 sets += ["etag = ?", "last_modified = ?"]
                 vals += [res.etag, res.last_modified]
             conn.execute(f"UPDATE market_sources SET {', '.join(sets)} WHERE id = ?", (*vals, source["id"]))
             if res.status == "ok":
-                entry.update(store_items(conn, source, res.entries, ts, news.allowed_hosts))
+                entry.update(store_items(conn, source, res.entries, ts, news.allowed_hosts, news))
                 report["new_items"] += entry["new"]
             conn.execute("COMMIT")
         except BaseException:
             conn.execute("ROLLBACK")
             raise
         if res.status in ("ok", "not_modified"):
-            entry.update(extract_events(conn, source, llm, lines, ts))
+            entry.update(extract_events(conn, source, llm, lines, ts, news=news))
             report["events"] += entry["events"]
             report["matched_events"] += entry["matched_events"]
         if res.status in ("network_error", "robots_unavailable"):

@@ -136,7 +136,7 @@ def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
     con.close()
     init_db(path)
     con = sqlite3.connect(path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 3
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert con.execute("SELECT sku, map_cents, qty FROM skus").fetchall() == [("TV-SAM-9001", None, 6)]   # data kept, MAP unknown
     con.close()
     init_db(path)                                               # running it again changes nothing
@@ -145,7 +145,7 @@ def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
 def test_an_empty_database_starts_at_the_current_version(tmp_path):
     init_db(tmp_path / "new.sqlite")
     con = sqlite3.connect(tmp_path / "new.sqlite")
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert "map_cents" in [r[1] for r in con.execute("PRAGMA table_info(skus)")]
     con.close()
 

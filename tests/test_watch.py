@@ -397,8 +397,8 @@ def test_items_are_untrusted_dated_and_never_return_article_text(shop):
 def test_article_text_lives_only_in_the_local_database(tmp_path):
     client = make_client(tmp_path, FakeWeb(rss([article()])))
     client.post("/api/watch/scan")
-    row = db(tmp_path).execute("SELECT text, untrusted FROM market_items").fetchone()
-    assert "QN90D Neo QLED" in row["text"] and row["untrusted"] == 1
+    row = db(tmp_path).execute("SELECT text, excerpt, untrusted FROM market_items").fetchone()
+    assert row["text"] == "" and "QN90D Neo QLED" in row["excerpt"] and row["untrusted"] == 1      # read, so only the short excerpt is kept
     ignore = (Path(__file__).resolve().parent.parent / ".gitignore").read_text()
     assert "*.sqlite" in ignore and "data/generated/" in ignore
 

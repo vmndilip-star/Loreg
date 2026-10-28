@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS market_sources (
     robots_checked_at TEXT,
     last_fetch_at TEXT,
     last_status TEXT,
+    last_ok_at TEXT,                 -- the last time the feed was reached and read (ok or not modified)
     created_at TEXT NOT NULL
 );
 
@@ -151,7 +152,11 @@ CREATE TABLE IF NOT EXISTS market_items (
     title TEXT NOT NULL,
     published_at TEXT,
     fetched_at TEXT NOT NULL,
-    text TEXT NOT NULL,              -- sanitized article text. Local database only; never committed.
+    text TEXT NOT NULL,              -- the article body, held only until it has been read; then ''. Local database only; never committed.
+    excerpt TEXT NOT NULL DEFAULT '',        -- at most 280 characters, an exact substring of the article. What is kept.
+    domain TEXT,
+    origin TEXT NOT NULL DEFAULT 'feed',     -- feed | stored_copy | demo_synthetic
+    body_cleared_at TEXT,
     content_hash TEXT NOT NULL UNIQUE,
     injection_flags TEXT NOT NULL DEFAULT '[]',
     untrusted INTEGER NOT NULL DEFAULT 1,
@@ -236,7 +241,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
           "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs")
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -255,7 +260,7 @@ def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents."""
+    """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents; version 4 keeps only an excerpt of each article."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version >= SCHEMA_VERSION:
         return
@@ -272,7 +277,31 @@ def migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE recommendations ADD COLUMN source TEXT NOT NULL DEFAULT 'rules'")
     if version < 3 and not _has_column(conn, "skus", "map_cents"):
         conn.execute("ALTER TABLE skus ADD COLUMN map_cents INTEGER")
+    if version < 4:
+        _migrate_to_4(conn)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+def _migrate_to_4(conn: sqlite3.Connection) -> None:
+    """Keep an excerpt of each stored article and clear the body. An article not yet read can no longer be read: it is marked so."""
+    from datetime import datetime, timezone
+    from urllib.parse import urlsplit
+
+    from app.watch.excerpt import make_excerpt
+
+    for table, col, decl in (("market_sources", "last_ok_at", "TEXT"), ("market_items", "excerpt", "TEXT NOT NULL DEFAULT ''"),
+                             ("market_items", "domain", "TEXT"), ("market_items", "origin", "TEXT NOT NULL DEFAULT 'feed'"),
+                             ("market_items", "body_cleared_at", "TEXT")):
+        if not _has_column(conn, table, col):
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for it in conn.execute("SELECT id, url, text, extracted FROM market_items").fetchall():
+        host = (urlsplit(it["url"]).hostname or "").rstrip(".") or None
+        conn.execute("UPDATE market_items SET domain = ? WHERE id = ?", (host, it["id"]))
+        if it["text"]:
+            conn.execute("UPDATE market_items SET excerpt = ?, text = '', body_cleared_at = ?, extracted = CASE WHEN extracted = 0 THEN -2 ELSE extracted END"
+                         " WHERE id = ?", (make_excerpt(it["text"]), now, it["id"]))
+    conn.execute("UPDATE market_sources SET last_ok_at = last_fetch_at WHERE last_status IN ('ok', 'not_modified') AND last_ok_at IS NULL")
 
 
 def init_db(path=None) -> None:
