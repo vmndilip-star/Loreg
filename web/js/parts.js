@@ -43,7 +43,7 @@ export function alertSummary(group) {
 
 export function moneyTile(label, cents, extra, cls = 'tile-amber') {
   return el('section', { class: `tile ${cls} h-100 d-flex flex-column justify-content-between gap-3`, 'aria-label': label },
-    el('div', { class: 'label' }, label), el('div', { class: 'num num-hero' }, money(cents)), extra || null);
+    el('div', { class: 'label' }, label), el('div', { class: 'num num-hero', 'data-testid': 'money-at-risk' }, money(cents)), extra || null);
 }
 
 // How a written text was produced, in plain words.
