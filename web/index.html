@@ -26,8 +26,14 @@
   <header class="top glass d-flex align-items-center gap-3 mb-3">
     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="2" width="24" height="24" rx="7" fill="#3FB68B"/><path d="M9 8v11h8" stroke="#0B0F14" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span class="brand">Loreg</span>
-    <span id="viewName" class="fw-bold soft">Home</span>
-    <span id="asOf" class="ms-auto soft small d-none d-md-inline"></span>
+    <span id="viewName" class="fw-bold soft d-none d-sm-inline">Home</span>
+    <form id="siteSearchForm" class="search ms-auto" role="search" autocomplete="off">
+      <label for="siteSearch" class="sr-live">Search your stock</label>
+      <input id="siteSearch" class="search-input" type="search" placeholder="Search stock   ( / )" maxlength="100" role="combobox"
+             aria-expanded="false" aria-controls="searchList" aria-autocomplete="list" autocomplete="off" spellcheck="false">
+      <div id="searchList" class="search-list glass" role="listbox" aria-label="Search results" hidden></div>
+    </form>
+    <span id="asOf" class="soft small d-none d-xl-inline"></span>
   </header>
 
   <div id="banner" class="mb-3" role="status"></div>

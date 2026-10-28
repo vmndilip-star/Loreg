@@ -24,3 +24,8 @@ export function date(iso) {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12));
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
+
+// "1 item", "2 items". English only; this is a display helper like the others here.
+export function plural(n, word) {
+  return `${count(n)} ${word}${n === 1 ? '' : 's'}`;
+}

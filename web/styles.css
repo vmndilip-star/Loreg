@@ -123,3 +123,34 @@ button.btn-pill:disabled { opacity: 0.55; cursor: not-allowed; }
 .bar { height: 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
 .bar-fill { height: 100%; width: var(--w, 0%); background: var(--blue); border-radius: 999px; }
 main h1:focus { outline: none; }
+
+/* ---- search box ---- */
+.search { position: relative; flex: 1 1 auto; max-width: 420px; min-width: 0; }
+.search-input { width: 100%; min-height: 44px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.12); color: #fff; padding: 0 1.1rem; font: inherit; font-weight: 500; }
+.search-input::placeholder { color: rgba(255, 255, 255, 0.78); }
+.search-input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px var(--blue); }
+.search-list { background: rgba(28, 32, 38, 0.97); position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 40; border-radius: 28px; padding: 0.5rem; max-height: 70vh; overflow-y: auto; min-width: min(420px, calc(100vw - 32px)); }
+.search-group { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--soft); padding: 0.4rem 0.75rem 0.15rem; }
+.search-option { display: flex; flex-direction: column; gap: 2px; min-height: 44px; justify-content: center; padding: 0.4rem 0.75rem; border-radius: 18px; cursor: pointer; color: #fff; text-decoration: none; }
+.search-option[aria-selected="true"], .search-option:hover { background: var(--blue); }
+.search-note { padding: 0.75rem; color: var(--soft); }
+
+/* ---- stock table, filters, skeleton ---- */
+.bar-link { display: block; color: inherit; text-decoration: none; border-radius: 18px; padding: 6px 8px; margin: 0 -8px; min-height: 44px; }
+.bar-link:hover, .bar-link[aria-current="true"] { background: rgba(255, 255, 255, 0.14); }
+.chipbtn { min-height: 44px; border-radius: 999px; padding: 0 1.1rem; border: 1px solid rgba(255, 255, 255, 0.35); background: var(--chip); color: #fff; font-weight: 700; font-family: inherit; }
+.chipbtn[aria-pressed="true"] { background: var(--blue); border-color: rgba(255, 255, 255, 0.5); }
+.chipbtn:focus-visible, .page-link:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px var(--blue); }
+.sortbox { min-height: 44px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.35); background: var(--chip); color: #fff; padding: 0 1rem; font: inherit; font-weight: 600; }
+.sortbox option { color: #1E232A; }
+.pagination { --bs-pagination-bg: rgba(255, 255, 255, 0.14); --bs-pagination-color: #fff; --bs-pagination-border-color: rgba(255, 255, 255, 0.3);
+  --bs-pagination-hover-bg: rgba(255, 255, 255, 0.24); --bs-pagination-hover-color: #fff; --bs-pagination-hover-border-color: rgba(255, 255, 255, 0.4);
+  --bs-pagination-active-bg: var(--blue); --bs-pagination-active-border-color: var(--blue); --bs-pagination-disabled-bg: rgba(255, 255, 255, 0.06);
+  --bs-pagination-disabled-color: rgba(255, 255, 255, 0.5); --bs-pagination-disabled-border-color: rgba(255, 255, 255, 0.2); --bs-pagination-focus-bg: rgba(255, 255, 255, 0.24); --bs-pagination-focus-color: #fff; }
+.pagination .page-link { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.skeleton-row { height: 44px; border-radius: 14px; background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.2), rgba(255,255,255,0.08)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 10px 0; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-row { animation: none; } }
+.top { position: relative; z-index: 30; }   /* the search results drop over the page, so the header sits above it */
+.linkbtn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-weight: 700; }
+.table-glass td:first-child { min-width: 11rem; }

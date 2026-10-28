@@ -2,6 +2,7 @@
 import { api, ApiError } from './api.js';
 import { append, clear, el } from './dom.js';
 import { date } from './format.js';
+import { initSearch } from './search.js';
 import { state } from './state.js';
 
 const VIEWS = { home: 'Home', stock: 'Stock', watch: 'Loreg Watch', ask: 'Ask Loreg', upload: 'Upload' };
@@ -14,6 +15,7 @@ let controller = null;
 const ctx = {
   api, state,
   signal: null,
+  params: new URLSearchParams(),   // the part of the address after ?, for example #stock?category=tv
   announce(text) { live.textContent = text; },
   setAsOf(iso) { document.getElementById('asOf').textContent = iso ? `Stock as of ${date(iso)}. Synthetic data.` : ''; },
   showBanner(kind, text) {
@@ -30,8 +32,12 @@ const ctx = {
 };
 
 function currentName() {
-  const name = location.hash.slice(1);
+  const name = location.hash.slice(1).split('?')[0];
   return Object.hasOwn(VIEWS, name) ? name : 'home';
+}
+
+function currentParams() {
+  return new URLSearchParams(location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?') + 1) : '');
 }
 
 async function show(name) {
@@ -39,6 +45,7 @@ async function show(name) {
   if (controller) controller.abort();
   controller = new AbortController();
   ctx.signal = controller.signal;
+  ctx.params = currentParams();
   ctx.showBanner(null, '');
   document.getElementById('viewName').textContent = VIEWS[name];
   document.title = `${VIEWS[name]} · Loreg`;
@@ -60,5 +67,6 @@ async function show(name) {
   }
 }
 
+initSearch(ctx);
 window.addEventListener('hashchange', () => show(currentName()));
 show(currentName());

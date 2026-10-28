@@ -67,8 +67,8 @@ def test_money_is_never_computed_in_the_browser():
 @pytest.mark.skipif(NODE is None, reason="Node.js not found; skipping the JavaScript syntax and unit checks")
 def test_scripts_parse_as_modules():
     for p in JS:
-        r = subprocess.run([NODE, "--input-type=module", "--check"], input=p.read_text(encoding="utf-8"), capture_output=True, text=True)
-        assert r.returncode == 0, f"{p.name}: {r.stderr}"
+        r = subprocess.run([NODE, "--input-type=module", "--check"], input=p.read_bytes(), capture_output=True)       # bytes: no locale encoding in the way
+        assert r.returncode == 0, f"{p.name}: {r.stderr.decode(errors='replace')}"
 
 
 @pytest.mark.skipif(NODE is None, reason="Node.js not found; skipping the JavaScript syntax and unit checks")
