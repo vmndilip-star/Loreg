@@ -40,6 +40,11 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
         raw, filename = await request.body(), request.headers.get("x-filename") or "upload.csv"
     if len(raw) > MAX_BYTES:
         raise HTTPException(413, "file is larger than 5 MB")
+    return store_upload(request, conn, shop_id, raw, filename, as_of)
+
+
+def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str, as_of: date | None = None) -> dict:
+    """The one path every stock file takes (a real upload, or the demo file): parse, data checks, quarantine, commit."""
     state = request.app.state
     when = as_of or state.default_as_of or date.today()
     try:
