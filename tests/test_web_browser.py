@@ -439,3 +439,60 @@ def test_the_item_with_no_sales_and_no_received_date_shows_not_enough_data_in_ch
         expect(row).to_contain_text("never")                                    # never sold
         assert "Dead" not in row.inner_text() and "Slow" not in row.inner_text()
         page.close()
+
+
+def test_first_screen_polish_in_chrome(browser, tmp_path, monkeypatch):
+    """The label is said once, the news list names the demo (not a publisher), excerpts that stop partway say so, and the dead and slow
+    amounts are on the first screen above the fixed dock at the sizes a screen recording is made at."""
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    with LiveServer(tmp_path / "polish.sqlite", http_factory=FakeWeb(b"").factory(), clock=lambda: NOW) as server:
+        httpx.post(server.url + "/api/demo/load")
+        problems = []
+        for width, height in ((1280, 720), (1366, 768), (1920, 1080)):
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+            page.goto(server.url + "/#home")
+            for name in ("Dead items", "Slow items"):
+                tile = page.get_by_label(name)
+                expect(tile).to_contain_text("tied up")
+                tied, dock = tile.locator(".soft").bounding_box(), page.locator("nav.dock").bounding_box()
+                assert tied["y"] + tied["height"] <= dock["y"], f"{name}: the amount is under the dock at {width}x{height}"
+                assert tied["y"] + tied["height"] <= height, f"{name}: the amount is below the first screen at {width}x{height}"
+            src = page.locator("[data-testid=source]").first
+            label = src.locator("[data-testid=source-label]")
+            expect(label).to_have_text("Demo article (synthetic)")
+            title = src.locator("xpath=./div[1]")
+            expect(title).to_have_text("Demo article (synthetic)A newer QN90D Neo QLED generation is announced")      # chip, then a title that does not repeat it
+            page.close()
+
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(server.url + "/#watch")
+        synthetic = page.locator("[data-testid=news-item]").filter(has_text="newer QN90D")
+        expect(synthetic.locator(".soft.small").first).to_have_text(re.compile(r"^Loreg demo \(demo\.invalid\)\. Published"))
+        head = synthetic.locator("xpath=./div[position() <= 2]").all_inner_texts()         # title and source line; the event line below names the product brand
+        assert "Samsung" not in " ".join(head) and "Newsroom" not in " ".join(head), head
+        for quote in page.locator("[data-testid=news-item] blockquote").all():
+            text = quote.inner_text().strip()
+            assert not re.match(r"^[a-z]", text.removeprefix("… ")), text           # nothing starts on a lower-case fragment without the mark
+            assert text.startswith("… ") or text[0].isupper() or text[0].isdigit() or text[0] in "“\"▲(", text
+        page.close()
+        assert problems == [], problems
+
+
+def test_the_synthetic_title_and_source_name_follow_the_demo_when_it_is_loaded_again(tmp_path, catalog_dir, monkeypatch):
+    """A database made by an earlier version (publisher-like name, label repeated in the title) is brought up to date on the next load."""
+    import sqlite3
+    from test_pace import demo_app
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    c = demo_app(tmp_path)
+    c.post("/api/demo/load")
+    con = sqlite3.connect(tmp_path / "p.sqlite")
+    con.execute("UPDATE market_sources SET name = 'Samsung Global Newsroom' WHERE url = 'https://demo.invalid/'")
+    con.execute("UPDATE market_items SET title = 'Demo article (synthetic): a newer QN90D Neo QLED generation is announced' WHERE origin = 'demo_synthetic'")
+    con.commit()
+    con.close()
+    c2 = demo_app(tmp_path)
+    c2.post("/api/demo/load")
+    item = next(i for i in c2.get("/api/watch/items").json()["items"] if i["origin"] == "demo_synthetic")
+    assert (item["source"], item["title"], item["label"]) == ("Loreg demo", "A newer QN90D Neo QLED generation is announced", "Demo article (synthetic)")
+    assert not item["title"].startswith(item["label"])

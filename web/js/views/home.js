@@ -16,13 +16,15 @@ export async function mount(root, ctx) {
   const t = summary.totals;
   const groups = (await api('/launch/exposed', { signal: ctx.signal })).groups;
 
-  const alertSlot = el('div', { class: 'col-12', 'data-testid': 'alert' });
+  // On a wide screen the alert is on the left and the three totals sit beside it, so the first screen shows the dead and slow amounts
+  // above the fixed dock. On a narrow screen everything stacks: alert, money, dead, slow.
+  const alertSlot = el('div', { class: 'col-12 col-lg-7', 'data-testid': 'alert' });
   const briefSlot = el('div', { class: 'col-12 col-lg-6', 'data-testid': 'brief' });
   const grid = el('div', { class: 'row g-3' },
     alertSlot,
-    el('div', { class: 'col-12 col-lg-6' }, moneyTile('Money at risk', summary.money_at_risk_cents,
-      el('div', { class: 'fw-bold' }, `${count(t.at_risk.n)} of ${count(t.skus)} items are dead or slow.`))),
-    el('div', { class: 'col-12 col-lg-6' }, el('div', { class: 'row g-3 h-100' },
+    el('div', { class: 'col-12 col-lg-5' }, el('div', { class: 'row g-3' },
+      el('div', { class: 'col-12' }, moneyTile('Money at risk', summary.money_at_risk_cents,
+        el('div', { class: 'fw-bold' }, `${count(t.at_risk.n)} of ${count(t.skus)} items are dead or slow.`))),
       el('div', { class: 'col-6' }, el('section', { class: 'tile glass h-100 d-flex flex-column justify-content-center', 'aria-label': 'Dead items' },
         el('div', { class: 'num num-lg' }, `${count(t.dead.n)} dead`), el('div', { class: 'soft fw-semibold' }, `${money(t.dead.cap_cents)} tied up`))),
       el('div', { class: 'col-6' }, el('section', { class: 'tile glass h-100 d-flex flex-column justify-content-center', 'aria-label': 'Slow items' },
