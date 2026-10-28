@@ -404,3 +404,19 @@ def test_stored_copies_without_an_excerpt_render_with_label_and_dates_and_no_emp
         assert bare.locator("blockquote").count() == 0                          # nothing empty is drawn
         expect(quoted.locator("blockquote")).to_have_text("SYNTHETIC. A short quotation.")
         page.close()
+
+
+def test_the_item_with_no_sales_and_no_received_date_shows_not_enough_data_in_chrome(browser, catalog_dir, tmp_path, monkeypatch):
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    sku = [i["sku"] for i in Truth(catalog_dir, master="upload_demo_200.csv").items if i["status"] == "insufficient_data"]
+    assert len(sku) == 1
+    with LiveServer(tmp_path / "nd.sqlite") as server:
+        httpx.post(server.url + "/api/demo/load")
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(server.url + f"/#stock?status=all&q={sku[0]}")
+        row = page.locator(f"[data-testid=products] tbody tr[data-sku={sku[0]}]")
+        expect(row).to_have_count(1)
+        expect(row).to_contain_text("Not enough data")
+        expect(row).to_contain_text("never")                                    # never sold
+        assert "Dead" not in row.inner_text() and "Slow" not in row.inner_text()
+        page.close()

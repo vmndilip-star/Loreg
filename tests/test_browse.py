@@ -277,3 +277,14 @@ def test_the_at_risk_filter_is_dead_plus_slow_and_the_chips_say_so(demo, truth):
     assert body["totals"]["items"] == len(both) and body["totals"]["status_counts"]["at_risk"] == len(both)
     assert body["totals"]["status_counts"]["at_risk"] == body["totals"]["status_counts"]["dead"] + body["totals"]["status_counts"]["slow"]
     assert {r["status"] for r in body["rows"]} <= {"dead", "slow"} and body["totals"]["at_risk_cap_cents"] == sum(i["cap"] for i in both)
+
+
+def test_the_demo_has_one_item_with_not_enough_data_and_it_is_never_counted_as_at_risk(demo, truth):
+    """One demo row was never sold and has no received date, so nothing can tell dead from new. The API says so; it is not guessed."""
+    expected = [i["sku"] for i in truth.items if i["status"] == "insufficient_data"]
+    assert len(expected) == 1
+    rows, _ = all_rows(demo)
+    unclear = [r for r in rows if r["status"] == "insufficient_data"]
+    assert [r["sku"] for r in unclear] == expected and unclear[0]["days_since_sold"] is None
+    assert expected[0] not in {r["sku"] for r in all_rows(demo, status="at_risk")[0]}
+    assert get(demo, "/api/search", q=expected[0]).json()["items"][0]["status"] == "insufficient_data"
