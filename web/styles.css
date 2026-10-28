@@ -110,6 +110,7 @@ html [hidden] { display: none !important; } /* beats Bootstrap .d-flex so hidden
 .banner-warn { background: var(--amber); color: var(--amber-ink); }
 .banner-error { background: var(--red); color: #fff; }
 .banner-info { background: var(--blue); color: #fff; }
+.glass.p-2 { border-radius: 28px; }
 .untrusted-tag { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--chip); }
 .empty { text-align: center; padding: 2.5rem 1rem; }
 .sr-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
