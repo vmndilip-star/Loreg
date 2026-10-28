@@ -12,6 +12,7 @@ from starlette.staticfiles import StaticFiles
 from app.api.routes import router
 from app.api.routes_browse import router as browse_router
 from app.api.routes_demo import router as demo_router
+from app.api.routes_plan import router as plan_router
 from app.api.routes_ask import router as ask_router
 from app.api.routes_watch import router as watch_router
 from app.catalog import load_catalog
@@ -51,6 +52,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.include_router(router)
     app.include_router(demo_router)
     app.include_router(browse_router)
+    app.include_router(plan_router)
     app.include_router(watch_router)
     app.include_router(ask_router)
     if web_dir and Path(web_dir).is_dir():

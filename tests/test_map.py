@@ -166,4 +166,4 @@ def test_the_fallback_recommendation_says_why_no_discount_is_offered():
     row = dict(sku="TV-SAM-0032", category="tv", unit_cost_cents=66_450, sell_price_cents=83_062, qty=6, dsls=83, units_sold_90d=1,
                is_seasonal=0, status="slow", capital_cents=398_700, return_window_end=None, map_cents=82_231)
     rec = recommender._fallback("TV-SAM-0032", item_facts(row, TH, AS_OF))
-    assert rec.option == "hold" and rec.reasons[0] == "Minimum advertised price: $822" and "blocked" in rec.reasons[1]
+    assert rec.option == "bundle" and rec.reasons[0] == "Minimum advertised price: $822" and "blocked" in rec.reasons[1]

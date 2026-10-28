@@ -41,6 +41,8 @@ def item_facts(row, th: Thresholds, as_of: date) -> list[Fact]:
           float(max(opts.discounts_pct)) if opts.discounts_pct else 0.0),
         f("bundle_allowed", "Bundling allowed", "yes" if opts.bundle_allowed else "no", 1.0 if opts.bundle_allowed else 0.0),
     ]
+    if opts.below_cost:                                       # the dead-stock exception: a small discount below cost is allowed
+        facts.append(f("discount_below_cost", "The allowed discounts sell below cost", "yes", 1.0))
     if map_cents is not None:                         # only items that have a minimum advertised price carry this fact
         facts.append(f("map_price", "Minimum advertised price", money(map_cents), map_cents / 100.0))
         facts.append(f("discount_blocked_by_map", "A discount is blocked by that price", "yes" if opts.map_blocked else "no",

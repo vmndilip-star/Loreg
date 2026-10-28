@@ -32,3 +32,13 @@ def catalog_dir(tmp_path_factory):
     subprocess.run([sys.executable, str(REPO / "data" / "generate_catalog.py"), "--seed", "2026", "--out", str(out)],
                    check=True, capture_output=True)
     return out
+
+
+class OfflineModel:
+    """A model stand-in for tests of routes that may ask a model: it answers every request with the deterministic mock output.
+    It is not an LLMClient, so it passes the no_model guard, which exists to catch numbers routes that build a real client."""
+
+    is_mock = True
+
+    def complete_json(self, *, system, user, schema, mock_output=None, max_completion_tokens=0):
+        return mock_output()

@@ -47,12 +47,17 @@ def _fallback(sku: str, facts: list[Fact]) -> Recommendation:
         return Recommendation(sku=sku, option="hold", discount_pct=0,
                               reasons=[NOT_ENOUGH_DATA], citations=[])
     options, pcts = allowed_options(facts), allowed_discounts(facts)
-    if "return" in options:
-        option, pct = "return", 0
-    elif "discount" in options and _flag(facts, "status_dead"):
-        option, pct = "discount", min(p for p in pcts if p >= min(10, max(pcts))) if pcts else 0
-    elif "discount" in options:
+    below_cost = _flag(facts, "discount_below_cost")
+    # the same order as app.core.actions.default_option, so the fallback and the rules plan never disagree:
+    # smallest profitable discount, return, below-cost discount, bundle, hold
+    if "discount" in options and not below_cost:
         option, pct = "discount", min(pcts)
+    elif "return" in options:
+        option, pct = "return", 0
+    elif "discount" in options:
+        option, pct = "discount", max(pcts)
+    elif "bundle" in options:
+        option, pct = "bundle", 0
     else:
         option, pct = "hold", 0
     cited = facts[:3]

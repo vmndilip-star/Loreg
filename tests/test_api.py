@@ -18,6 +18,13 @@ AS_OF = "2026-10-26"
 pytestmark = pytest.mark.usefixtures("no_model")
 
 
+def plan_post(client, alert_id, **kw):
+    """The plan route may ask the Recommender; the tests give it the offline stand-in so no real client is ever built."""
+    from conftest import OfflineModel
+    client.app.state.llm = OfflineModel()
+    return client.post(f"/api/alerts/{alert_id}/plan", **kw)
+
+
 def make_client(tmp_path, name="t.sqlite"):
     return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF))
 
@@ -211,7 +218,7 @@ def first_alert(client):
 def test_plan_without_help_is_refused(demo):
     client, _, _ = demo
     a = first_alert(client)
-    r = client.post(f"/api/alerts/{a}/plan")
+    r = plan_post(client, a)
     assert r.status_code == 409 and "ask for help" in r.json()["detail"]
     assert client.get(f"/api/alerts/{a}").json()["recommendations"] == {}  # nothing was created by the refusal
 
@@ -230,7 +237,7 @@ def test_plan_after_help_gives_one_option_per_item(demo):
     client, _, _ = demo
     a = first_alert(client)
     client.post(f"/api/alerts/{a}/help")
-    body = client.post(f"/api/alerts/{a}/plan").json()
+    body = plan_post(client, a).json()
     recs = body["recommendations"]
     assert 1 <= len(recs) <= 3 and len({r["sku"] for r in recs}) == len(recs)
     for r in recs:
@@ -238,7 +245,7 @@ def test_plan_after_help_gives_one_option_per_item(demo):
         assert (r["option"] == "discount") == (r["discount_pct"] > 0) and len(r["reasons"]) >= 1 and r["citations"]
     caps = [r["tied_cents"] for r in recs]
     assert caps == sorted(caps, reverse=True)
-    again = client.post(f"/api/alerts/{a}/plan").json()["recommendations"]
+    again = plan_post(client, a).json()["recommendations"]
     assert [r["id"] for r in again] == [r["id"] for r in recs]  # planning twice does not duplicate
 
 
@@ -247,13 +254,13 @@ def test_plan_limit_is_bounded(demo, limit):
     client, _, _ = demo
     a = first_alert(client)
     client.post(f"/api/alerts/{a}/help")
-    assert client.post(f"/api/alerts/{a}/plan", params={"limit": limit}).status_code == 422
+    assert plan_post(client, a, params={"limit": limit}).status_code == 422
 
 
 def planned(client):
     a = first_alert(client)
     client.post(f"/api/alerts/{a}/help")
-    return client.post(f"/api/alerts/{a}/plan").json()["recommendations"]
+    return plan_post(client, a).json()["recommendations"]
 
 
 def test_accepting_lowers_money_at_risk_by_exactly_that_items_capital(demo):
@@ -310,13 +317,15 @@ def test_nothing_is_accepted_without_a_recorded_help_request(demo):
         r = client.post(f"/api/actions/{recs[0]['id']}/{verb}")
         assert r.status_code == 409
     assert client.get("/api/summary").json()["money_at_risk_cents"] == before
-    assert client.post(f"/api/alerts/{first_alert(client)}/plan").status_code == 409
+    assert plan_post(client, first_alert(client)).status_code == 409
 
 
 def test_unknown_alert_and_action_ids_are_404(demo):
     client, _, _ = demo
     for url in ("/api/alerts/9999", ):
         assert client.get(url).status_code == 404
+    from conftest import OfflineModel
+    client.app.state.llm = OfflineModel()                  # the plan route may ask a model; no real client is built
     for url in ("/api/alerts/9999/help", "/api/alerts/9999/plan", "/api/actions/9999/accept", "/api/actions/9999/decline"):
         assert client.post(url).status_code == 404
 

@@ -114,8 +114,8 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
             assert cards.nth(n).get_attribute("data-sku") == item["sku"]
             assert dollars(item["cap"]) in cards.nth(n).inner_text()
         titles = [cards.nth(n).locator(".num-lg").inner_text() for n in range(3)]
-        assert titles == ["Discount 5%", "Return", "Hold"], titles      # three different outcomes (the offline writer holds where the rules would bundle)
-        assert "Minimum advertised price: $822" in cards.nth(2).inner_text()
+        assert titles == ["Discount 5%", "Return", "Bundle"], titles      # three different outcomes
+        assert "minimum advertised price of $822" in cards.nth(2).inner_text()
 
         # 6. accept the first option: capital at risk drops by exactly that item's money, and the server agrees
         first = exposed[0]

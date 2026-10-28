@@ -180,6 +180,49 @@ def _alert_card(g: dict) -> dict:
             "source": g["source"], "help_requested": g["help_requested"], "question": ASK_PROMPT}
 
 
+def _rules_say_ok(opts, rec: Recommendation) -> str:
+    """"" if the rules allow this answer, else the reason they do not. Worked out from the rules, never from the facts the model was shown."""
+    if rec.option not in opts.options():
+        return f"{rec.option} is not allowed for this item (allowed: {', '.join(opts.options())})"
+    if rec.option == "discount" and rec.discount_pct not in opts.discounts_pct:
+        return f"a {rec.discount_pct}% discount is not allowed (allowed steps: {list(opts.discounts_pct) or 'none'})"
+    if rec.option != "discount" and rec.discount_pct != 0:
+        return "a discount percentage came with an option that is not a discount"
+    return ""
+
+
+def plan_alert(ctx: Ctx, alert_id: int, limit: int) -> Iterator[dict]:
+    """The one place a plan is made, for the chat and for the Watch page alike. Returns the stored plans (a generator: it yields tool events).
+
+    1. The rules plan is stored first, for every item (the floor).
+    2. The Recommender is asked once per item that still has only the rules plan. Its answer must pass its own checks and then the rules
+       again here; if either fails, the rules plan stays and the refusal is audited.
+    3. Whatever is stored is what everyone sees. An item that already has an answer is never asked again, so the chat and Watch
+       cannot disagree, today or after a restart. A decided plan is never rewritten.
+    """
+    plans = repo.plan(ctx.conn, ctx.shop_id, alert_id, limit, ctx.th)                       # raises Conflict until help was asked for
+    state = repo_ai.plan_state(ctx.conn, alert_id)
+    todo = [p["sku"] for p in plans if state.get(p["sku"], ("", ""))[0] == "rules" and state[p["sku"]][1] == "proposed"]
+    rows = {sku: repo_ai.item_row(ctx.conn, ctx.shop_id, sku) for sku in todo}
+    calls = [(sku, _recommender_call(ctx, rows[sku])) for sku in todo]                       # started together, collected in order
+    as_of = ctx.as_of
+    for sku, call in calls:
+        res = call.result()
+        rec: Recommendation = res.output
+        problem = _rules_say_ok(repo.item_options(rows[sku], as_of, ctx.th), rec)
+        if problem:
+            repo_ai.reject_agent_answer(ctx.conn, ctx.shop_id, alert_id, sku, rec.option, rec.discount_pct, problem)
+            yield ev("tool", name="recommender_agent", sku=sku, source="fallback", option=repo.item_plan(ctx.conn, alert_id, sku)["action"], refused=problem)
+            continue
+        stored = repo.item_plan(ctx.conn, alert_id, sku)
+        if res.source in ("fallback", "mock") and (rec.option, rec.discount_pct) == (stored["action"], stored["discount_pct"]):
+            repo_ai.mark_plan_source(ctx.conn, alert_id, sku, res.source)      # the rules' own answer: keep its plain-language reasons
+        else:
+            repo_ai.apply_agent_recommendation(ctx.conn, ctx.shop_id, alert_id, sku, rec.option, rec.discount_pct, rec.reasons, res.source)
+        yield ev("tool", name="recommender_agent", sku=sku, source=res.source, option=rec.option)
+    return repo.plan(ctx.conn, ctx.shop_id, alert_id, limit, ctx.th)
+
+
 def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield ev("status", message="Checking your stored launch news")
     groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
@@ -209,14 +252,7 @@ def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
         return
 
     yield ev("status", message="You asked for help, so I am planning one option per item")
-    repo.plan(ctx.conn, ctx.shop_id, g["alert_id"], len(rows), ctx.th)           # the rule-based plan is the floor
-    rec_calls = [(r, _recommender_call(ctx, r)) for r in rows]                   # the Recommender runs only now, after help
-    for row, call in rec_calls:
-        res = call.result()
-        rec: Recommendation = res.output
-        repo_ai.apply_agent_recommendation(ctx.conn, ctx.shop_id, g["alert_id"], row["sku"], rec.option, rec.discount_pct, rec.reasons, res.source)
-        yield ev("tool", name="recommender_agent", sku=row["sku"], source=res.source, option=rec.option)
-    plans = repo.plan(ctx.conn, ctx.shop_id, g["alert_id"], len(rows), ctx.th)
+    plans = yield from plan_alert(ctx, g["alert_id"], len(rows))
     yield from tokens(f"{text} Here is one option for each item. You decide: nothing changes until you accept.")
     yield ev("cards", cards=[{"type": "plan", **p} for p in plans])
     yield done(ctx, "launch_clear", started, alert_id=g["alert_id"], help_requested=True)

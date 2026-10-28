@@ -104,19 +104,6 @@ def alert_help(alert_id: int, request: Request, conn=Depends(get_conn), shop_id:
         raise HTTPException(404, str(e)) from None
 
 
-@router.post("/alerts/{alert_id}/plan")
-def alert_plan(request: Request, alert_id: int, limit: int = Query(3, ge=1, le=10), conn=Depends(get_conn),
-               shop_id: int = Depends(get_shop_id)):
-    """One proposed option per item. 409 unless help was recorded for this alert."""
-    try:
-        recs = repo.plan(conn, shop_id, alert_id, limit, request.app.state.th)
-    except repo.NotFound as e:
-        raise HTTPException(404, str(e)) from None
-    except repo.Conflict as e:
-        raise HTTPException(409, str(e)) from None
-    return {"alert_id": alert_id, "recommendations": recs, **repo.money_at_risk(conn, shop_id)}
-
-
 def _decide(rec_id: int, accept: bool, conn, shop_id: int):
     try:
         return repo.decide(conn, shop_id, rec_id, accept)

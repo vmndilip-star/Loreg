@@ -176,6 +176,15 @@ def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None)
     return alert_state(conn, alert_id, th)
 
 
+def item_options(it, as_of: date, th: Thresholds) -> actions.OptionSet:
+    """What the rules allow for one stocked item (a skus row joined with its product). The only place this is worked out for a plan:
+    the rules plan, the agent's allowed set and the check on the agent's answer all use it."""
+    rw = date.fromisoformat(it["return_window_end"]) if it["return_window_end"] else None
+    return actions.allowed_options(qty=it["qty"], unit_cost=it["unit_cost_cents"], sell_price=it["sell_price_cents"], dsls=it["dsls"],
+                                   units_sold_90d=it["units_sold_90d"], category=it["category"], seasonal=bool(it["is_seasonal"]),
+                                   return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])        # money in cents, like cost and price
+
+
 def _rec_json(rec, item) -> dict:
     reasons = json.loads(rec["reasons_json"])
     d = rec["discount_pct"]
@@ -185,7 +194,8 @@ def _rec_json(rec, item) -> dict:
     return {"id": rec["id"], "alert_id": rec["alert_id"], "sku": rec["sku"], "name": _name(item), "shelf": item["qty"],
             "tied_cents": rec["capital_cents"], "option": rec["action"], "option_label": label, "discount_pct": d,
             "margin_impact_cents": rec["margin_impact_cents"], "reasons": reasons, "chips": chips,
-            "citations": json.loads(rec["citations_json"]), "status": rec["status"], "decided_at": rec["decided_at"]}
+            "citations": json.loads(rec["citations_json"]), "status": rec["status"], "decided_at": rec["decided_at"],
+            "source": rec["source"]}
 
 
 def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: Thresholds) -> list[dict]:
@@ -200,9 +210,7 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
     try:
         for it in items:
             rw = date.fromisoformat(it["return_window_end"]) if it["return_window_end"] else None
-            opts = actions.allowed_options(qty=it["qty"], unit_cost=it["unit_cost_cents"], sell_price=it["sell_price_cents"], dsls=it["dsls"],
-                                           units_sold_90d=it["units_sold_90d"], category=it["category"], seasonal=bool(it["is_seasonal"]),
-                                           return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])               # cents, like cost and price
+            opts = item_options(it, as_of, th)
             option, pct = actions.default_option(opts)
             dos = metrics.days_of_stock(it["qty"], it["units_sold_90d"])
             reasons = plan_reasons(option=option, discount_pct=pct, qty=it["qty"], cost_cents=it["unit_cost_cents"], sell_cents=it["sell_price_cents"],
@@ -225,6 +233,11 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
     by_sku = {it["sku"]: it for it in items}
     recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? ORDER BY capital_cents DESC, sku", (alert_id,)).fetchall()
     return [_rec_json(r, by_sku[r["sku"]]) for r in recs if r["sku"] in by_sku]
+
+
+def item_plan(conn: sqlite3.Connection, alert_id: int, sku: str):
+    """The stored plan row for one item."""
+    return conn.execute("SELECT * FROM recommendations WHERE alert_id = ? AND sku = ?", (alert_id, sku)).fetchone()
 
 
 def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) -> dict:

@@ -110,7 +110,7 @@ def test_one_proposal_that_stays_proposed():
     r = recommender.recommend(LLMClient("mock"), SKU, FACTS, help_requested=True)
     rec = r.output
     assert isinstance(rec, Recommendation) and rec.status == "proposed"
-    assert rec.option == "discount" and rec.discount_pct == 10 and rec.citations
+    assert rec.option == "discount" and rec.discount_pct == 5 and rec.citations      # the rules' own first choice: the smallest allowed step
 
 
 def test_disallowed_option_is_replaced_by_the_fallback():
