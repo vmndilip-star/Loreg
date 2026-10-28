@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from app.api.routes_demo import DEMO_FILE
+from app.core.thresholds import load_thresholds
 from csv_truth import Truth
 from live_server import LiveServer
 from test_watch import POISONS, FakeWeb, article, rss
@@ -155,23 +156,40 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         page.close()
 
 
-@pytest.mark.parametrize("pub, banner", [("Sun, 01 Mar 2026 08:00:00 +0000", True), ("Mon, 26 Oct 2026 08:00:00 +0000", False)])
-def test_an_old_source_gets_a_stale_banner_and_a_fresh_one_does_not(browser, tmp_path, monkeypatch, pub, banner):
+STALE_DAYS = load_thresholds().stale_source_days          # watch.stale_after_days in config/thresholds.yaml (our 30-day assumption)
+
+
+@pytest.mark.parametrize("days_over, banner", [(-1, False), (0, False), (1, True), (200, True)])
+def test_the_stale_banner_shows_on_home_and_on_watch_exactly_when_the_source_is_older_than_the_limit(browser, tmp_path, monkeypatch, days_over, banner):
+    """An attached real source, aged against the clock: at the limit it is still fresh, one day over it is stale, on both pages."""
+    from datetime import timedelta
     monkeypatch.delenv("LOREG_DEMO", raising=False)             # a real article only becomes the alert's source outside demo mode
-    web = FakeWeb(rss([article(pub=pub)]))                       # a synthetic article that really matches the Samsung line
-    with LiveServer(tmp_path / "stale.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
+    age = STALE_DAYS + days_over
+    now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc) + timedelta(days=age)
+    web = FakeWeb(rss([article()]))                              # published 2026-10-26 08:00, a synthetic article that really matches the Samsung line
+    with LiveServer(tmp_path / "stale.sqlite", http_factory=web.factory(), clock=lambda: now) as server:
         with open(DEMO_FILE, "rb") as f:
             assert httpx.post(server.url + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
-        scan = httpx.post(server.url + "/api/watch/scan").json()
-        assert scan["matched_events"] == 1
+        assert httpx.post(server.url + "/api/watch/scan").json()["matched_events"] == 1
+        source = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["source"]
+        assert source["attached"] and source["age_days"] == age and source["stale_after_days"] == STALE_DAYS
+        assert source["freshness"] == ("stale" if banner else "fresh")
         page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.goto(server.url + "/#home")
+        home = page.locator("[data-testid=alert] .banner-warn")
         page.goto(server.url + "/#watch")
-        expect(page.get_by_label("Launch alert")).to_contain_text("Published Mar 1, 2026" if banner else "Published Oct 26, 2026")
+        watch = page.locator("[data-testid=stale-banner]")
+        page.goto(server.url + "/#home")
+        expect(page.locator("[data-testid=alert]")).to_contain_text("Published Oct 26, 2026")
         if banner:
-            expect(page.locator("[data-testid=stale-banner]")).to_contain_text("239 days old")
-            expect(page.locator("[data-testid=stale-banner]")).to_contain_text("Do not read it as fresh news")
+            expect(home).to_contain_text(f"{age} days old (more than {STALE_DAYS}). Do not read it as fresh news.")
+            page.goto(server.url + "/#watch")
+            expect(watch).to_contain_text(f"{age} days old (more than {STALE_DAYS}). Do not read it as fresh news.")
         else:
-            assert page.locator("[data-testid=stale-banner]").count() == 0
+            assert home.count() == 0
+            page.goto(server.url + "/#watch")
+            expect(page.get_by_label("Launch alert")).to_contain_text("Published Oct 26, 2026")
+            assert watch.count() == 0
         page.close()
 
 
