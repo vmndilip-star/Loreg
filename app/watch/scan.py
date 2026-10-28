@@ -8,6 +8,9 @@ real matches, alerts keep saying that no dated source is attached.
 import json
 import re
 import sqlite3
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
@@ -26,6 +29,7 @@ from app.watch.sanitize import INVISIBLE_FLAG, sanitize_html, sanitize_title
 DEFAULT_SOURCES = [dict(s) for s in NEWS.sources]
 MAX_ENTRIES = 100
 MAX_EXTRACT_PER_SCAN = 10
+_READERS = ThreadPoolExecutor(max_workers=2, thread_name_prefix="market")   # model calls run here so a scan can stop waiting for one
 _ANY_DATE = re.compile(r"\b\d{4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE)
 
 
@@ -99,25 +103,39 @@ def clear_old_bodies(conn: sqlite3.Connection, now: datetime, keep_days: int) ->
     return cur.rowcount
 
 
-def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list[dict], ts: str, limit: int = MAX_EXTRACT_PER_SCAN, news=None) -> dict:
+def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list[dict], ts: str, limit: int = MAX_EXTRACT_PER_SCAN, news=None,
+                   deadline: float | None = None) -> dict:
     """Run the Market agent on stored items that look like launch news; match each event to catalog lines by code.
     Once an item has been read (or skipped) its body is cleared; the excerpt, hash and dates stay.
 
     The model calls happen first, with no database lock held; the results are then written in one short transaction.
+    `deadline` (time.monotonic()): no model call starts after it, and a call still running at it is no longer waited for (its thread
+    finishes on its own; the answer is dropped). Articles not read in time keep extracted = 0 and are read on the next check.
     """
     news = news or NEWS
     items = conn.execute("SELECT * FROM market_items WHERE source_id = ? AND extracted = 0 AND text != '' ORDER BY published_at DESC, id DESC",
                          (source["id"],)).fetchall()
-    skipped, outcomes = [], []
+    skipped, outcomes, left = [], [], 0
     for it in items:
         haystack = f"{it['title']} {it['text']}"
         cue = _LAUNCH_CUE.search(haystack) and (_ANY_DATE.search(haystack) or match_lines(source["brand"], haystack, lines))
         if not cue:
             skipped.append(it["id"])
         elif len(outcomes) < limit:  # the rest stay extracted = 0 and are read on a later scan
-            result = read_article(llm, Article(source_id=str(it["id"]), outlet=source["name"], url=it["url"],
-                                               published=it["published_at"] or "unknown", text=it["text"], title=it["title"]))
+            article = Article(source_id=str(it["id"]), outlet=source["name"], url=it["url"], published=it["published_at"] or "unknown",
+                              text=it["text"], title=it["title"])
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                left += 1
+                continue
+            try:
+                result = read_article(llm, article) if remaining is None else _READERS.submit(read_article, llm, article).result(timeout=remaining)
+            except FutureTimeout:
+                left += 1
+                continue
             outcomes.append((it, result))
+        else:
+            left += 1
     events = matched = 0
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -141,7 +159,7 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return {"read": len(outcomes), "events": events, "matched_events": matched}
+    return {"read": len(outcomes), "events": events, "matched_events": matched, "left_for_next_check": left}
 
 
 def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
@@ -167,12 +185,13 @@ def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
 
 def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLMClient, catalog, sources: list[dict] | None = None,
          now: datetime | None = None, news=NEWS) -> dict:
+    deadline = time.monotonic() + news.scan_deadline_s                # the whole check, fetch and reading included
     ts = stamp(now)
     lines = catalog_lines(catalog.variants)
     conn.execute("BEGIN IMMEDIATE")
     clear_old_bodies(conn, now or datetime.now(timezone.utc), news.body_keep_days)
     conn.execute("COMMIT")
-    report = {"scanned_at": ts, "sources": [], "new_items": 0, "events": 0, "matched_events": 0, "network": "ok", "message": ""}
+    report = {"scanned_at": ts, "sources": [], "new_items": 0, "events": 0, "matched_events": 0, "left_for_next_check": 0, "network": "ok", "message": ""}
     for src in sources or DEFAULT_SOURCES:
         refused = check_url(src["url"], news.allowed_hosts)
         if refused:                                       # never configured, never fetched
@@ -213,8 +232,9 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
             conn.execute("ROLLBACK")
             raise
         if res.status in ("ok", "not_modified"):
-            entry.update(extract_events(conn, source, llm, lines, ts, news=news))
+            entry.update(extract_events(conn, source, llm, lines, ts, news=news, deadline=deadline))
             report["events"] += entry["events"]
+            report["left_for_next_check"] += entry["left_for_next_check"]
             report["matched_events"] += entry["matched_events"]
         if res.status in ("network_error", "robots_unavailable"):
             report["network"] = "unavailable"
@@ -232,5 +252,7 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
     report["checked_at"] = ts
     report["message"] = ("; ".join(f"{s['source']}: {s['message']}" for s in bad)
                          + (f". Showing stored copies; the newest was fetched on {newest[:10]}." if newest else ". Nothing is stored yet.")) if bad else "scan complete"
+    if report["left_for_next_check"]:
+        report["message"] += f"; {report['left_for_next_check']} articles will be read on the next check"
     report["items_stored"] = conn.execute("SELECT COUNT(*) AS n FROM market_items").fetchone()["n"]
     return report

@@ -22,6 +22,7 @@ class NewsConfig:
     timeout_s: float = 10.0
     excerpt_chars: int = 280
     body_keep_days: int = 7
+    scan_deadline_s: float = 60.0
     extra: dict = field(default_factory=dict)
 
 
@@ -52,7 +53,8 @@ def load_news_config(path=None) -> NewsConfig:
     lim = raw.get("limits", {})
     cfg = NewsConfig(allowed_hosts=allowed, sources=tuple(raw["sources"]), max_feed_bytes=int(lim.get("max_feed_bytes", 2 * 1024 * 1024)),
                      max_redirects=int(lim.get("max_redirects", 3)), timeout_s=float(lim.get("timeout_s", 10)),
-                     excerpt_chars=int(lim.get("excerpt_chars", 280)), body_keep_days=int(lim.get("body_keep_days", 7)))
+                     excerpt_chars=int(lim.get("excerpt_chars", 280)), body_keep_days=int(lim.get("body_keep_days", 7)),
+                     scan_deadline_s=float(lim.get("scan_deadline_s", 60)))
     for s in cfg.sources:
         problem = check_url(s["url"], allowed)
         if problem:

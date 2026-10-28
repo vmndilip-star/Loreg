@@ -20,3 +20,4 @@ limits:
   timeout_s: 10
   excerpt_chars: 280          # the most of an article that is kept after it has been read
   body_keep_days: 7           # an unread article body is cleared after this many days
+  scan_deadline_s: 60         # assumption: the longest one "Check for news" may take; articles not read by then wait for the next check
