@@ -30,6 +30,7 @@ ASK = "What should I clear before the launch?"
 lines: list[str] = []
 checks: list[tuple[str, bool, str]] = []
 metrics: dict = {}
+fallback_calls: list[str] = []          # every agent call, in any step, whose answer was replaced by the rules fallback
 REDACT = [(re.compile(r"(?i)bearer\s+\S+"), "Bearer [redacted]"), (re.compile(r"(?i)META_API_KEY\s*[=:]\s*\S+"), "META_API_KEY=[redacted]"),
           (re.compile(r"[A-Za-z]:[\\/]Users[\\/][^\s\"']+"), "[local path]")]
 
@@ -67,6 +68,7 @@ def stream(client, question: str, sku: str | None = None):
     reply = "".join(d["text"] for e, d in events if e == "token") or " ".join(f"[error event] {d['message']}" for e, d in events if e == "error")
     cards = [c for e, d in events if e == "cards" for c in d["cards"]]
     done = next((d for e, d in events if e == "done"), {})
+    fallback_calls.extend(f"{a['agent']} (ask: {question[:40]})" for a in done.get("agents", []) if a["source"] == "fallback")
     return r.status_code, events, reply, cards, done, round(time.perf_counter() - started, 1)
 
 
@@ -86,6 +88,14 @@ def main() -> int:
     s = client.get("/api/summary").json()
     say(f"rows {up['rows']}, kept {up['kept']}, blocked {up['blocked']}; money at risk {s['money_at_risk_cents'] / 100:,.2f} USD")
     start = s["money_at_risk_cents"]
+    src = client.get("/api/launch/exposed").json()["groups"][0]["source"]
+    news = client.get("/api/watch/items").json()["items"]
+    say(f"alert source: {src.get('label')!r} ({src.get('origin')}), published {str(src.get('published'))[:10]}, fetched {str(src.get('fetched'))[:10]}; "
+        f"news list: {len(news)} items ({sorted({i['label'] or 'feed' for i in news})})")
+    check("the demo alert carries a labelled synthetic source with published and fetched dates",
+          src.get("attached") and src.get("label") == "Demo article (synthetic)" and bool(src.get("published")) and bool(src.get("fetched")))
+    check("the news list shows the real items as 'Stored copy' with their true fetch date",
+          any(i["label"] == "Stored copy" and i["fetched_at"][:10] <= datetime.now().strftime("%Y-%m-%d") and not i["undated"] for i in news))
 
     say("\n## 2. Daily brief")
     t = time.perf_counter()
@@ -154,6 +164,12 @@ def main() -> int:
     stored = set(re.findall(r"\$[\d,]+", launch_reply))
     check("an unknowable question gets 'not enough data' without a model call", reply.startswith("Not enough data:") and not done.get("agents"))
     check("it cites only stored figures and invents no date", set(re.findall(r"\$[\d,]+", reply)) <= stored and "2027" not in reply)
+    code, events, reply, cards, done, secs = stream(client, "When will Samsung launch the new QN90D?")
+    say(f"date question on the synthetic article -> ({secs} s) agents: {agents_line(done)}\n\n> {reply}")
+    check("a date question is answered 'From your stored news only' and says the source is a synthetic demo article, without a model call",
+          reply.startswith("From your stored news only:") and "synthetic demo article, not real news" in reply and not done.get("agents"))
+    check("it makes up no launch date", "cannot say when" in reply and not re.search(r"\b20(2[7-9]|3\d)\b", reply))
+    metrics["fallback_agent_calls"] = [a for a in fallback_calls]
 
     failed = [c for c in checks if not c[1]]
     say(f"\n## Result: {len(checks) - len(failed)} of {len(checks)} checks passed" + ("" if not failed else "; FAILED: " + "; ".join(c[0] for c in failed)))
