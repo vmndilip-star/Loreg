@@ -308,3 +308,31 @@ def test_a_date_question_on_a_real_article_with_no_launch_date_says_so_and_does_
     reply = reply_to(c, "When will Samsung launch the new QN90D?")
     assert reply.startswith("From your stored news only: ") and "synthetic demo article" not in reply
     assert "That article gives no launch date, so I cannot say when." in reply
+
+
+# ------------------------------------------------------------------------------ no real publisher name on a synthetic item
+def test_nothing_about_the_synthetic_article_names_a_real_publisher_anywhere_it_is_shown(tmp_path, catalog_dir, demo):
+    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(rss([article()])).factory(), clock=Clock()))
+    c.post("/api/demo/load")
+    c.post("/api/watch/scan")                                                   # a scan puts a real-looking item next to it; they must not be mixed up
+    group = c.get("/api/launch/exposed").json()["groups"][0]
+    alert = c.get(f"/api/alerts/{group['alert_id']}").json()
+    listed = next(i for i in c.get("/api/watch/items").json()["items"] if i["origin"] == "demo_synthetic")
+    scan_item = next(i for i in c.post("/api/watch/scan").json()["items"] if i["origin"] == "demo_synthetic")
+    sources = [group["source"], alert["source"]]
+    for src in sources:
+        assert (src["name"], src["label"], src["domain"], src["url"]) == ("Loreg demo (synthetic)", "Demo article (synthetic)", "demo.invalid", SYNTHETIC_URL)
+    for item in (listed, scan_item):
+        assert (item["source"], item["label"], item["domain"]) == ("Loreg demo (synthetic)", "Demo article (synthetic)", "demo.invalid")
+    without_events = lambda item: {k: v for k, v in item.items() if k != "events"}      # an event's "brand" is the PRODUCT brand used for matching  # noqa: E731
+    shown = json.dumps([sources, without_events(listed), without_events(scan_item), group["source_note"], alert["source_note"]])
+    for publisher in ("Samsung", "samsung", "Newsroom", "news.samsung.com"):
+        assert publisher not in shown, publisher                               # not in a name, address, title, excerpt, label or note
+    reply = reply_to(c, "What should I clear before the launch?")
+    cited = reply[reply.index("Source:"):reply.index("published")]
+    assert cited == "Source: Loreg demo (synthetic) (Demo article (synthetic)), "
+    con = sqlite3.connect(tmp_path / "d.sqlite")
+    row = con.execute("SELECT s.name, s.url, i.domain FROM market_items i JOIN market_sources s ON s.id = i.source_id WHERE i.origin = 'demo_synthetic'").fetchone()
+    assert row == ("Loreg demo (synthetic)", "https://demo.invalid/", "demo.invalid")      # in the database too, not only in the labels
+    real = con.execute("SELECT s.name FROM market_items i JOIN market_sources s ON s.id = i.source_id WHERE i.origin = 'feed'").fetchone()
+    assert real == ("Samsung Global Newsroom",)                                  # the real item keeps its real publisher

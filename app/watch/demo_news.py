@@ -24,7 +24,9 @@ from app.watch.matching import catalog_lines, match_lines
 SYNTHETIC_URL = "https://demo.invalid/loreg-synthetic-demo-article"
 SYNTHETIC_TITLE = "Demo article (synthetic): a newer QN90D Neo QLED generation is announced"
 SYNTHETIC_EXCERPT = ("Demo article (synthetic). This is not real news; it was written for Loreg's demo. "
-                     "In this made-up example, Samsung announces a newer generation of the QN90D Neo QLED line.")
+                     "In this made-up example, a newer generation of the QN90D Neo QLED line is announced.")
+# The synthetic article has its own source row. No real publisher's name appears on it anywhere.
+SYNTHETIC_SOURCE = {"name": "Loreg demo (synthetic)", "brand": "Samsung", "url": "https://demo.invalid/", "kind": "demo"}   # "brand" is the product brand, for matching
 
 
 def load_stored_copy(path, lines, news=NEWS) -> dict | None:
@@ -83,9 +85,8 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
         return "none needed"
     lines = catalog_lines(catalog.variants)
     ts = stamp(now)
-    src = dict(news.sources[0])
-    source = ensure_source(conn, shop_id, src, ts)
     real = load_stored_copy(copy_path, lines, news)
+    source = ensure_source(conn, shop_id, dict(news.sources[0]) if real else dict(SYNTHETIC_SOURCE), ts)
     if real:
         kind, url, title, published, fetched, excerpt = "stored_copy", real["url"], real["title"], real["published_at"], real["fetched_at"], real["excerpt"]
         chash, brand, ids, launch = real["content_hash"], real["brand"], real["line_ids"], real.get("launch_date")
@@ -104,7 +105,7 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
     else:
         item_id = item["id"]
         if kind == "demo_synthetic":                          # the synthetic article is the demo's own: its dates follow the demo clock
-            conn.execute("UPDATE market_items SET published_at = ?, fetched_at = ? WHERE id = ?", (published, fetched, item_id))
+            conn.execute("UPDATE market_items SET published_at = ?, fetched_at = ?, source_id = ? WHERE id = ?", (published, fetched, source["id"], item_id))
     if conn.execute("SELECT 1 FROM market_events WHERE item_id = ?", (item_id,)).fetchone() is None:
         conn.execute("INSERT INTO market_events (item_id, brand, family, launch_date, launch_iso, date_stated, quote, matched_line_ids, flagged, created_at)"
                      " VALUES (?,?,?,?,NULL,?,?,?,0,?)", (item_id, brand, "QN90D Neo QLED" if kind == "demo_synthetic" else title[:80], launch,

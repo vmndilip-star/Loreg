@@ -50,7 +50,7 @@ def attach_events_to_alerts(conn: sqlite3.Connection, shop_id: int, pin_demo: bo
         chosen = None
         for ev in conn.execute(
                 "SELECT e.*, i.title AS title, i.published_at AS published_at, i.url AS url, i.origin AS origin,"
-                " CASE WHEN i.origin = 'demo_synthetic' THEN 'Loreg demo (synthetic)' ELSE s.name END AS source_name FROM market_events e"
+                " s.name AS source_name FROM market_events e"
                 " JOIN market_items i ON i.id = e.item_id JOIN market_sources s ON s.id = i.source_id WHERE e.flagged = 0"
                 " AND i.published_at IS NOT NULL" + only_demo +
                 " ORDER BY (i.origin = 'demo_synthetic'), i.published_at DESC, e.id DESC"):        # real articles before the synthetic demo one
