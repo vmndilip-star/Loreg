@@ -275,3 +275,36 @@ def test_a_missing_or_broken_copy_file_falls_back_to_the_synthetic_article(tmp_p
     (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
     monkeypatch.setattr(routes, "NEWS_COPY", tmp_path / "broken.json")
     assert source(demo_app(tmp_path / "x" if (tmp_path / "x").mkdir() is None else tmp_path))["origin"] == "demo_synthetic"
+
+
+# ------------------------------------------------------------------------------ a date question about the synthetic demo article
+def reply_to(c, question):
+    body = c.post("/api/ask", json={"question": question}).text
+    return "".join(json.loads(f.split("data: ", 1)[1])["text"] for f in body.split("\n\n") if f.startswith("event: token"))
+
+
+def test_a_date_question_on_the_synthetic_article_is_answered_from_stored_news_and_says_the_source_is_synthetic(tmp_path, catalog_dir, demo):
+    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
+    c.post("/api/demo/load")
+    reply = reply_to(c, "When will Samsung launch the new QN90D?")
+    assert reply.startswith("From your stored news only: This source is a synthetic demo article, not real news.")
+    assert "Demo article (synthetic)" in reply and "published 2026-10-24, fetched 2026-10-26" in reply
+    assert "gives no launch date, so I cannot say when" in reply and "Not enough data" not in reply
+    assert "2027" not in reply and "2028" not in reply                                                       # no launch date was made up
+    assert "March" not in reply
+
+
+def test_a_price_question_on_the_synthetic_article_is_not_enough_data_and_still_says_it_is_synthetic(tmp_path, catalog_dir, demo):
+    c = TestClient(create_app(tmp_path / "d.sqlite", as_of="2026-10-26", http_factory=FakeWeb(b"").factory(), clock=Clock()))
+    c.post("/api/demo/load")
+    reply = reply_to(c, "What will Samsung charge for the new QN90D?")
+    assert reply.startswith("Not enough data: I don't have a price for that.") and "synthetic demo article, not real news" in reply
+
+
+def test_a_date_question_on_a_real_article_with_no_launch_date_says_so_and_does_not_call_it_synthetic(tmp_path, catalog_dir):
+    no_date = "SYNTHETIC. Samsung announced the QN90D Neo QLED refresh will launch this spring."
+    c = build(tmp_path, catalog_dir, FakeWeb(rss([article(html=no_date)])))
+    c.post("/api/watch/scan")
+    reply = reply_to(c, "When will Samsung launch the new QN90D?")
+    assert reply.startswith("From your stored news only: ") and "synthetic demo article" not in reply
+    assert "That article gives no launch date, so I cannot say when." in reply

@@ -276,11 +276,16 @@ def not_enough_data(ctx: Ctx, started: float, question: str) -> Iterator[dict]:
         g = groups[0]
         yield ev("tool", name="stored_alert", source=g["source"])
         src = g["source"]
-        if kinds == ["date"] and src["attached"] and src["launch_date"]:      # a stored, dated article does answer a date question
-            yield from tokens(f"From your stored news only: {alert_text(g)} I have no other source for launch dates. {ASK_PROMPT}")
+        synthetic = src["attached"] and src["origin"] == "demo_synthetic"
+        said = " This source is a synthetic demo article, not real news." if synthetic else ""
+        if kinds == ["date"] and src["attached"]:                              # a stored article is the only thing that can answer a date question
+            ending = ("I have no other source for launch dates." if src["launch_date"]
+                      else "That article gives no launch date, so I cannot say when.")
+            yield from tokens(f"From your stored news only:{said} {alert_text(g)} {ending} {ASK_PROMPT}")
             yield ev("cards", cards=[_alert_card(g)])
             yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
             return
+        text += said
         yield from tokens(f"{text} What is stored: {alert_text(g)} {ASK_PROMPT}")
         yield ev("cards", cards=[_alert_card(g)])
         yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
