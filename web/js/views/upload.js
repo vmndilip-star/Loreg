@@ -2,9 +2,9 @@
 import { api, ApiError } from '../api.js';
 import { append, clear, el, icon } from '../dom.js';
 import { count, date } from '../format.js';
+import { humanCode } from '../parts.js';
 
 const LEVEL_CHIP = { error: 'chip-red', warning: 'chip-amber', info: '' };
-const humanCode = (code) => { const t = String(code).toLowerCase().replace(/_/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 export async function mount(root, ctx) {
   const result = el('div', { class: 'col-12' });
