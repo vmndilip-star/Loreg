@@ -21,8 +21,7 @@ USER_AGENT = "LoregBot/0.1 (+https://github.com/vmndilip-star/Loreg; hackathon p
 TIMEOUT_S = 10.0
 MAX_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
-ROBOTS_TTL = timedelta(hours=24)
-ROBOTS_STALE_OK = timedelta(days=30)   # RFC 9309: if robots.txt is temporarily unreachable a crawler may keep using its last copy
+ROBOTS_TTL = timedelta(hours=24)      # a successful robots.txt answer is trusted for this long without asking again
 ROBOTS_TRIES = 3
 ROBOTS_BACKOFF_S = 2.0
 _sleep = time.sleep   # tests replace this so they do not wait
@@ -40,6 +39,8 @@ class FeedResult:
     message: str = ""
     robots_allowed: bool | None = None
     robots_checked: bool = False
+    robots_checked_on: str | None = None     # the date robots.txt was really read (not today's date, when the answer came from the cache)
+    robots_from_cache: bool = False
 
 
 def canonical_url(url: str) -> str:
@@ -129,30 +130,29 @@ def fetch_feed(http: httpx.Client, url: str, *, etag: str | None = None, last_mo
     problem = check_url(url, allowed)
     if problem:                                    # nothing is requested, not even robots.txt
         return FeedResult("blocked_host", message=f"this address is not fetched: {problem}")
-    fresh = False
+    fresh, cached_on = False, (robots_checked_at or "")[:10] or None
     if robots_allowed is not None and robots_checked_at:
         try:
             fresh = now - datetime.fromisoformat(robots_checked_at.replace("Z", "+00:00")) < ROBOTS_TTL
         except ValueError:
             fresh = False
-    checked, stale_note = False, ""
+    checked, stale_note, from_cache, checked_on = False, "", False, now.strftime("%Y-%m-%d")
     if fresh:
-        ok, note = robots_allowed, "robots decision cached"
+        ok, note, from_cache, checked_on = robots_allowed, "robots decision cached", True, cached_on
     else:
         ok, note = _robots_decision(http, url, allowed, max_redirects)
         checked = ok is not None            # an unreachable robots.txt must not overwrite the last good decision
-        if ok is None and robots_allowed is True and robots_checked_at:
-            try:
-                age = now - datetime.fromisoformat(robots_checked_at.replace("Z", "+00:00"))
-            except ValueError:
-                age = None
-            if age is not None and age < ROBOTS_STALE_OK:
-                ok = True                   # last known rules allowed this feed and are under 30 days old
-                stale_note = f"robots.txt was unreachable ({note}); used the copy checked on {robots_checked_at[:10]}"
+        if ok is None and robots_allowed is True and cached_on:
+            # robots.txt could not be read now, but an earlier read said "allowed". RFC 9309 lets a crawler keep using its last copy while the
+            # file is unreachable. Fail closed only when there is no cached success at all (below). A cached "disallowed" is never overridden.
+            ok, from_cache, checked_on = True, True, cached_on
+            stale_note = f"robots.txt was unreachable ({note}); used the copy checked on {cached_on}"
     if ok is None:
         return FeedResult("robots_unavailable", message=note, robots_allowed=None, robots_checked=False)
     if ok is False:
-        return FeedResult("blocked_by_robots", message="robots.txt does not allow this feed for our User-Agent", robots_allowed=False, robots_checked=checked)
+        return FeedResult("blocked_by_robots", message="robots.txt does not allow this feed for our User-Agent", robots_allowed=False, robots_checked=checked,
+                          robots_checked_on=checked_on, robots_from_cache=from_cache)
+    robots_note = f"robots.txt {'cached, checked on' if from_cache else 'read on'} {checked_on}" if not stale_note else ""
 
     headers = {"User-Agent": USER_AGENT, "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5"}
     if etag:
@@ -169,9 +169,9 @@ def fetch_feed(http: httpx.Client, url: str, *, etag: str | None = None, last_mo
                     continue
                 if r.status_code == 304:
                     return FeedResult("not_modified", etag=etag, last_modified=last_modified, message="feed has not changed",
-                                      robots_allowed=True, robots_checked=checked)
+                                      robots_allowed=True, robots_checked=checked, robots_checked_on=checked_on, robots_from_cache=from_cache)
                 if r.status_code != 200:
-                    return FeedResult("network_error", message=f"feed answered HTTP {r.status_code}", robots_allowed=True, robots_checked=checked)
+                    return FeedResult("network_error", message=f"feed answered HTTP {r.status_code}", robots_allowed=True, robots_checked=checked, robots_checked_on=checked_on, robots_from_cache=from_cache)
                 got = _read_body(r, max_bytes)
                 if isinstance(got, FeedResult):
                     got.robots_checked = checked
@@ -179,11 +179,12 @@ def fetch_feed(http: httpx.Client, url: str, *, etag: str | None = None, last_mo
                 body, new_etag, new_modified = got, r.headers.get("etag"), r.headers.get("last-modified")
                 break
     except _Refused as e:
-        return FeedResult(e.status, message=e.message, robots_allowed=True, robots_checked=checked)
+        return FeedResult(e.status, message=e.message, robots_allowed=True, robots_checked=checked, robots_checked_on=checked_on, robots_from_cache=from_cache)
     except httpx.HTTPError as e:
-        return FeedResult("network_error", message=f"could not reach the feed ({type(e).__name__})", robots_allowed=True, robots_checked=checked)
+        return FeedResult("network_error", message=f"could not reach the feed ({type(e).__name__})", robots_allowed=True, robots_checked=checked, robots_checked_on=checked_on, robots_from_cache=from_cache)
     parsed = feedparser.parse(body)
     if not parsed.version:  # feedparser could not recognise RSS or Atom (an HTML page, plain text, ...)
-        return FeedResult("bad_feed", message="the response is not a readable feed", robots_allowed=True, robots_checked=checked)
+        return FeedResult("bad_feed", message="the response is not a readable feed", robots_allowed=True, robots_checked=checked, robots_checked_on=checked_on, robots_from_cache=from_cache)
     return FeedResult("ok", entries=list(parsed.entries), etag=new_etag, last_modified=new_modified,
-                      message=f"{len(parsed.entries)} entries" + (f"; {stale_note}" if stale_note else ""), robots_allowed=True, robots_checked=checked)
+                      message=f"{len(parsed.entries)} entries; {stale_note or robots_note}", robots_allowed=True, robots_checked=checked,
+                      robots_checked_on=checked_on, robots_from_cache=from_cache)

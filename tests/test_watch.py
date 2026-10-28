@@ -463,18 +463,6 @@ def test_when_robots_txt_is_unreachable_the_last_good_decision_is_used_for_up_to
     assert con.execute("SELECT robots_allowed FROM market_sources").fetchone()[0] == 1   # the good decision was not overwritten
 
 
-def test_a_stale_robots_decision_older_than_30_days_is_not_used(shop, monkeypatch):
-    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
-    web = FakeWeb(rss([article()]))
-    client, _ = run_scan(None, shop, web)
-    _age_robots(client, 31)
-    web.robots_status = 503
-    before = len(web.requests)
-    rep = client.post("/api/watch/scan").json()
-    assert rep["sources"][0]["status"] == "robots_unavailable"
-    assert "/global/feed" not in [r.url.path for r in web.requests[before:]]
-
-
 def test_a_cached_disallow_is_never_overridden_by_an_unreachable_robots_txt(shop, monkeypatch):
     monkeypatch.setattr(feeds, "_sleep", lambda s: None)
     web = FakeWeb(rss([article()]), robots="User-agent: *\nDisallow: /global/\n")

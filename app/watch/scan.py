@@ -180,7 +180,8 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
                                      robots_allowed=None if source["robots_allowed"] is None else bool(source["robots_allowed"]),
                                      robots_checked_at=source["robots_checked_at"], now=now, allowed=news.allowed_hosts,
                                      max_bytes=news.max_feed_bytes, max_redirects=news.max_redirects)
-        entry = {"source": source["name"], "url": source["url"], "status": res.status, "message": res.message}
+        entry = {"source": source["name"], "url": source["url"], "status": res.status, "message": res.message,
+                 "robots": {"checked_on": res.robots_checked_on, "from_cache": res.robots_from_cache}}
         conn.execute("BEGIN IMMEDIATE")
         try:
             sets = ["last_fetch_at = ?", "last_status = ?"]

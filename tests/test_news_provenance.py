@@ -142,7 +142,7 @@ def test_robots_unavailable_is_also_a_stored_copy_with_the_reason_in_words(tmp_p
     c = build(tmp_path, catalog_dir, web, clock)
     c.post("/api/watch/scan")
     con = sqlite3.connect(tmp_path / "p.sqlite")
-    con.execute("UPDATE market_sources SET robots_checked_at = '2025-01-01T00:00:00Z'")    # old enough that robots.txt must be read again
+    con.execute("UPDATE market_sources SET robots_allowed = NULL, robots_checked_at = NULL")     # no cached success: nothing to fall back on
     con.commit()
     con.close()
     web.robots_status, clock.t = 503, T0 + DAY
