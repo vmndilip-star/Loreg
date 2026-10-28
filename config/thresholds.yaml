@@ -34,6 +34,15 @@ actions:
 watch:
   stale_after_days: 30                   # assumption: chosen by us, not taken from any rule or source
 
+# Launch tracker. Dates are compared as calendar days only: "today" is the app clock's date in UTC, and a launch date is the day
+# as written in the article. Near midnight a US store's local day can differ from the UTC day by one (assumption, not checked).
+launch_tracker:
+  grace_days: 7                          # assumption: how long after the stated day a launch stays "due" before it is "unverified"
+  # A source confirms a launch only if its own words contain one of these (whole words, any case) and none of the blocking ones.
+  confirm_phrases: ["now available", "on sale now"]
+  # A blocking phrase also matches longer forms of the same word: "delay" blocks "delayed" and "delays".
+  block_phrases: ["will be available", "delay", "postpone", "pushed back", "push back", "pushes back", "pushing back"]
+
 # Used by the synthetic database generator only.
 generator:
   status_mix: {dead: 0.13, slow: 0.13, new: 0.06}   # share of SKUs per category; the rest are healthy
