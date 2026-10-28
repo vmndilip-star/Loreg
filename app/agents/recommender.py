@@ -56,6 +56,8 @@ def _fallback(sku: str, facts: list[Fact]) -> Recommendation:
     else:
         option, pct = "hold", 0
     cited = facts[:3]
+    if any(f.key == "discount_blocked_by_map" and f.number == 1 for f in facts):      # say why no discount is offered
+        cited = [f for f in facts if f.key in ("map_price", "discount_blocked_by_map")] + facts[:1]
     return Recommendation(sku=sku, option=option, discount_pct=pct,
                           reasons=[f"{f.label}: {f.value}" for f in cited],
                           citations=[f.id for f in cited])

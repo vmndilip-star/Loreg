@@ -36,5 +36,5 @@ export function planCard(r, ctx, refreshMoney) {
 }
 
 function optionTitle(r) {
-  return r.option === 'discount' && r.discount_pct ? `${r.option_label} ${r.discount_pct}%` : r.option_label;
+  return r.option_label;                // the server already says "Discount 5%" for a discount
 }
