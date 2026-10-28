@@ -22,7 +22,7 @@ def categories(conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
 def products(request: Request, category: str | None = Query(None, max_length=40), status: str = Query("all", max_length=20), q: str | None = Query(None, max_length=200),
              sort: str = Query(browse.DEFAULT_SORT, max_length=20), page: int = Query(1, ge=1, le=100_000),
              page_size: int = Query(browse.DEFAULT_PAGE_SIZE, ge=1, le=browse.MAX_PAGE_SIZE), conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    """One page of stock, with totals for the current filter. status: all|dead|slow|healthy|new. sort: tied_up|name|qty|days_since_sold."""
+    """One page of stock, with totals for the current filter. status: all|at_risk|dead|slow|healthy|new. sort: tied_up|name|qty|days_since_sold."""
     if category and category not in browse.known_categories(conn, shop_id):
         raise HTTPException(404, f"no category {category!r} in your stock")
     try:

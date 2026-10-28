@@ -15,7 +15,7 @@ from csv_truth import Truth
 
 pytestmark = pytest.mark.usefixtures("no_model")
 AS_OF = "2026-10-26"
-STATUSES = ["all", "dead", "slow", "healthy", "new"]
+STATUSES = ["all", "at_risk", "dead", "slow", "healthy", "new"]
 
 
 def upload(client, path):
@@ -50,7 +50,9 @@ def truth_full(catalog_dir):
 
 
 def subset(truth, category=None, status="all"):
-    return [i for i in truth.items if (category is None or i["category"] == category) and (status == "all" or i["status"] == status)]
+    want = ("dead", "slow") if status == "at_risk" else None
+    return [i for i in truth.items if (category is None or i["category"] == category)
+            and (status == "all" or (want and i["status"] in want and i["qty"] > 0) or i["status"] == status)]
 
 
 def at_risk(items):
@@ -267,3 +269,11 @@ def test_the_browse_code_never_imports_a_model_and_builds_no_query_from_caller_t
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
             assert not any(n == "openai" or n.startswith(("app.llm", "app.agents", "openai.")) for n in names), (path.name, names)
+
+
+def test_the_at_risk_filter_is_dead_plus_slow_and_the_chips_say_so(demo, truth):
+    body = get(demo, "/api/products", status="at_risk").json()
+    both = [i for i in truth.items if i["status"] in ("dead", "slow") and i["qty"] > 0]
+    assert body["totals"]["items"] == len(both) and body["totals"]["status_counts"]["at_risk"] == len(both)
+    assert body["totals"]["status_counts"]["at_risk"] == body["totals"]["status_counts"]["dead"] + body["totals"]["status_counts"]["slow"]
+    assert {r["status"] for r in body["rows"]} <= {"dead", "slow"} and body["totals"]["at_risk_cap_cents"] == sum(i["cap"] for i in both)

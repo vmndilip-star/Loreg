@@ -71,7 +71,8 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         expect(money()).to_have_text(dollars(start))
         rows = page.locator("[data-testid=products] tbody tr")
         expect(rows).to_have_count(25)
-        for n, item in enumerate(sorted(truth.items, key=lambda i: (-i["cap"], i["sku"]))[:25]):
+        expect(page.locator("[data-testid=chip-at_risk]")).to_have_attribute("aria-pressed", "true")     # what is stuck comes first, not everything
+        for n, item in enumerate(truth.top(25)):
             assert rows.nth(n).get_attribute("data-sku") == item["sku"] and dollars(item["cap"]) in rows.nth(n).inner_text()
         page.locator("[data-testid=chip-dead]").click()
         dead = truth.by_status("dead")
@@ -182,10 +183,11 @@ def test_browse_and_search_in_chrome_show_the_numbers_the_api_returns(browser, c
         page.goto(server.url + "/#stock")
         page.locator("[data-testid=category-link][data-category=tv]").click()
         tvs = sorted((i for i in truth.items if i["category"] == "tv"), key=lambda i: (-i["cap"], i["sku"]))
-        expect(page.locator("[data-testid=filter-summary]")).to_contain_text(f"TVs: {len(tvs)} items")
-        assert "category=tv" in page.url
-        expect(rows).to_have_count(25)
-        assert [rows.nth(n).get_attribute("data-sku") for n in range(25)] == [i["sku"] for i in tvs[:25]]
+        risky = [i for i in tvs if i["status"] in ("dead", "slow") and i["qty"] > 0]
+        expect(page.locator("[data-testid=filter-summary]")).to_contain_text(f"TVs: {len(risky)} items")      # at risk by default
+        assert "category=tv" in page.url and "status=" not in page.url
+        expect(rows).to_have_count(min(25, len(risky)))
+        assert [rows.nth(n).get_attribute("data-sku") for n in range(min(25, len(risky)))] == [i["sku"] for i in risky[:25]]
 
         # status chips carry the counts, and filtering changes the table and the money on screen
         slow = [i for i in tvs if i["status"] == "slow"]

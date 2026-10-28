@@ -6,21 +6,21 @@ import { count, money, plural } from '../format.js';
 import { humanCode, moneyTile, statusChip } from '../parts.js';
 import { stockLink } from '../search.js';
 
-const STATUSES = ['all', 'dead', 'slow'];
+const STATUSES = ['at_risk', 'dead', 'slow', 'all'];      // the first is the default: what is stuck comes before everything else
 const SORTS = { tied_up: 'Money tied up', name: 'Name', qty: 'On the shelf', days_since_sold: 'Days since last sale' };
-const CHIP_LABEL = { all: 'All', dead: 'Dead', slow: 'Slow' };
+const CHIP_LABEL = { at_risk: 'At risk', dead: 'Dead', slow: 'Slow', all: 'All' };
 
 function readFilter(params) {
   const status = params.get('status');
   const sort = params.get('sort');
   const page = Number.parseInt(params.get('page') || '1', 10);
   return {
-    category: params.get('category') || '', status: STATUSES.includes(status) ? status : 'all', q: (params.get('q') || '').slice(0, 100),
+    category: params.get('category') || '', status: STATUSES.includes(status) ? status : 'at_risk', q: (params.get('q') || '').slice(0, 100),
     sort: Object.hasOwn(SORTS, sort) ? sort : 'tied_up', page: Number.isFinite(page) && page >= 1 ? page : 1,
   };
 }
 
-const href = (f) => stockLink({ category: f.category, status: f.status === 'all' ? '' : f.status, q: f.q, sort: f.sort === 'tied_up' ? '' : f.sort, page: f.page === 1 ? '' : f.page });
+const href = (f) => stockLink({ category: f.category, status: f.status === 'at_risk' ? '' : f.status, q: f.q, sort: f.sort === 'tied_up' ? '' : f.sort, page: f.page === 1 ? '' : f.page });
 
 export async function mount(root, ctx) {
   let summary;
@@ -92,7 +92,7 @@ export async function mount(root, ctx) {
 
   function drawFilter(data) {
     const t = data.totals;
-    const label = filter.category ? (categories.find((c) => c.key === filter.category) || {}).label || filter.category : 'All stock';
+    const label = filter.category ? (categories.find((c) => c.key === filter.category) || {}).label || filter.category : (filter.status === 'all' ? 'All stock' : filter.status === 'at_risk' ? 'Dead or slow' : CHIP_LABEL[filter.status]);
     clear(filterSlot);
     append(filterSlot, [el('section', { class: 'tile glass d-flex flex-column gap-3', 'aria-label': 'Filter' },
       el('div', { class: 'd-flex flex-wrap gap-2 align-items-center', role: 'group', 'aria-label': 'Status' },
@@ -115,7 +115,7 @@ export async function mount(root, ctx) {
   function drawTable(data) {
     if (!data.rows.length) {
       append(tableSlot, [el('section', { class: 'tile glass empty', 'data-testid': 'empty' }, el('div', { class: 'label' }, 'Nothing matches. Try fewer words.'),
-        filter.status !== 'all' || filter.q || filter.category ? el('button', { type: 'button', class: 'btn-pill btn-soft mt-3', onclick: () => change({ status: 'all', q: '', category: '' }) }, 'Clear the filter') : null)]);
+        filter.status !== 'all' || filter.q || filter.category ? el('button', { type: 'button', class: 'btn-pill btn-soft mt-3', onclick: () => change({ status: 'at_risk', q: '', category: '' }) }, 'Clear the filter') : null)]);
       return;
     }
     const showCategory = !filter.category;
