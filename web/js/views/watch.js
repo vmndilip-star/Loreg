@@ -35,15 +35,29 @@ export async function mount(root, ctx) {
   }
 
   const planSlot = el('div', { class: 'col-12' });
-  const stale = g ? freshnessNotice(g.source) : null;
-  append(root, [el('h1', { class: 'h3 mb-3' }, 'Loreg Watch'),
-    stale ? el('div', { class: 'mb-3', 'data-testid': 'stale-banner' }, stale) : null,
+  const staleSlot = el('div', { class: 'mb-3', 'data-testid': 'stale-banner-slot' });
+  const alertCol = el('div', { class: 'col-12 col-lg-8' });
+  // Draw (or redraw after a scan) the alert and its stale warning from what the server says now.
+  function drawAlert(group) {
+    clear(staleSlot); clear(alertCol);
+    const stale = group ? freshnessNotice(group.source) : null;
+    if (stale) append(staleSlot, [el('div', { 'data-testid': 'stale-banner' }, stale)]);
+    staleSlot.hidden = !stale;
+    append(alertCol, [alertTile(group, ctx, () => showPlan(group))]);
+  }
+  async function redrawAlert() {
+    const fresh = (await api('/launch/exposed', { signal: ctx.signal })).groups[0];
+    drawAlert(fresh);
+    if (fresh && fresh.help_requested) await showPlan(fresh);
+  }
+  drawAlert(g);
+  append(root, [el('h1', { class: 'h3 mb-3' }, 'Loreg Watch'), staleSlot,
     el('div', { class: 'row g-3' },
       el('div', { class: 'col-12 col-lg-4' }, el('section', { class: 'tile tile-amber h-100 d-flex flex-column gap-2', 'aria-label': 'Money at risk' },
         el('div', { class: 'label' }, 'Money at risk'), moneyNumber, acceptedLine)),
-      el('div', { class: 'col-12 col-lg-8' }, alertTile(g, ctx, () => showPlan(g))),
+      alertCol,
       planSlot,
-      el('div', { class: 'col-12' }, newsTile(items, ctx)))]);
+      el('div', { class: 'col-12' }, newsTile(items, ctx, redrawAlert)))]);
 
   async function showPlan(group) {
     clear(planSlot);
@@ -78,15 +92,18 @@ function alertTile(g, ctx, onHelp) {
   return el('section', { class: 'tile glass h-100', 'aria-label': 'Launch alert' }, el('div', { class: 'chip chip-amber mb-2' }, 'Alert'), body);
 }
 
-function newsTile(items, ctx) {
+function newsTile(items, ctx, afterScan) {
   const list = el('div', { class: 'd-flex flex-column gap-2' });
   const note = el('div', { class: 'soft', role: 'status' });
   const draw = (rows) => {
     clear(list);
     if (!rows.length) { append(list, [el('div', { class: 'soft' }, 'No news stored yet. Check for news to read the manufacturer newsroom.')]); return; }
     append(list, rows.slice(0, 10).map((i) => el('div', { class: 'd-flex flex-column gap-1 pb-2 border-bottom border-secondary-subtle', 'data-testid': 'news-item' },
-      el('div', {}, el('span', { class: 'untrusted-tag me-2' }, 'From the web'), el('span', { class: 'fw-semibold' }, i.title)),
-      el('div', { class: 'soft small' }, `${i.source}, published ${date(i.published_at)}`),
+      el('div', {}, i.label ? el('span', { class: `chip ${i.origin === 'demo_synthetic' ? 'chip-amber' : 'chip-blue'} me-2` }, i.label) : el('span', { class: 'untrusted-tag me-2' }, 'From the web'),
+        el('span', { class: 'fw-semibold' }, i.title)),
+      el('div', { class: 'soft small' }, `${i.source}${i.domain ? ` (${i.domain})` : ''}. ${i.undated ? 'No publication date' : `Published ${date(i.published_at)}`}. Fetched ${date(i.fetched_at)}.`),
+      i.excerpt ? el('blockquote', { class: 'excerpt small mb-0' }, i.excerpt) : null,
+      i.undated ? el('div', { class: 'chip chip-amber align-self-start' }, 'Not used: an article without a publication date is never a source') : null,
       i.flagged ? el('div', { class: 'chip chip-amber align-self-start' }, `Not used: contains instruction-like text (${i.injection_flags.map(humanCode).join(', ')})`) : null,
       ...i.events.map((e) => el('div', { class: 'soft small' }, `${e.brand} ${e.family}: ${e.launch_date ? `launch date as written: ${e.launch_date}` : 'announced, no date'}${e.matched_line_ids.length ? `. Matches ${count(e.matched_line_ids.length)} of your product lines.` : '. No match with your product lines.'}`)))));
   };
@@ -97,9 +114,10 @@ function newsTile(items, ctx) {
     try {
       const rep = await api('/watch/scan', { method: 'POST', signal: ctx.signal });
       draw(rep.items);
-      note.textContent = rep.network === 'ok'
-        ? `${rep.message}. ${count(rep.new_items)} new, ${count(rep.matched_events)} matched your product lines.`
-        : `${rep.message}`;
+      await afterScan();                                    // the alert may now have a source, or may now be a stored copy
+      note.textContent = rep.network === 'ok' && !rep.cached
+        ? `${rep.message}. ${count(rep.new_items)} new, ${count(rep.matched_events)} matched your product lines. Checked ${date(rep.checked_at)}.`
+        : `${rep.message} (checked ${date(rep.checked_at)})`;
     } catch (e) { note.textContent = ''; ctx.fail(e); } finally { check.disabled = false; }
   });
   return el('section', { class: 'tile glass', 'aria-label': 'News Loreg has read' },

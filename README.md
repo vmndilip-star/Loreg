@@ -61,6 +61,12 @@ The stock list may include an optional `map_price` column (minimum advertised pr
 
 Tests: `python -m pytest -q`. They run offline. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself if Playwright or Chrome is missing.
 
+## Live news (Loreg Watch)
+
+News is read only from the hosts listed in `config/news_sources.yaml` (today: `news.samsung.com`), over https, with `robots.txt`, conditional GET, a size cap and hand-checked redirects. Only a short verbatim excerpt (280 characters or fewer), the title, address, dates and a content hash are kept; the article body is cleared once it has been read. An alert shows a source only if the article has a readable publication date, and it cites the address, the published date, the fetched date and the last check. If the feed cannot be reached the alert says "Stored copy" with its true dates. News is aged against today's date.
+
+In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a stored copy of a real article if `data/demo/news_copy.json` exists (make one with `python scripts/capture_demo_news.py`), otherwise a synthetic article labelled "Demo article (synthetic)".
+
 ## Status
 
 The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock, Watch, Ask, Upload) work end to end on synthetic data. Search and browse on Stock, the QuickBooks import, and the open-weights run are not done. All test data is synthetic.

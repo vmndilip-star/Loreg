@@ -154,3 +154,5 @@ main h1:focus { outline: none; }
 .top { position: relative; z-index: 30; }   /* the search results drop over the page, so the header sits above it */
 .linkbtn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-weight: 700; }
 .table-glass td:first-child { min-width: 11rem; }
+
+.excerpt { border-left: 4px solid rgba(255, 255, 255, 0.4); padding: 4px 0 4px 12px; margin: 4px 0; color: var(--soft); font-style: italic; }

@@ -138,7 +138,7 @@ def _source(conn: sqlite3.Connection, a, today: date | None = None, as_of: date 
         cached = True
         note = (f"Stored copy. Published {_day(a['source_published'])}, fetched {_day(it['fetched_at'])}. "
                 f"Could not check for newer news on {_day(it['last_fetch_at'])} ({why}).")
-    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "domain": it["domain"] if it else None, "title": a["source_title"],
+    return {"attached": True, "name": "Loreg demo (synthetic)" if origin == "demo_synthetic" else a["source_name"], "url": a["source_url"], "domain": it["domain"] if it else None, "title": a["source_title"],
             "published": a["source_published"], "fetched": it["fetched_at"] if it else None, "checked": it["last_ok_at"] if it else None,
             "excerpt": it["excerpt"] if it else "", "origin": origin, "label": DEMO_LABEL if origin == "demo_synthetic" else ("Stored copy" if cached else ""),
             "cached": cached, "cache_note": note,

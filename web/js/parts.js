@@ -26,14 +26,22 @@ export function freshnessNotice(source) {
   return el('div', { class: 'banner banner-warn', role: 'note' }, text);
 }
 
+// Where an alert's news came from, and when. Every field is shown as text; the link is used only for a real http(s) address on a real article.
 export function sourceBlock(source, note) {
   if (!source || !source.attached) return el('div', { class: 'soft' }, note || 'No dated source attached.');
-  const href = safeHref(source.url);
-  return el('div', { class: 'd-flex flex-column gap-1' },
-    el('div', {}, el('span', { class: 'untrusted-tag me-2' }, 'From the web'),
-      href ? el('a', { href, target: '_blank', rel: 'noopener noreferrer' }, source.title || source.name) : (source.title || source.name)),
-    el('div', { class: 'soft small' }, `${source.name}, published ${date(source.published)}.`),
+  const real = source.origin !== 'demo_synthetic';
+  const href = real ? safeHref(source.url) : null;
+  const badge = source.label ? el('span', { class: `chip ${source.origin === 'demo_synthetic' ? 'chip-amber' : 'chip-blue'} me-2`, 'data-testid': 'source-label' }, source.label)
+    : el('span', { class: 'untrusted-tag me-2' }, 'From the web');
+  return el('div', { class: 'd-flex flex-column gap-1', 'data-testid': 'source' },
+    el('div', {}, badge, href ? el('a', { href, target: '_blank', rel: 'noopener noreferrer' }, source.title || source.name) : (source.title || source.name)),
+    el('div', { class: 'soft small' }, `${source.name}${source.domain ? ` (${source.domain})` : ''}`),
+    el('div', { class: 'soft small d-flex flex-wrap gap-3', 'data-testid': 'source-dates' },
+      el('span', {}, `Published ${date(source.published)}`), el('span', {}, `Fetched ${date(source.fetched)}`),
+      source.checked ? el('span', {}, `Last checked ${date(source.checked)}`) : null),
+    source.excerpt ? el('blockquote', { class: 'excerpt small mb-0', 'data-testid': 'excerpt' }, source.excerpt) : null,
     el('div', { class: 'soft small' }, source.launch_date ? `Launch date, as written in the article: ${source.launch_date}.` : 'Announced. The article gives no launch date.'),
+    source.cached && source.cache_note ? el('div', { class: 'banner banner-info', role: 'note', 'data-testid': 'cache-note' }, source.cache_note) : null,
     freshnessNotice(source));
 }
 
