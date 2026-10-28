@@ -57,7 +57,7 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
     if demo_enabled():                                    # the demo alert always carries a labelled source, whichever way the stock list arrived
         conn.execute("BEGIN IMMEDIATE")
         try:
-            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY, NEWS_ITEMS, items_local_path=NEWS_ITEMS_LOCAL)
+            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY, NEWS_ITEMS, items_local_path=NEWS_ITEMS_LOCAL, as_of=when)
             conn.execute("COMMIT")
         except BaseException:
             conn.execute("ROLLBACK")

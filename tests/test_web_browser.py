@@ -94,6 +94,10 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         expect(alert).to_contain_text("Want me to plan what to do with them?")
         expect(alert.locator("[data-testid=source-label]")).to_have_text("Demo article (synthetic)")       # never unsourced, never unlabelled
         expect(alert.locator("[data-testid=source-dates]")).to_have_text("Published Oct 24, 2026Fetched Oct 26, 2026")
+        pace = httpx.get(server.url + "/api/launch/exposed").json()["groups"][0]["pace"]          # the server words it; the page only shows it
+        assert pace["status"] == "upcoming" and pace["units"] == sum(i["qty"] for i in exposed) and pace["per_day"] == -(-pace["units"] // pace["days_until"])
+        expect(alert.locator("[data-testid=pace]")).to_have_text(pace["text"])
+        assert "not a sales forecast" in pace["text"] and "synthetic demo article" in pace["text"] and "November 20, 2026" in pace["text"]
         main_text = page.locator("main").inner_text()
         assert not re.search(r"discount|bundle|accept|decline", main_text, re.I), "an option or discount is visible before help was asked for"
         assert page.locator("[data-testid=plan-card]").count() == 0
@@ -104,6 +108,7 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
         page.press("#q", "Enter")
         expect(page.locator("[data-testid=alert-card]")).to_be_visible()
         expect(page.locator("[data-testid=reply]")).to_contain_text("Want me to plan what to do with them?")
+        expect(page.locator("[data-testid=alert-card] [data-testid=pace]")).to_have_text(pace["text"])
         expect(page.locator("[data-testid=steps] li").first).to_have_text("Understood your question")
         items = page.locator("[data-testid=item-card]")
         expect(items).to_have_count(3)

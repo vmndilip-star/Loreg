@@ -55,7 +55,7 @@ function renderAlert(slot, g, ctx) {
   const body = el('div', { class: 'd-flex flex-column gap-3' });
   const draw = () => {
     clear(body);
-    append(body, [el('div', { class: 'num num-lg' }, g.title), el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note)]);
+    append(body, [el('div', { class: 'num num-lg' }, g.title), el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note, g.pace)]);
     if (g.help_requested) {
       append(body, [el('div', { class: 'soft' }, 'You asked for help with this. The plan is waiting for your decision.'),
         el('a', { class: 'btn-pill btn-go d-inline-flex align-items-center text-decoration-none align-self-start', href: '#watch' }, 'Open the plan')]);

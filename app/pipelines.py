@@ -176,6 +176,8 @@ def alert_text(g: dict) -> str:
         if src["freshness"] != "fresh":
             old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
             when += f" Caution: this source is {old_note}, so it is not fresh news."
+        if g.get("pace"):
+            when += f" {g['pace']['text']}"
     else:
         when = f" {g['source_note']}"
     return f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {money(g['cap_cents'])} tied up.{when}"
@@ -183,7 +185,7 @@ def alert_text(g: dict) -> str:
 
 def _alert_card(g: dict) -> dict:
     return {"type": "alert", "alert_id": g["alert_id"], "title": g["title"], "n": g["n"], "cap_cents": g["cap_cents"],
-            "source": g["source"], "help_requested": g["help_requested"], "question": ASK_PROMPT}
+            "source": g["source"], "pace": g.get("pace"), "help_requested": g["help_requested"], "question": ASK_PROMPT}
 
 
 def _rules_say_ok(opts, rec: Recommendation) -> str:

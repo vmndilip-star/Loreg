@@ -27,7 +27,7 @@ export function freshnessNotice(source) {
 }
 
 // Where an alert's news came from, and when. Every field is shown as text; the link is used only for a real http(s) address on a real article.
-export function sourceBlock(source, note) {
+export function sourceBlock(source, note, pace) {
   if (!source || !source.attached) return el('div', { class: 'soft' }, note || 'No dated source attached.');
   const real = source.origin !== 'demo_synthetic';
   const href = real ? safeHref(source.url) : null;
@@ -41,6 +41,7 @@ export function sourceBlock(source, note) {
       source.checked ? el('span', {}, `Last checked ${date(source.checked)}`) : null),
     source.excerpt ? el('blockquote', { class: 'excerpt small mb-0', 'data-testid': 'excerpt' }, source.excerpt) : null,
     el('div', { class: 'soft small' }, source.launch_date ? `Launch date, as written in the article: ${source.launch_date}.` : 'Announced. The article gives no launch date.'),
+    pace && pace.text ? el('div', { class: 'soft small', 'data-testid': 'pace' }, pace.text) : null,      // worded by the server: a required pace, not a forecast
     source.cached && source.cache_note ? el('div', { class: 'banner banner-info', role: 'note', 'data-testid': 'cache-note' }, source.cache_note) : null,
     freshnessNotice(source));
 }

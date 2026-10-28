@@ -72,7 +72,7 @@ function alertTile(g, ctx, onHelp) {
   if (!g) return el('section', { class: 'tile glass h-100', 'aria-label': 'Launch alert' }, el('div', { class: 'label' }, 'No launch alert'),
     el('div', { class: 'soft' }, 'None of your launch-family items is dead or slow right now.'));
   const body = el('div', { class: 'd-flex flex-column gap-3' }, el('div', { class: 'num num-lg' }, g.title),
-    el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note));
+    el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note, g.pace));
   if (!g.help_requested) {
     const yes = el('button', { type: 'button', class: 'btn-pill btn-go', 'data-testid': 'help-yes' }, 'Help me with this');
     const later = el('div', { class: 'soft' });

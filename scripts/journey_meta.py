@@ -113,6 +113,11 @@ def main() -> int:
     check("reply ends with the question", reply.endswith("Want me to plan what to do with them?"))
     items = [c for c in cards if c["type"] == "item"]
     check("reply is the alert sentences only; item detail is in the cards", bool(items) and all(c["name"] not in reply and c["sku"] not in reply for c in items))
+    group = client.get("/api/launch/exposed").json()["groups"][0]
+    pace = group["pace"]
+    check("the alert carries the required pace to the synthetic launch date, worded as not a forecast, computed by code",
+          bool(pace) and pace["text"] in reply and "not a sales forecast" in reply and pace["per_day"] is not None,
+          f"{pace['units']} units, {pace['days_until']} days, {pace['per_day']} a day" if pace else "no pace")
     inv = [a for a in done["agents"] if a["agent"] == "inventory"]
     check("inventory explanations used the model", all(a["source"] not in ("fallback", "mock") for a in inv), agents_line(done))
     known = {i["sku"] for i in client.get("/api/inventory/top?limit=50").json()["items"]}
@@ -168,7 +173,8 @@ def main() -> int:
     say(f"date question on the synthetic article -> ({secs} s) agents: {agents_line(done)}\n\n> {reply}")
     check("a date question is answered 'From your stored news only' and says the source is a synthetic demo article, without a model call",
           reply.startswith("From your stored news only:") and "synthetic demo article, not real news" in reply and not done.get("agents"))
-    check("it makes up no launch date", "cannot say when" in reply and not re.search(r"\b20(2[7-9]|3\d)\b", reply))
+    check("it gives only the launch date the stored synthetic article states, and no other year", src.get("launch_date") in reply
+          and set(re.findall(r"\b(?:19|20)\d\d\b", reply)) == {"2026"})
     metrics["fallback_agent_calls"] = [a for a in fallback_calls]
 
     failed = [c for c in checks if not c[1]]

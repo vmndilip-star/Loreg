@@ -113,7 +113,7 @@ export async function mount(root, ctx) {
     no.addEventListener('click', () => { answer.textContent = 'Okay. I will not plan anything until you ask.'; clear(actions); });
     append(actions, [yes, no]);
     append(holder, [el('div', { class: 'chip chip-amber mb-2' }, 'Alert'), el('div', { class: 'fw-bold' }, c.title),
-      el('div', { class: 'soft mb-2' }, `${count(c.n)} items, ${money(c.cap_cents)} tied up.`), sourceBlock(c.source),
+      el('div', { class: 'soft mb-2' }, `${count(c.n)} items, ${money(c.cap_cents)} tied up.`), sourceBlock(c.source, '', c.pace),
       el('div', { class: 'label mt-3 mb-2' }, c.question), actions, answer]);
     return holder;
   }

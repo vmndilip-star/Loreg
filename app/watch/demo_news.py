@@ -13,8 +13,9 @@ A real article that matches the alert always wins over either (see attach.py). N
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
+from app.agents.market import written_date_to_iso
 from app.watch.allowlist import check_url
 from app.watch.attach import attach_events_to_alerts, is_dated
 from app.watch.common import NEWS, ensure_source, stamp
@@ -23,8 +24,21 @@ from app.watch.matching import catalog_lines, match_lines
 
 SYNTHETIC_URL = "https://demo.invalid/loreg-synthetic-demo-article"
 SYNTHETIC_TITLE = "Demo article (synthetic): a newer QN90D Neo QLED generation is announced"
-SYNTHETIC_EXCERPT = ("Demo article (synthetic). This is not real news; it was written for Loreg's demo. "
-                     "In this made-up example, a newer generation of the QN90D Neo QLED line is announced.")
+SYNTHETIC_LAUNCH_DAYS = 25         # the made-up launch is this many days after the stock list's date, so the demo has a date to work with
+_SYNTHETIC_EXCERPT = ("Demo article (synthetic). This is not real news; it was written for Loreg's demo. "
+                      "In this made-up example, a newer generation of the QN90D Neo QLED line goes on sale on {when}.")
+
+
+def synthetic_launch(as_of: date) -> tuple[str, str]:
+    """(the date as the synthetic article writes it, the same as YYYY-MM-DD), relative to the stock list's date. Made up, and labelled so."""
+    d = as_of + timedelta(days=SYNTHETIC_LAUNCH_DAYS)
+    return f"{d.strftime('%B')} {d.day}, {d.year}", d.isoformat()
+
+
+def synthetic_excerpt(as_of: date) -> str:
+    return _SYNTHETIC_EXCERPT.format(when=synthetic_launch(as_of)[0])
+
+
 # The synthetic article has its own source row. No real publisher's name appears on it anywhere.
 SYNTHETIC_SOURCE = {"name": "Loreg demo (synthetic)", "brand": "Samsung", "url": "https://demo.invalid/", "kind": "demo"}   # "brand" is the product brand, for matching
 
@@ -91,11 +105,13 @@ def install_stored_items(conn: sqlite3.Connection, shop_id: int, path, now: date
     return added
 
 
-def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: datetime, copy_path, items_path=None, news=NEWS, items_local_path=None) -> str:
+def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: datetime, copy_path, items_path=None, news=NEWS, items_local_path=None,
+                       as_of: date | None = None) -> str:
     """Give every launch alert that has no source one that is labelled. Returns what was used: "none needed", "stored copy" or "synthetic"."""
     if items_path is not None:
         install_stored_items(conn, shop_id, items_path, now, news, items_local_path)
-    if _unsourced_launch_alerts(conn, shop_id) == 0:
+    has_synthetic = conn.execute("SELECT 1 FROM market_items WHERE origin = 'demo_synthetic'").fetchone() is not None
+    if _unsourced_launch_alerts(conn, shop_id) == 0 and not has_synthetic:          # a synthetic item already there is brought up to date below
         return "none needed"
     lines = catalog_lines(catalog.variants)
     ts = stamp(now)
@@ -104,9 +120,12 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
     if real:
         kind, url, title, published, fetched, excerpt = "stored_copy", real["url"], real["title"], real["published_at"], real["fetched_at"], real["excerpt"]
         chash, brand, ids, launch = real["content_hash"], real["brand"], real["line_ids"], real.get("launch_date")
+        launch_iso = written_date_to_iso(launch) if launch else None
     else:
         from app.watch.feeds import content_hash
-        kind, url, title, fetched, excerpt, brand, launch = "demo_synthetic", SYNTHETIC_URL, SYNTHETIC_TITLE, ts, SYNTHETIC_EXCERPT, "Samsung", None
+        launch, launch_iso = synthetic_launch(as_of or now.date())
+        excerpt = synthetic_excerpt(as_of or now.date())
+        kind, url, title, fetched, brand = "demo_synthetic", SYNTHETIC_URL, SYNTHETIC_TITLE, ts, "Samsung"
         published = stamp(now - timedelta(days=2))
         chash, ids = content_hash(title, excerpt), match_lines("Samsung", f"{title} {excerpt}", lines)
     canon = canonical_url(url)
@@ -119,11 +138,15 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
     else:
         item_id = item["id"]
         if kind == "demo_synthetic":                          # the synthetic article is the demo's own: its dates follow the demo clock
-            conn.execute("UPDATE market_items SET published_at = ?, fetched_at = ?, source_id = ? WHERE id = ?", (published, fetched, source["id"], item_id))
+            conn.execute("UPDATE market_items SET published_at = ?, fetched_at = ?, source_id = ?, excerpt = ?, content_hash = ? WHERE id = ?",
+                         (published, fetched, source["id"], excerpt, chash, item_id))
     if conn.execute("SELECT 1 FROM market_events WHERE item_id = ?", (item_id,)).fetchone() is None:
         conn.execute("INSERT INTO market_events (item_id, brand, family, launch_date, launch_iso, date_stated, quote, matched_line_ids, flagged, created_at)"
-                     " VALUES (?,?,?,?,NULL,?,?,?,0,?)", (item_id, brand, "QN90D Neo QLED" if kind == "demo_synthetic" else title[:80], launch,
-                                                           1 if launch else 0, excerpt[:news.excerpt_chars], json.dumps(ids), ts))
+                     " VALUES (?,?,?,?,?,?,?,?,0,?)", (item_id, brand, "QN90D Neo QLED" if kind == "demo_synthetic" else title[:80], launch, launch_iso,
+                                                       1 if launch else 0, excerpt[:news.excerpt_chars], json.dumps(ids), ts))
+    elif kind == "demo_synthetic":                            # the made-up date follows the stock list's date
+        conn.execute("UPDATE market_events SET launch_date = ?, launch_iso = ?, date_stated = 1, quote = ? WHERE item_id = ?",
+                     (launch, launch_iso, excerpt[:news.excerpt_chars], item_id))
     attach_events_to_alerts(conn, shop_id)
     return "stored copy" if kind == "stored_copy" else "synthetic"
 

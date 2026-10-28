@@ -5,7 +5,7 @@ import sqlite3
 from datetime import date
 
 from app.catalog import CATEGORY_LABEL
-from app.core import actions, metrics
+from app.core import actions, metrics, pace
 from app.core.classify import AT_RISK
 from app.core.explain import DQ_TEXT, money, plan_reasons, why_flagged
 from app.core.quality import CODES, SEVERITY
@@ -144,8 +144,31 @@ def _source(conn: sqlite3.Connection, a, today: date | None = None, as_of: date 
             "excerpt": it["excerpt"] if it else "", "origin": origin, "label": DEMO_LABEL if origin == "demo_synthetic" else ("Stored copy" if cached else ""),
             "cached": cached, "cache_note": note,
             "launch_date": a["launch_date"] if a["date_stated"] else None,
+            "launch_iso": _launch_iso(conn, a),
             "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date",
             **_freshness(a["source_published"], today, stale_after_days, as_of)}
+
+
+def _launch_iso(conn: sqlite3.Connection, a) -> str | None:
+    """The attached launch date as YYYY-MM-DD, when the article gave a year; the text the article used is kept apart, as written."""
+    if a["source_item_id"] is None or not a["date_stated"] or not a["launch_date"]:
+        return None
+    row = conn.execute("SELECT launch_iso FROM market_events WHERE item_id = ? AND date_stated = 1 AND launch_date = ? ORDER BY id LIMIT 1",
+                       (a["source_item_id"], a["launch_date"])).fetchone()
+    return row["launch_iso"] if row else None
+
+
+def _pace(source: dict, units: int, today: date | None) -> dict | None:
+    """The required pace to the stated launch date, or None when no date with a year is attached. Not a forecast."""
+    if not source.get("attached") or not source.get("launch_iso") or not source.get("launch_date"):
+        return None
+    try:
+        launch = date.fromisoformat(source["launch_iso"])
+    except ValueError:
+        return None
+    p = pace.required_pace(units, launch, today or date.today())
+    return {"status": p.status, "units": p.units, "days_until": p.days_until, "per_day": p.per_day, "launch_date": source["launch_date"],
+            "text": pace.pace_text(p, source["launch_date"], synthetic=source.get("origin") == "demo_synthetic")}
 
 
 def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
@@ -160,9 +183,11 @@ def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None, today: date 
     for a in conn.execute("SELECT * FROM alerts WHERE shop_id = ? AND kind = 'launch_family' ORDER BY capital_cents DESC, id", (shop_id,)):
         items = _group_items(conn, a["brand"], a["category"], shop_id)
         top3 = items[:3]
+        source = _source(conn, a, today, as_of, stale)
         out.append({
             "alert_id": a["id"], "label": f"{a['brand']} {CATEGORY_LABEL.get(a['category'], a['category'])}", "brand": a["brand"],
-            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(conn, a, today, as_of, stale),
+            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": source,
+            "pace": _pace(source, sum(i["qty"] for i in items), today),
             "n": len(items), "cap_cents": sum(i["capital_cents"] for i in items),
             "top": [{"sku": i["sku"], "name": _name(i), "shelf": i["qty"], "cap_cents": i["capital_cents"]} for i in top3],
             "rest_n": len(items) - len(top3), "rest_cap_cents": sum(i["capital_cents"] for i in items[3:]),

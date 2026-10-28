@@ -183,7 +183,8 @@ def test_in_demo_mode_the_alert_always_carries_a_labelled_source_whichever_way_t
         complete(s)
         assert s["origin"] == "demo_synthetic" and s["label"] == "Demo article (synthetic)" and s["url"] == SYNTHETIC_URL and s["domain"] == "demo.invalid"
         assert s["published"] == "2026-10-24T12:00:00Z" and s["fetched"] == "2026-10-26T12:00:00Z" and s["freshness"] == "fresh"
-        assert s["excerpt"].startswith("Demo article (synthetic).") and s["launch_date"] is None and s["cached"] is False
+        assert s["excerpt"].startswith("Demo article (synthetic).") and s["cached"] is False
+        assert (s["launch_date"], s["launch_iso"]) == ("November 20, 2026", "2026-11-20")        # made up: 25 days after the stock list's date
     again = c.post("/api/demo/load").json()                                   # loading again adds nothing new and keeps one labelled item
     assert again["kept"] > 0
     con = sqlite3.connect(tmp_path / "d.sqlite")
@@ -289,9 +290,9 @@ def test_a_date_question_on_the_synthetic_article_is_answered_from_stored_news_a
     reply = reply_to(c, "When will Samsung launch the new QN90D?")
     assert reply.startswith("From your stored news only: This source is a synthetic demo article, not real news.")
     assert "Demo article (synthetic)" in reply and "published 2026-10-24, fetched 2026-10-26" in reply
-    assert "gives no launch date, so I cannot say when" in reply and "Not enough data" not in reply
-    assert "2027" not in reply and "2028" not in reply                                                       # no launch date was made up
-    assert "March" not in reply
+    assert "Launch date: November 20, 2026 (as written in the article)." in reply and "I have no other source for launch dates." in reply
+    assert "cannot say when" not in reply and "Not enough data" not in reply
+    assert "2027" not in reply and "2028" not in reply and "March" not in reply                              # the only date is the one the article states
 
 
 def test_a_price_question_on_the_synthetic_article_is_not_enough_data_and_still_says_it_is_synthetic(tmp_path, catalog_dir, demo):
