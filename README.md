@@ -66,11 +66,50 @@ Then open http://127.0.0.1:8000/ and create an account (made-up details are fine
 - **More synthetic data (optional):** `python data/generate_catalog.py` writes the 3,000-product database and the demo files under `data/generated/`.
 - **Tests:** `python -m pytest -q`. They run offline on the mock model. `tests/test_journey.py` is the demo journey over the HTTP API; `tests/test_web_browser.py` repeats it in Chrome through Playwright and skips itself, with a message, if Playwright or Chrome is missing. `LOREG_DEMO=1 python -m pytest -q -k "browser or journey"` runs the journey tests with the demo switch already on.
 
+- **Check the demo path:**
+  - `python scripts/demo_smoke.py` runs the whole 3-minute demo headless and exits with an error on any failed check. Add `--backend meta` to run it on the real model.
+  - `python scripts/reset_demo.py --yes` deletes the database and loads the demo shop, with the stock date fixed, for a known first-run state.
+- **Measure:** `python scripts/run_evals.py` (21 hand-worked cases) and `python scripts/eval_fallback_rate.py` (how often answers fall back to the rules, and latency). The latest results are in [`docs/EVALS.md`](docs/EVALS.md).
+
 The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). See "Honest limits" for what the rule does and does not do.
+
+A stock list with other column names (abbreviations like "Qty OH", or Hindi and Telugu written in Latin letters) is matched in three steps:
+1. Code matches each header by its name, then by a list of aliases.
+2. The model is asked only about the columns left over.
+3. The owner confirms the matching before any row is stored.
+
+The data checks then run as usual. `data/demo/upload_demo_200_messy.csv` is the demo file with such headers.
 
 ## How it is built
 
 Custom code, with no agent framework (no LangChain, LangGraph, LlamaIndex, CrewAI, AutoGen, Semantic Kernel or an agents SDK). One file, `app/llm/client.py`, calls a model; each agent is one structured-output call whose answer code checks before it is used, with a deterministic fallback. The steps of every pipeline are fixed in code: the model never chooses the next step or a tool. [`docs/AGENT_FRAMEWORK_REPORT.md`](docs/AGENT_FRAMEWORK_REPORT.md) lists every agent, prompt, check, fallback and test, and the gaps.
+
+```mermaid
+flowchart TD
+    Pages["Browser (web/): Home, Stock, Watch, Ask, Upload"] -->|"session cookie + CSRF token"| Auth["Auth middleware: one shop per session"]
+    Auth --> Numbers["Numbers routes: summary, stock, alerts, accept, undo (never call a model)"]
+    Auth --> ModelRoutes["Model routes: ask, daily, plan, news check, column matching"]
+    CSV["Stock list CSV"] --> Columns["Column matching: names, aliases, then model; owner confirms"]
+    Columns --> Ingest["Data checks, quarantine, classify (app/core)"]
+    Ingest --> DB[("SQLite: every row belongs to one shop")]
+    Numbers --> Core["app/core: metrics, rules, allowed options, exposure"]
+    Core --> DB
+    ModelRoutes --> Pipelines["Fixed pipelines (app/pipelines.py)"]
+    Pipelines --> Facts["Facts computed by code from stored rows"]
+    Facts --> Agents["Router, Inventory, Recommender, Daily"]
+    News["news.samsung.com (allowlist, robots.txt)"] --> Market["Market agent: article wrapped as untrusted data"]
+    Agents --> Client["app/llm/client.py: mock, meta or openai_compat"]
+    Market --> Client
+    Client --> Checks{"Code checks: citations, numbers, allowed options"}
+    Checks -->|pass| Shown["Shown, labelled as the model's"]
+    Checks -->|"fail, then one retry fails, or too slow"| Rules["Rules fallback, labelled as rules"]
+    Shown --> Owner["The owner accepts, declines or undoes"]
+    Rules --> Owner
+```
+
+**Why a deterministic core with grounded agents.** A shop owner acts on these numbers with real money, so they must be the same every time and checkable by hand (`tests/test_core.py` holds hand-worked values). Code computes every number and decides which actions are allowed. The model only explains them and picks among the allowed options. Each answer is checked against the facts it was given, so a wrong or slow model answer becomes a labelled rules answer, never a wrong number.
+
+**Backends.** One switch, `LLM_BACKEND`, chooses the model: `mock` (the default; offline, no key), `meta` (needs `META_API_KEY`) or `openai_compat` (needs `OPENAI_COMPAT_BASE_URL` and `OPENAI_COMPAT_MODEL`). The page always shows which backend is answering. With `mock` it says "offline test writer, no model", so offline output never looks like model output.
 
 Each shop has its own account. Every `/api` route needs a signed-in session, every POST carries a CSRF token, and every query that reads or writes one shop's rows filters by that shop (`tests/test_isolation.py` walks every route as a second shop). Fetched news is shared by all shops.
 
@@ -92,6 +131,13 @@ Each shop has its own account. Every `/api` route needs a signed-in session, eve
 - **No email verification and no password reset.** An account is created without checking that its email is real, and a forgotten password cannot be reset.
 - **Rate limits live in memory.** Signup (5 per address per 15 minutes) and sign-in back-off reset when the app restarts, and are per app process. The address is the direct connection's: behind a proxy every visitor would share the proxy's address, and the session cookie is marked Secure only when the app itself sees https. No proxy headers are trusted.
 - **Data from before accounts belongs to a shop no one can sign in to.** A database made before accounts keeps its rows under its first shop; only demo mode (which takes that shop over as the demo shop) can open them.
+- **Accepting a plan is not selling.** Accepting moves an item's capital from "at risk" to "action in progress". It counts as freed only when the units sell, and Loreg cannot see sales after the upload. At risk plus action in progress always stays the same total.
+- **The fallback rate is measured, not promised.** On 2026-10-30, 0 of 75 Meta calls over the demo workload fell back to the rules, and all 21 eval cases passed on Meta ([`docs/EVALS.md`](docs/EVALS.md)). That sample is small and was taken on one day. The app still falls back whenever an answer fails a check, and the badge under the header shows how often it has.
+- **An eval pass is a safety check.** It shows the proposal stayed within the allowed options and passed the checks. It does not judge whether the option was the best one for the shop.
+- **Column matching knows common spellings only.** The aliases (including Hindi and Telugu in Latin letters) are a fixed list. Anything else goes to the model, and its suggestions are marked "please check". The owner's confirmation is what counts. Data checks still run on every row, but a column confirmed under the wrong field can still give wrong numbers.
+- **No point-of-sale integration.** Stock comes only from a CSV upload. Loreg does not see live sales.
+- **No investment advice.** "Stock" always means shelf inventory, never securities.
+- **Logs go to stderr only.** One JSON line per request and per agent call, with no prompts, answers or secrets. Nothing collects or keeps them.
 - **Everything else is synthetic.** All stock data, prices and sales are generated; they show that the app works, not that any price is true.
 
 ## Live news (Loreg Watch)
@@ -102,6 +148,17 @@ In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a st
 
 ## Status
 
-The backend (deterministic core, upload and data checks, storage, Loreg Watch, agents, streamed chat, daily brief) and the web app (Home, Stock with browse and search, Watch, Ask, Upload) work end to end on synthetic data. Accounts (signup, sign-in, sign-out, sessions, CSRF, per-shop data) work too. The QuickBooks import and the open-weights run are not done. See "Honest limits".
+These work end to end on synthetic data:
+- **Backend:** deterministic core, upload and data checks, column matching, storage, Loreg Watch, agents, streamed chat with a non-streaming fallback, daily brief.
+- **Web app:** Home, Stock with browse and search, Watch, Ask, Upload.
+- **Accounts:** signup, sign-in, sign-out, sessions, CSRF, per-shop data.
+- **Measurement:** the fallback rate and the eval set, on mock and on Meta.
 
-**Roadmap (not built):** bill and invoice generation from the organization profile. Nothing in Loreg creates, sends or stores a bill or an invoice today.
+The QuickBooks import and the open-weights run are not done. See "Honest limits".
+
+**Not built (stretch list):**
+- Shelf-photo counting, where the owner confirms counts before any number changes.
+- Model-suggested matches between news articles and catalog lines. They would be shown only as suggestions; an alert's source still needs an exact name match.
+- Point-of-sale or QuickBooks import.
+- An open-weights run.
+- Bill and invoice generation from the organization profile. Nothing in Loreg creates, sends or stores a bill or an invoice today.
