@@ -50,13 +50,15 @@ export async function api(path, { method = 'GET', json, form, signal } = {}) {
 }
 
 // Server-sent events over fetch (EventSource cannot POST). Yields {event, data} until the stream ends.
+// If the stream breaks before its first event (a proxy that buffers or cuts chunked replies), the same question is asked once more
+// without streaming (?stream=false) and its events are yielded from one JSON reply. Once an event has been shown it never repeats.
 export async function* askStream(question, { sku, signal } = {}) {
+  const body = JSON.stringify(sku ? { question, sku } : { question });
   let response;
   try {
     response = await fetch('/api/ask', {
-      method: 'POST', signal,
+      method: 'POST', signal, body,
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'X-CSRF-Token': csrfToken },
-      body: JSON.stringify(sku ? { question, sku } : { question }),
     });
   } catch (e) {
     if (e.name === 'AbortError') throw e;
@@ -64,22 +66,31 @@ export async function* askStream(question, { sku, signal } = {}) {
   }
   check401(response, '/ask');
   if (!response.ok) throw await failure(response);
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done }).replace(/\r\n/g, '\n');
-    let cut;
-    while ((cut = buffer.indexOf('\n\n')) !== -1) {
-      const frame = parseFrame(buffer.slice(0, cut));
-      buffer = buffer.slice(cut + 2);
-      if (frame) yield frame;
+  let shown = 0;
+  try {
+    if (!response.body || !response.body.getReader) throw new TypeError('no stream reader');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done }).replace(/\r\n/g, '\n');
+      let cut;
+      while ((cut = buffer.indexOf('\n\n')) !== -1) {
+        const frame = parseFrame(buffer.slice(0, cut));
+        buffer = buffer.slice(cut + 2);
+        if (frame) { shown += 1; yield frame; }
+      }
+      if (done) break;
     }
-    if (done) break;
+    const rest = parseFrame(buffer);
+    if (rest) { shown += 1; yield rest; }
+    if (shown === 0) throw new TypeError('the stream ended with no event');
+  } catch (e) {
+    if (e.name === 'AbortError' || shown > 0) throw e;
+    const whole = await api('/ask?stream=false', { method: 'POST', json: JSON.parse(body), signal });
+    for (const frame of (whole && whole.events) || []) yield frame;
   }
-  const rest = parseFrame(buffer);
-  if (rest) yield rest;
 }
 
 export function parseFrame(text) {

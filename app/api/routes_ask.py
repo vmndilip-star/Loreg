@@ -8,7 +8,7 @@ import json
 import time
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -40,8 +40,9 @@ def make_ctx(request: Request, conn, shop_id: int, llm) -> Ctx:
 
 
 @router.post("/ask")
-def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), llm=Depends(get_llm)):
-    """Ask Loreg a question. Returns text/event-stream."""
+def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), llm=Depends(get_llm), stream: bool = Query(True)):
+    """Ask Loreg a question. Returns text/event-stream; with ?stream=false the same events come back at once as {"events": [...]},
+    for a network that buffers or breaks streamed replies."""
     state = request.app.state
     if body.sku:
         check = connect(state.db_path)
@@ -51,7 +52,14 @@ def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), ll
         finally:
             check.close()
 
-    def stream():
+    if not stream:
+        conn = connect(state.db_path)
+        try:
+            return {"events": list(answer(make_ctx(request, conn, shop_id, llm), body.question, body.sku.strip() if body.sku else None))}
+        finally:
+            conn.close()
+
+    def events():
         conn = connect(state.db_path)   # its own connection: the response outlives the request's dependencies
         try:
             ctx = make_ctx(request, conn, shop_id, llm)
@@ -62,7 +70,7 @@ def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), ll
         finally:
             conn.close()
 
-    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/daily")

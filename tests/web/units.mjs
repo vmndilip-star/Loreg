@@ -45,6 +45,27 @@ globalThis.fetch = async () => new Response(new ReadableStream({ start(c) { c.en
 const euro = []; for await (const e of askStream('q')) euro.push(e.data.text);
 assert.deepEqual(euro, ['€']);
 
+// a stream that breaks before its first event is asked once more without streaming; one that breaks later is not repeated
+const broken = (first) => {          // hands over `first` (if any), then fails on the next read
+  let sent = !first;
+  return new ReadableStream({ pull(c) { if (sent) c.error(new TypeError('network')); else { c.enqueue(new TextEncoder().encode(first)); sent = true; } } });
+};
+let calls = [];
+globalThis.fetch = async (url) => {
+  calls.push(url);
+  return url === '/api/ask' ? new Response(broken(''), { status: 200 })
+    : new Response(JSON.stringify({ events: [{ event: 'token', data: { text: 'whole' } }, { event: 'done', data: {} }] }), { status: 200 });
+};
+const whole = []; for await (const e of askStream('q')) whole.push(e.event);
+assert.deepEqual(whole, ['token', 'done']);
+assert.deepEqual(calls, ['/api/ask', '/api/ask?stream=false']);
+calls = [];
+globalThis.fetch = async (url) => { calls.push(url); return new Response(broken('event: status\ndata: {"message":"x"}\n\n'), { status: 200 }); };
+const partial = [];
+await assert.rejects(async () => { for await (const e of askStream('q')) partial.push(e.event); });
+assert.deepEqual(partial, ['status']);
+assert.deepEqual(calls, ['/api/ask']);                                   // nothing is shown twice
+
 // errors: the server's own detail is shown; an unreachable server is status 0
 globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'no item with SKU X in your stock' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 await assert.rejects(() => api('/x'), (e) => e instanceof ApiError && e.status === 404 && e.detail === 'no item with SKU X in your stock');
@@ -62,7 +83,7 @@ await api('/notifications/refresh', { method: 'POST' });
 await api('/upload', { method: 'POST', form: new FormData() });
 for await (const _ of askStream('q')) { /* nothing */ }
 assert.deepEqual(sent, [['/api/summary', 'GET', undefined], ['/api/notifications/refresh', 'POST', 'tok-123'], ['/api/upload', 'POST', 'tok-123'],
-  ['/api/ask', 'POST', 'tok-123']]);
+  ['/api/ask', 'POST', 'tok-123'], ['/api/ask?stream=false', 'POST', 'tok-123']]);       // an empty stream is asked once more, without streaming
 let out = 0;
 whenSignedOut(() => { out += 1; });
 globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Sign in first.' }), { status: 401 });
