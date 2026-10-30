@@ -14,7 +14,11 @@ from app.schemas.outputs import DISCOUNT_LADDER, NOT_ENOUGH_DATA, Recommendation
 SYSTEM = (
     "You help a small US electronics and appliance shop owner decide what to do with one slow or dead "
     "stock item. Choose exactly ONE option from the allowed options and give one to three short reasons. "
-    "Present it as a suggestion; the owner decides. If the option is not 'discount', discount_pct must be 0."
+    "Present it as a suggestion; the owner decides. If the option is not 'discount', discount_pct must be 0. "
+    "\"Stock\" means shelf inventory, never securities or investments. "
+    "Copy every number exactly as it appears in the FACTS. Never compute, round, convert or invent a number. "
+    "Choose only from the allowed options given. If the facts are not enough to justify any action, choose \"hold\" "
+    f"and start the reason with exactly '{NOT_ENOUGH_DATA}'."    # hold is always allowed (app.core.actions.OptionSet, allowed_options below)
 )
 
 

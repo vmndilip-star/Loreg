@@ -127,6 +127,35 @@ def test_discount_above_the_cap_is_rejected():
     assert r.source == "fallback" and r.output.discount_pct == 5
 
 
+def test_the_prompt_says_stock_is_not_securities_and_names_the_not_enough_data_constant():
+    assert "never securities or investments" in recommender.SYSTEM
+    assert f"'{NOT_ENOUGH_DATA}'" in recommender.SYSTEM and "Never compute, round, convert or invent a number" in recommender.SYSTEM
+
+
+def test_hold_with_not_enough_data_passes_the_checks_without_a_fallback():
+    honest = Recommendation(sku=SKU, option="hold", discount_pct=0, reasons=[f"{NOT_ENOUGH_DATA}: the facts do not justify an action."], citations=[])
+    r = recommender.recommend(FakeModel(honest), SKU, FACTS, help_requested=True)
+    assert r.source == "model" and r.output == honest and r.notes == []
+
+
+@pytest.mark.parametrize("extra", [[], [fact("b0", "bundle_allowed", "Bundling allowed", "no", 0)],
+                                   [fact("c0", "max_discount_pct", "Highest discount", "none", 0), fact("b0", "bundle_allowed", "Bundling allowed", "no", 0)]])
+def test_hold_is_always_an_allowed_option(extra):
+    assert "hold" in recommender.allowed_options(FACTS + extra)
+
+
+def test_the_rules_always_allow_hold():
+    from datetime import date
+    from app.core.actions import allowed_options
+    from app.core.thresholds import load_thresholds
+    th = load_thresholds()
+    for cost, sell, dsls, sold, rw, map_price in [(100, 90, 400, 0, None, None), (100, 200, 10, 50, date(2027, 1, 1), None),
+                                                  (100, 120, None, 0, None, 130), (0, 0, 0, 0, None, None)]:
+        opts = allowed_options(qty=3, unit_cost=cost, sell_price=sell, dsls=dsls, units_sold_90d=sold, category="tv", seasonal=False,
+                               return_window_end=rw, as_of=date(2026, 10, 26), th=th, map_price=map_price)
+        assert opts.hold_allowed and "hold" in opts.options()
+
+
 def test_a_discount_needs_a_ladder_value():
     with pytest.raises(ValueError):
         Recommendation(sku=SKU, option="discount", discount_pct=7, reasons=[], citations=[])
