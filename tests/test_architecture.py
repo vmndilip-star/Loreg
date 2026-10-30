@@ -71,7 +71,8 @@ def test_the_model_client_is_where_the_sdk_is():
 
 # ---- numbers routes never call a model ---------------------------------------------------------
 
-MODEL_ROUTES = {("post", "/api/ask"), ("post", "/api/daily/run"), ("post", "/api/alerts/{alert_id}/plan"), ("post", "/api/watch/scan")}
+MODEL_ROUTES = {("post", "/api/ask"), ("post", "/api/daily/run"), ("post", "/api/alerts/{alert_id}/plan"), ("post", "/api/watch/scan"),
+                ("post", "/api/upload/mapping")}
 
 
 class Sentinel:
@@ -125,6 +126,13 @@ def test_every_route_outside_the_model_routes_runs_without_a_model(numbers_app, 
 def test_inventory_recommender_and_daily_use_the_shared_grounding_check():
     for module in (inventory, recommender, daily):
         assert module.run_grounded is base.run_grounded, module.__name__
+
+
+def test_the_column_agent_is_checked_by_code_and_sees_the_file_only_as_data():
+    import inspect
+    from app.agents import columns as column_agent
+    src = inspect.getsource(column_agent.propose)
+    assert "columns.validate(" in src and "wrap_untrusted(" in src
 
 
 def test_router_and_market_keep_their_own_code_checks():

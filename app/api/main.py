@@ -18,6 +18,7 @@ from app.api.routes_watch import router as watch_router
 from app.api.routes_tracker import router as tracker_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_quality import router as quality_router
+from app.api.routes_mapping import router as mapping_router
 from app.auth.config import load_auth_config
 from app.auth.middleware import AuthMiddleware
 from app.core.throttle import Backoff, Window
@@ -84,6 +85,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.include_router(tracker_router)
     app.include_router(ask_router)
     app.include_router(quality_router)
+    app.include_router(mapping_router)
     if web_dir and Path(web_dir).is_dir():
         app.mount("/", WebFiles(directory=str(web_dir), html=True), name="web")   # last, so /api routes win
     return app

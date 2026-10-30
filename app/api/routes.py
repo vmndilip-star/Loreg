@@ -4,6 +4,7 @@ Alert-first is enforced here and in the storage layer, not only in the page: a p
 until the owner has asked for help on that alert, and nothing can be accepted or declined before then.
 """
 
+import json
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -27,7 +28,9 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
                  conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Upload a stock list (multipart field `file`, or the raw CSV as the request body).
 
-    Runs the data checks, quarantines rows with errors and commits the rest. Replaces the shop's current stock.
+    Runs the data checks, quarantines rows with errors and commits the rest. Replaces the shop's current stock. A file whose headers are
+    not Loreg's own needs the multipart field `mapping`: JSON {"their header": "loreg_field"}, as the owner confirmed it after
+    POST /api/upload/mapping. It is checked again here before any row is read.
     """
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BYTES + 4096:
@@ -38,20 +41,35 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
         if f is None or not hasattr(f, "read"):
             raise HTTPException(422, "send the CSV in a form field named file")
         raw, filename = await f.read(), f.filename or "upload.csv"
+        mapping = parse_mapping(form.get("mapping"))
     else:
         raw, filename = await request.body(), request.headers.get("x-filename") or "upload.csv"
+        mapping = None
     if len(raw) > MAX_BYTES:
         raise HTTPException(413, "file is larger than 5 MB")
-    return store_upload(request, conn, shop_id, raw, filename, as_of)
+    return store_upload(request, conn, shop_id, raw, filename, as_of, mapping)
 
 
-def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str, as_of: date | None = None) -> dict:
+def parse_mapping(value) -> dict | None:
+    """The owner's confirmed mapping from the form, as {header: field}; blank choices are left out. None when there is none."""
+    if value is None or value == "":
+        return None
+    try:
+        data = json.loads(str(value))
+    except ValueError:
+        raise HTTPException(422, "mapping must be JSON: {\"their header\": \"loreg_field\"}") from None
+    if not isinstance(data, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in data.items()) or len(data) > 200:
+        raise HTTPException(422, "mapping must be JSON: {\"their header\": \"loreg_field\"}")
+    return {k: v for k, v in data.items() if v} or None
+
+
+def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str, as_of: date | None = None, mapping: dict | None = None) -> dict:
     """The one path every stock file takes (a real upload, or the demo file): parse, data checks, quarantine, commit."""
     state = request.app.state
     when = as_of or state.default_as_of or date.today()
     try:
         result = commit_upload(conn, shop_id=shop_id, filename=filename, raw=raw, as_of=when, th=state.th, catalog=state.catalog,
-                               today=state.clock().date())
+                               today=state.clock().date(), mapping=mapping)
     except UploadError as e:
         raise HTTPException(422, str(e)) from None
     result["issues_url"] = f"/api/uploads/{result['upload_id']}/issues"

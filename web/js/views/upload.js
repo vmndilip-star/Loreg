@@ -46,10 +46,26 @@ export async function mount(root, ctx) {
     }
   }
 
-  const upload = (file) => send(() => {
+  const formFor = (file, mapping) => {
     const form = new FormData();
     form.append('file', file, file.name);
-    return api('/upload', { method: 'POST', form, signal: ctx.signal });
+    if (mapping) form.append('mapping', JSON.stringify(mapping));
+    return form;
+  };
+  // A file with Loreg's own column names goes straight in. Any other file gets a proposed mapping (code's matches first, the model
+  // only for what is left), which the owner checks and confirms before a single row is stored; the server checks it again.
+  const upload = (file) => send(async () => {
+    try {
+      return await api('/upload', { method: 'POST', form: formFor(file), signal: ctx.signal });
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 422 && /missing columns/.test(e.detail))) throw e;
+      clear(status); append(status, [el('span', { class: 'spinner', 'aria-hidden': 'true' }), ' Matching your columns…']);
+      const proposal = await api('/upload/mapping', { method: 'POST', form: formFor(file), signal: ctx.signal });
+      clear(status); append(status, ['Your columns have different names. Check how Loreg matched them, then confirm.']);
+      const mapping = await confirmMapping(result, proposal, ctx);
+      clear(status); append(status, [el('span', { class: 'spinner', 'aria-hidden': 'true' }), ` Checking ${file.name}…`]);
+      return api('/upload', { method: 'POST', form: formFor(file, mapping), signal: ctx.signal });
+    }
   }, file.name);
 
   choose.addEventListener('click', () => picker.click());
@@ -100,6 +116,43 @@ function renderResult(slot, data, ctx) {
         el('a', { class: 'btn-pill btn-go d-inline-flex align-items-center text-decoration-none', href: '#home' }, 'See what is at risk'),
         el('a', { class: 'btn-pill btn-soft d-inline-flex align-items-center text-decoration-none', href: '#stock' }, 'Open Stock')))),
   ]);
+}
+
+const HOW = { exact: ['same name', 'chip-green'], alias: ['matched by name', 'chip-green'], model: ['suggested by the model: please check', 'chip-amber'],
+  none: ['not matched', ''] };
+
+// Shows each column with its proposed field and lets the owner change any of them. Resolves with {header: field} on Confirm;
+// rejects (quietly, as a cancelled request) on Cancel. Required fields are marked; the server refuses a mapping that leaves one out.
+function confirmMapping(slot, p, ctx) {
+  return new Promise((resolve, reject) => {
+    clear(slot);
+    const selects = p.headers.map((h) => {
+      const select = el('select', { class: 'form-select form-select-sm', 'aria-label': `Loreg field for column ${h}`, 'data-header': h },
+        el('option', { value: '' }, '— not used —'),
+        p.fields.map((f) => el('option', { value: f.name, selected: p.mapping[h] === f.name }, `${f.label}${f.required ? ' (required)' : ''}`)));
+      return [h, select];
+    });
+    const confirm = el('button', { type: 'button', class: 'btn-pill btn-go', 'data-testid': 'mapping-confirm' }, 'Confirm and check the file');
+    const cancel = el('button', { type: 'button', class: 'btn-pill btn-soft' }, 'Cancel');
+    confirm.addEventListener('click', () => {
+      const mapping = {};
+      for (const [h, s] of selects) if (s.value) mapping[h] = s.value;
+      clear(slot);
+      resolve(mapping);
+    });
+    cancel.addEventListener('click', () => { clear(slot); const e = new Error('cancelled'); e.name = 'AbortError'; reject(e); });
+    append(slot, [el('section', { class: 'tile glass d-flex flex-column gap-2', 'aria-label': 'Match your columns', 'data-testid': 'mapping' },
+      el('div', { class: 'label' }, 'Match your columns'),
+      el('div', { class: 'soft' }, 'Nothing is stored until you confirm. The data checks still run on every row afterwards.'),
+      p.model && p.model.source === 'fallback' ? el('div', { class: 'banner banner-info' }, 'The model could not suggest a usable match, so only the columns Loreg recognised are filled in.') : null,
+      p.problems.length ? el('ul', { class: 'small mb-0' }, p.problems.map((x) => el('li', {}, x))) : null,
+      el('div', { class: 'table-responsive' }, el('table', { class: 'table table-glass' },
+        el('thead', {}, el('tr', {}, el('th', { scope: 'col' }, 'Your column'), el('th', { scope: 'col' }, 'Example'), el('th', { scope: 'col' }, 'Loreg field'),
+          el('th', { scope: 'col' }, 'How'))),
+        el('tbody', {}, selects.map(([h, s]) => el('tr', {}, el('td', {}, h), el('td', { class: 'soft small' }, (p.sample[0] || {})[h] || ''), el('td', {}, s),
+          el('td', {}, el('span', { class: `chip ${HOW[p.how[h]][1]}` }, HOW[p.how[h]][0]))))))),
+      el('div', { class: 'd-flex gap-2 flex-wrap' }, confirm, cancel))]);
+  });
 }
 
 function quarantineTable(rows) {

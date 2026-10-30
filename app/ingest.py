@@ -13,7 +13,7 @@ from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.catalog import (CATEGORY_LABEL, UNSORTED_LINE, UNSORTED_LINE_ID, Catalog, norm, search_text)
-from app.core import metrics
+from app.core import columns, metrics
 from app.core.classify import AT_RISK, INSUFFICIENT, classify
 from app.core.quality import SEVERITY, dq_check, normalize_category, parse_date, parse_int, split_by_severity
 from app.core.thresholds import Thresholds
@@ -49,7 +49,8 @@ def _as_date(raw):
     return d if isinstance(d, date) else None
 
 
-def read_rows(raw: bytes) -> list[dict]:
+def read_table(raw: bytes) -> tuple[list[str], list[dict]]:
+    """(headers, rows) exactly as the file has them, headers trimmed. No column is required here."""
     if len(raw) > MAX_BYTES:
         raise UploadError("file is larger than 5 MB")
     try:
@@ -59,16 +60,30 @@ def read_rows(raw: bytes) -> list[dict]:
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames:
         raise UploadError("file is empty")
-    missing = [c for c in REQUIRED_COLUMNS if c not in [f.strip() for f in reader.fieldnames]]
+    headers = [(f or "").strip() for f in reader.fieldnames]
+    return headers, [{(k or "").strip(): v for k, v in row.items()} for row in reader]
+
+
+def read_rows(raw: bytes, mapping: dict | None = None) -> list[dict]:
+    """Rows keyed by Loreg's field names. Without a mapping the file must use them already; with one (confirmed by the owner,
+    see app/core/columns.py) it is checked again here and applied."""
+    headers, rows = read_table(raw)
+    if mapping:
+        problems = columns.validate(mapping, headers, rows[:20])
+        if problems:
+            raise UploadError("the column mapping cannot be used: " + "; ".join(problems))
+        return columns.apply(rows, mapping)
+    missing = [c for c in REQUIRED_COLUMNS if c not in headers]
     if missing:
         raise UploadError(f"missing columns: {', '.join(missing)}")
-    return [{(k or "").strip(): v for k, v in row.items()} for row in reader]
+    return rows
 
 
 def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw: bytes, as_of: date, th: Thresholds,
-                  catalog: Catalog, today: date | None = None) -> dict:
-    """`today`: the app clock's date, used when a stored article is attached to an alert (one published after today never is)."""
-    rows = read_rows(raw)
+                  catalog: Catalog, today: date | None = None, mapping: dict | None = None) -> dict:
+    """`today`: the app clock's date, used when a stored article is attached to an alert (one published after today never is).
+    `mapping`: the owner's confirmed header -> field mapping, for a file that does not use Loreg's column names."""
+    rows = read_rows(raw, mapping)
     if not rows:
         raise UploadError("file has a header but no rows")
     issues = dq_check(rows, as_of, th)
