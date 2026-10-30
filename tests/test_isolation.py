@@ -35,7 +35,7 @@ ROUTES = {
     ("get", "/api/daily"): OWN, ("post", "/api/daily/run"): OWN, ("get", "/api/launch/tracker"): OWN, ("get", "/api/notifications"): OWN,
     ("post", "/api/notifications/refresh"): OWN, ("post", "/api/notifications/read-all"): OWN, ("get", "/api/watch/items"): OWN,
     ("post", "/api/watch/scan"): OWN, ("post", "/api/upload"): OWN, ("get", "/api/demo"): OWN, ("post", "/api/demo/load"): OWN,
-    ("post", "/api/ask"): OWN,
+    ("post", "/api/ask"): OWN, ("get", "/api/quality"): OWN,
     ("get", "/api/alerts/{alert_id}"): BY_ID, ("post", "/api/alerts/{alert_id}/help"): BY_ID, ("post", "/api/alerts/{alert_id}/plan"): BY_ID,
     ("post", "/api/actions/{rec_id}/accept"): BY_ID, ("post", "/api/actions/{rec_id}/decline"): BY_ID, ("post", "/api/actions/{rec_id}/undo"): BY_ID,
     ("post", "/api/notifications/{notification_id}/read"): BY_ID, ("get", "/api/uploads/{upload_id}/issues"): BY_ID,

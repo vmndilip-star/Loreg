@@ -17,6 +17,7 @@ import json
 import re
 import sqlite3
 import time
+import uuid
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -97,7 +98,13 @@ class Ctx:
     cache: ResultCache
     executor: ThreadPoolExecutor
     timeout_s: float = AGENT_TIMEOUT_S
-    timings: list = field(default_factory=list)   # (agent, source, ms, cached): for the done event and the latency report
+    timings: list = field(default_factory=list)   # (agent, source, ms, cached, outcome): for the done event and the fallback-rate metric
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    recorded: list = field(default_factory=list)  # timings already written to agent_calls
+
+    @property
+    def backend(self) -> str:
+        return getattr(self.llm, "backend", None) or ("mock" if getattr(self.llm, "is_mock", True) else "unknown")
 
 
 def facts_hash(agent: str, facts: list[Fact], extra: str = "") -> str:
@@ -128,7 +135,7 @@ class AgentCall:
             except Exception as e:  # noqa: BLE001 - an agent must never take the whole answer down
                 res = AgentResult(self.fallback().output, "fallback", [f"failed: {type(e).__name__}"])
             self.ctx.cache.put(self.key, res, self.ctx.shop_id)
-        self.ctx.timings.append((self.name, res.source, round(1000 * (time.perf_counter() - self.started)), was_cached))
+        self.ctx.timings.append((self.name, res.source, round(1000 * (time.perf_counter() - self.started)), was_cached, res.outcome))
         return res
 
 
@@ -148,10 +155,19 @@ def _strip_marks(text: str) -> str:
     return re.sub(r"\s*\[[A-Za-z0-9:_\-.]+\]", "", text).strip()
 
 
+def record_run(ctx: Ctx, pipeline: str | None) -> None:
+    """Store every agent call this run made (outcome and latency), for the fallback-rate metric. Each call is written once."""
+    calls, ctx.timings[:] = list(ctx.timings), []
+    repo_ai.record_agent_calls(ctx.conn, ctx.shop_id, ctx.run_id, pipeline or "none", ctx.backend, [(a, o, ms, c) for a, _s, ms, c, o in calls])
+    ctx.recorded.extend(calls)
+
+
 def done(ctx: Ctx, pipeline: str | None, started: float, **extra) -> dict:
     mar = repo.money_at_risk(ctx.conn, ctx.shop_id)
+    record_run(ctx, pipeline)
+    calls = ctx.recorded
     return ev("done", pipeline=pipeline, total_ms=round(1000 * (time.perf_counter() - started)), money_at_risk_cents=mar["money_at_risk_cents"],
-              agents=[{"agent": a, "source": s, "ms": ms, "cached": c} for a, s, ms, c in ctx.timings], **extra)
+              backend=ctx.backend, agents=[{"agent": a, "source": s, "ms": ms, "cached": c, "outcome": o} for a, s, ms, c, o in calls], **extra)
 
 
 def _item_card(row, explanation: str, th: Thresholds) -> dict:
@@ -359,7 +375,7 @@ def choose(ctx: Ctx, question: str, skus: set[str]) -> RouteDecision:
         return RouteDecision(intent="unknown_fact", agent="none", sku="")
     up = repo.latest_upload(ctx.conn, ctx.shop_id)
     stock = f"shop {ctx.shop_id}, upload {up['id'] if up else 0}"     # a route names a SKU, so it is only reused for the same stock list
-    call = AgentCall(ctx, "router", lambda: AgentResult(router.route(ctx.llm, question, skus), "mock" if ctx.llm.is_mock else "model"),
+    call = AgentCall(ctx, "router", lambda: router.route_result(ctx.llm, question, skus),
                      lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=f"{stock}: {question[:300]}")
     return call.result().output
 

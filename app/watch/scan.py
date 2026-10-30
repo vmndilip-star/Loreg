@@ -9,6 +9,7 @@ import json
 import re
 import sqlite3
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,7 @@ from app.agents.market import Article, read_article, written_date_to_iso
 from app.llm.client import LLMClient
 from app.watch.allowlist import check_url
 from app.watch.common import NEWS, ensure_source, stamp
+from app.storage.repo_ai import record_agent_calls
 from app.watch.attach import attach_events_to_alerts, is_dated
 from app.watch.excerpt import LAUNCH_CUE as _LAUNCH_CUE, make_excerpt
 from app.watch.feeds import FeedResult, canonical_url, content_hash, fetch_feed
@@ -115,7 +117,7 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
     news = news or NEWS
     items = conn.execute("SELECT * FROM market_items WHERE source_id = ? AND extracted = 0 AND text != '' ORDER BY published_at DESC, id DESC",
                          (source["id"],)).fetchall()
-    skipped, outcomes, left = [], [], 0
+    skipped, outcomes, left, calls = [], [], 0, []
     for it in items:
         haystack = f"{it['title']} {it['text']}"
         cue = _LAUNCH_CUE.search(haystack) and (_ANY_DATE.search(haystack) or match_lines(source["brand"], haystack, lines))
@@ -128,11 +130,13 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
             if remaining is not None and remaining <= 0:
                 left += 1
                 continue
+            t0 = time.perf_counter()
             try:
                 result = read_article(llm, article) if remaining is None else _READERS.submit(read_article, llm, article).result(timeout=remaining)
             except FutureTimeout:
                 left += 1
                 continue
+            calls.append(("market", result.outcome, round(1000 * (time.perf_counter() - t0)), False))
             outcomes.append((it, result))
         else:
             left += 1
@@ -159,7 +163,7 @@ def extract_events(conn: sqlite3.Connection, source, llm: LLMClient, lines: list
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return {"read": len(outcomes), "events": events, "matched_events": matched, "left_for_next_check": left}
+    return {"read": len(outcomes), "events": events, "matched_events": matched, "left_for_next_check": left, "calls": calls}
 
 
 def list_items(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
@@ -187,6 +191,7 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
          now: datetime | None = None, news=NEWS) -> dict:
     deadline = time.monotonic() + news.scan_deadline_s                # the whole check, fetch and reading included
     ts = stamp(now)
+    run_id = uuid.uuid4().hex
     lines = catalog_lines(catalog.variants)
     conn.execute("BEGIN IMMEDIATE")
     clear_old_bodies(conn, now or datetime.now(timezone.utc), news.body_keep_days)
@@ -234,6 +239,9 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
         if res.status in ("ok", "not_modified"):
             entry.update(extract_events(conn, source, llm, lines, ts, news=news, deadline=deadline))
             report["events"] += entry["events"]
+            calls = entry.pop("calls")
+            record_agent_calls(conn, shop_id, run_id, "watch_scan", getattr(llm, "backend", None) or ("mock" if llm.is_mock else "unknown"), calls)
+            report["agent_outcomes"] = [o for _a, o, _ms, _c in calls]
             report["left_for_next_check"] += entry["left_for_next_check"]
             report["matched_events"] += entry["matched_events"]
         if res.status in ("network_error", "robots_unavailable"):

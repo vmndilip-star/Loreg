@@ -129,6 +129,6 @@ def test_inventory_recommender_and_daily_use_the_shared_grounding_check():
 
 def test_router_and_market_keep_their_own_code_checks():
     import inspect
-    assert "AGENT_FOR_INTENT[d.intent]" in inspect.getsource(router.route) and "known_skus" in inspect.getsource(router.route)
+    assert "AGENT_FOR_INTENT[d.intent]" in inspect.getsource(router.route_result) and "known_skus" in inspect.getsource(router.route_result)
     src = inspect.getsource(market.read_article)
     assert "_enforce(" in src and "wrap_untrusted(" in src

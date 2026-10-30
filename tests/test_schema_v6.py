@@ -24,7 +24,7 @@ def cols(con, table):
 def test_a_new_database_is_at_version_6_with_accounts_and_sessions(tmp_path):
     init_db(tmp_path / "n.sqlite")
     con = db(tmp_path / "n.sqlite")
-    assert SCHEMA_VERSION == 6 and con.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert SCHEMA_VERSION >= 6 and con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION       # 7 added agent_calls only
     assert set(SHOP_COLUMNS) <= cols(con, "shops")
     assert {"token_hash", "csrf_token", "expires_at", "shop_id"} <= cols(con, "sessions") and "token" not in cols(con, "sessions")
     assert all("shop_id" in cols(con, t) for t in CHILD_TABLES)
@@ -82,7 +82,7 @@ def test_a_version_5_database_is_migrated_in_place_and_keeps_every_row_and_date(
     con.close()
     init_db(path)
     con = db(path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     for t in CHILD_TABLES:
         assert con.execute(f"SELECT COUNT(*) FROM {t} WHERE shop_id IS NULL").fetchone()[0] == 0, t
         got = [tuple(r) for r in con.execute(f"SELECT * FROM {t} ORDER BY id")]
@@ -113,3 +113,19 @@ def test_new_rows_carry_their_shop_id(tmp_path, catalog_dir):
     for t in ("inventory_snapshots", "classifications", "dq_issues"):
         assert con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] > 0 or t == "dq_issues"
         assert con.execute(f"SELECT COUNT(*) FROM {t} WHERE shop_id IS NULL").fetchone()[0] == 0, t
+
+
+def test_version_7_adds_only_the_agent_calls_table(tmp_path):
+    from app.storage.db import connect
+    path = tmp_path / "v6.sqlite"
+    init_db(path)
+    con = connect(path)
+    con.execute("DROP TABLE agent_calls")
+    con.execute("PRAGMA user_version = 6")
+    before = {r["name"] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    con.close()
+    init_db(path)
+    con = connect(path)
+    after = {r["name"] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert after - before == {"agent_calls"} and con.execute("PRAGMA user_version").fetchone()[0] == 7
+    con.close()

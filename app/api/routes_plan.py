@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.api.deps import get_conn, get_shop_id
 from app.api.deps_ai import get_llm
 from app.api.routes_ask import make_ctx
-from app.pipelines import plan_alert
+from app.pipelines import plan_alert, record_run
 from app.storage import repo
 
 router = APIRouter(prefix="/api")
@@ -20,7 +20,9 @@ def alert_plan(request: Request, alert_id: int, limit: int = Query(3, ge=1, le=1
     """One proposed option per item, the same ones the chat shows. 409 unless help was recorded for this alert."""
     try:
         repo.get_alert(conn, alert_id, shop_id)        # another shop's alert is 404 before anything runs
-        plans = _run(plan_alert(make_ctx(request, conn, shop_id, llm), alert_id, limit))
+        ctx = make_ctx(request, conn, shop_id, llm)
+        plans = _run(plan_alert(ctx, alert_id, limit))
+        record_run(ctx, "plan")
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
     except repo.Conflict as e:

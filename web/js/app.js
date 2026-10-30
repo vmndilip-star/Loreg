@@ -37,6 +37,18 @@ const ctx = {
     badge.textContent = n > 0 ? `${n} new` : '';
     badge.setAttribute('aria-label', `${n} unread launch notification${n === 1 ? '' : 's'}`);
   },
+  // The header badge: which backend answers, and how many plan items carry a rules-based option. The offline test writer is never
+  // shown as a model. Read-only; a failure only hides the badge.
+  refreshQuality() {
+    const badge = document.getElementById('backend');
+    if (!ctx.session.signed_in) { badge.hidden = true; return; }
+    api('/quality').then((q) => {
+      const items = q.plan_items.items ? ` · ${q.plan_items.rules_based} of ${q.plan_items.items} items used rules-based fallback` : '';
+      badge.textContent = `Backend: ${q.backend_label}${items}`;
+      badge.className = `chip small ${q.is_mock ? 'chip-amber' : 'chip-blue'}`;
+      badge.hidden = false;
+    }).catch(() => { badge.hidden = true; });
+  },
   setAsOf(iso) { document.getElementById('asOf').textContent = iso ? `Stock as of ${date(iso)}. Synthetic data.` : ''; },
   showBanner(kind, text) {
     clear(banner);
@@ -82,6 +94,7 @@ async function show(name) {
     if (token === navToken) ctx.fail(e);
   }
   if (token === navToken) {
+    ctx.refreshQuality();
     const h1 = main.querySelector('h1');
     if (h1) { h1.setAttribute('tabindex', '-1'); h1.focus({ preventScroll: true }); }
     ctx.announce(`${VIEWS[name]} loaded`);

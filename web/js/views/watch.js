@@ -68,6 +68,7 @@ export async function mount(root, ctx) {
     const { recommendations } = await api(`/alerts/${group.alert_id}/plan`, { method: 'POST', signal: ctx.signal });
     append(planSlot, [el('div', { class: 'label mb-2' }, 'One option for each item. You decide; nothing changes until you accept.'),
       el('div', { class: 'row g-3', 'data-testid': 'plan' }, recommendations.map((r) => el('div', { class: 'col-12 col-lg-4' }, planCard(r, ctx, refreshMoney))))]);
+    ctx.refreshQuality();                                // the badge counts the plan's rules-based items
   }
   if (g && g.help_requested) await showPlan(g);
 }

@@ -73,6 +73,7 @@ export async function mount(root, ctx) {
           foot.textContent = `Answered in ${(data.total_ms / 1000).toFixed(1)} s.`;
           if (data.pipeline === 'launch_clear' && !data.help_requested) launchQuestion = question;
           ctx.announce('Answer ready');
+          ctx.refreshQuality();
         } else if (event === 'error') {
           status.textContent = '';
           append(cards, [el('div', { class: 'banner banner-error' }, data.message)]);

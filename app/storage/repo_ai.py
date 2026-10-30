@@ -91,3 +91,18 @@ def mark_plan_source(conn: sqlite3.Connection, alert_id: int, sku: str, source: 
     except BaseException:
         conn.execute("ROLLBACK")
         raise
+
+
+def record_agent_calls(conn: sqlite3.Connection, shop_id: int, run_id: str, pipeline: str, backend: str, calls: list[tuple]) -> None:
+    """One row per agent call in a run: (agent, outcome, ms, cached). outcome: model_ok | retried_ok | fallback | mock."""
+    if not calls:
+        return
+    at = now_text()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.executemany("INSERT INTO agent_calls (shop_id, run_id, at, pipeline, agent, backend, outcome, ms, cached) VALUES (?,?,?,?,?,?,?,?,?)",
+                         [(shop_id, run_id, at, pipeline, agent, backend, outcome, int(ms), 1 if cached else 0) for agent, outcome, ms, cached in calls])
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise

@@ -304,10 +304,28 @@ CREATE TABLE IF NOT EXISTS notifications (
 """
 SCHEMA += LAUNCH_SCHEMA
 
+# Version 7: one row per agent call, for the fallback-rate metric. A new table only; nothing else changes.
+METRICS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS agent_calls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL REFERENCES shops(id),
+    run_id TEXT NOT NULL,              -- one request: a chat answer, a brief, a plan or a news check
+    at TEXT NOT NULL,
+    pipeline TEXT NOT NULL,            -- launch_clear | sku_question | daily_brief | plan | watch_scan | none
+    agent TEXT NOT NULL,               -- router | inventory | recommender | daily | market
+    backend TEXT NOT NULL,             -- mock | meta | openai_compat
+    outcome TEXT NOT NULL,             -- model_ok | retried_ok | fallback | mock
+    ms INTEGER NOT NULL,
+    cached INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_agent_calls_shop ON agent_calls(shop_id, id);
+"""
+SCHEMA += METRICS_SCHEMA
+
 TABLES = ("shops", "products", "skus", "uploads", "inventory_snapshots", "sales_events", "dq_issues", "classifications",
           "market_sources", "market_items", "market_events", "alerts", "recommendations", "audit_log", "daily_briefs",
-          "launch_watch", "launch_history", "notifications", "sessions")
-SCHEMA_VERSION = 6
+          "launch_watch", "launch_history", "notifications", "sessions", "agent_calls")
+SCHEMA_VERSION = 7
 
 
 def connect(path=None) -> sqlite3.Connection:
@@ -328,7 +346,7 @@ def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
 def migrate(conn: sqlite3.Connection) -> None:
     """Bring a database made by an earlier version up to SCHEMA_VERSION. Version 2 adds Loreg Watch and the brief; version 3 adds skus.map_cents; version 4 keeps only an excerpt of each article;
     version 5 adds the launch tracker (its tables only: no existing row is changed); version 6 adds accounts, sessions and a shop_id on every
-    table that holds one shop's rows."""
+    table that holds one shop's rows; version 7 adds agent_calls (a new table only)."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version >= SCHEMA_VERSION:
         return
@@ -351,6 +369,8 @@ def migrate(conn: sqlite3.Connection) -> None:
         conn.executescript(LAUNCH_SCHEMA)
     if version < 6:
         _migrate_to_6(conn)
+    if version < 7:
+        conn.executescript(METRICS_SCHEMA)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
