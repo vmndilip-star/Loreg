@@ -5,7 +5,7 @@ import sqlite3
 from datetime import date
 
 from app.catalog import CATEGORY_LABEL
-from app.core import actions, metrics, pace
+from app.core import actions, exposure, metrics, pace
 from app.core.classify import AT_RISK
 from app.core.explain import DQ_TEXT, money, plan_reasons, why_flagged
 from app.core.quality import CODES, SEVERITY
@@ -33,15 +33,16 @@ def _name(row) -> str:
 
 # ---------------------------------------------------------------------------------------- money at risk
 def money_at_risk(conn: sqlite3.Connection, shop_id: int) -> dict:
-    """At-risk capital, minus what the owner has accepted a plan for. Integer cents."""
-    at_risk = conn.execute(
-        f"SELECT COALESCE(SUM(capital_cents),0) AS c, COUNT(*) AS n FROM skus WHERE shop_id = ? AND qty > 0 AND status IN ({RISK_MARKS})",
-        (shop_id, *AT_RISK)).fetchone()
-    accepted = conn.execute(
-        "SELECT COALESCE(SUM(capital_cents),0) AS c, COUNT(*) AS n FROM recommendations WHERE shop_id = ? AND status = 'accepted'",
-        (shop_id,)).fetchone()
-    return {"at_risk_cents": at_risk["c"], "at_risk_n": at_risk["n"], "accepted_cents": accepted["c"], "accepted_n": accepted["n"],
-            "money_at_risk_cents": at_risk["c"] - accepted["c"]}
+    """Dead and slow capital split by app.core.exposure: at risk (no accepted plan) and action in progress (an accepted plan). Integer cents.
+
+    The older names stay for the web page and the tests: at_risk_cents is everything dead or slow, accepted_* is the action-in-progress
+    bucket and money_at_risk_cents is what is still at risk."""
+    items = [(r["sku"], r["capital_cents"]) for r in conn.execute(
+        f"SELECT sku, capital_cents FROM skus WHERE shop_id = ? AND qty > 0 AND status IN ({RISK_MARKS})", (shop_id, *AT_RISK))]
+    accepted = [r["sku"] for r in conn.execute("SELECT sku FROM recommendations WHERE shop_id = ? AND status = 'accepted'", (shop_id,))]
+    e = exposure.compute_exposure(items, accepted)
+    return {"at_risk_cents": e.total_cents, "at_risk_n": e.total_n, "accepted_cents": e.action_in_progress_cents, "accepted_n": e.action_in_progress_n,
+            "money_at_risk_cents": e.at_risk_cents, "exposure": e.as_dict()}
 
 
 # ---------------------------------------------------------------------------------------- summary
@@ -70,7 +71,7 @@ def summary(conn: sqlite3.Connection, shop_id: int) -> dict | None:
                    "at_risk": blk(*AT_RISK), "new": blk("new"), "insufficient": blk("insufficient_data"), "zero_qty": total["zero"] or 0},
         # money_at_risk_cents: dead or slow stock with no accepted plan yet. at_risk_all_cents: everything dead or slow.
         "money_at_risk_cents": mar["money_at_risk_cents"], "at_risk_all_cents": mar["at_risk_cents"],
-        "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"],
+        "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"], "exposure": mar["exposure"],
         "by_category": [{"key": c["key"], "label": CATEGORY_LABEL.get(c["key"], c["key"]), "n": c["n"], "cap_cents": c["cap"],
                          "pct": round(100 * c["cap"] / top)} for c in cats],
         "needs_look": {"count": nl["count"], "unsorted": nl["unsorted"]},

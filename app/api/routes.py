@@ -54,6 +54,7 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
     except UploadError as e:
         raise HTTPException(422, str(e)) from None
     result["issues_url"] = f"/api/uploads/{result['upload_id']}/issues"
+    state.cache.drop_shop(shop_id)                        # the numbers changed: no agent answer about the old stock may be reused
     if demo_enabled():                                    # the demo alert always carries a labelled source, whichever way the stock list arrived
         conn.execute("BEGIN IMMEDIATE")
         try:
@@ -114,9 +115,15 @@ def alert_help(alert_id: int, request: Request, conn=Depends(get_conn), shop_id:
         raise HTTPException(404, str(e)) from None
 
 
-def _decide(rec_id: int, accept: bool, conn, shop_id: int):
+def _changed(request: Request, shop_id: int, result: dict) -> dict:
+    """A decision changed the shop's numbers: drop every cached agent answer for this shop, so nothing written before is reused."""
+    request.app.state.cache.drop_shop(shop_id)
+    return result
+
+
+def _decide(request: Request, rec_id: int, accept: bool, conn, shop_id: int):
     try:
-        return repo.decide(conn, shop_id, rec_id, accept)
+        return _changed(request, shop_id, repo.decide(conn, shop_id, rec_id, accept))
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
     except repo.Conflict as e:
@@ -124,20 +131,22 @@ def _decide(rec_id: int, accept: bool, conn, shop_id: int):
 
 
 @router.post("/actions/{rec_id}/accept")
-def accept(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    return _decide(rec_id, True, conn, shop_id)
+def accept(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    """Accept one proposed plan. Its item's capital moves from at risk to action in progress (see app/core/exposure.py); the
+    response carries the new exposure. Accepting twice changes nothing the second time."""
+    return _decide(request, rec_id, True, conn, shop_id)
 
 
 @router.post("/actions/{rec_id}/decline")
-def decline(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    return _decide(rec_id, False, conn, shop_id)
+def decline(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    return _decide(request, rec_id, False, conn, shop_id)
 
 
 @router.post("/actions/{rec_id}/undo")
-def undo(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+def undo(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Take back an accepted or declined decision (409 if the plan has no decision). Money at risk is recomputed."""
     try:
-        return repo.undo(conn, shop_id, rec_id)
+        return _changed(request, shop_id, repo.undo(conn, shop_id, rec_id))
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
     except repo.Conflict as e:

@@ -96,6 +96,10 @@ async function renderBrief(slot, ctx) {
       append(card, [el('div', { class: 'fw-bold fs-5', 'data-testid': 'brief-headline' }, brief.headline),
         el('ul', { class: 'mb-1' }, brief.bullets.map((b) => el('li', {}, b))),
         el('div', { class: 'soft small' }, `${sourceNote(brief.source)} Written ${date(brief.generated_at)}.`)]);
+      if (brief.stale) {
+        append(card, [el('div', { class: 'banner banner-info', role: 'note', 'data-testid': 'brief-stale' },
+          'Written before your latest decision or upload, so its figures may be out of date. The money figures on this page are current.')]);
+      }
     }
     const run = el('button', { type: 'button', class: 'btn-pill btn-soft align-self-start mt-auto' }, brief ? 'Write it again' : 'Write today’s summary');
     run.addEventListener('click', async () => {

@@ -15,7 +15,8 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_shop_id
 from app.api.deps_ai import get_llm
 from app.ingest import now_text
-from app.pipelines import Ctx, daily_brief, answer
+from app.facts import summary_facts
+from app.pipelines import Ctx, answer, daily_brief, facts_hash
 from app.storage import repo, repo_ai
 from app.storage.db import connect
 
@@ -66,9 +67,16 @@ def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), ll
 
 @router.get("/daily")
 def get_daily(shop_id: int = Depends(get_shop_id), request: Request = None):
-    conn = connect(request.app.state.db_path)
+    """The latest stored brief. `stale` is true when the shop's numbers have changed since it was written (an accept, an undo or an
+    upload): the page then says so instead of showing old figures as current. Working this out uses code only, never a model."""
+    state = request.app.state
+    conn = connect(state.db_path)
     try:
         brief = repo_ai.latest_brief(conn, shop_id)
+        if brief is not None:
+            summary = repo.summary(conn, shop_id)
+            now = facts_hash("daily", summary_facts(summary, repo.launch_exposed(conn, shop_id, state.th, state.clock().date()))) if summary else ""
+            brief["stale"] = brief["facts_hash"] != now
     finally:
         conn.close()
     if brief is None:
@@ -88,6 +96,6 @@ def run_daily(request: Request, shop_id: int = Depends(get_shop_id), llm=Depends
         if brief is None:
             raise HTTPException(409, "there is nothing to summarise yet: upload a stock list first")
         end = events[-1]["data"]
-        return {**brief, "agents": end["agents"], "total_ms": end["total_ms"]}
+        return {**brief, "stale": False, "agents": end["agents"], "total_ms": end["total_ms"]}
     finally:
         conn.close()

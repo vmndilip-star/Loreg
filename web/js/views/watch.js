@@ -26,7 +26,7 @@ export async function mount(root, ctx) {
 
   const moneyNumber = el('div', { class: 'num num-lg', 'data-testid': 'money-at-risk' }, money(summary.money_at_risk_cents));
   const acceptedLine = el('div', { class: 'fw-bold', 'data-testid': 'accepted-line' });
-  const showAccepted = (s) => { acceptedLine.textContent = s.accepted_n ? `${count(s.accepted_n)} accepted: ${money(s.accepted_cents)} no longer at risk` : 'Nothing accepted yet'; };
+  const showAccepted = (s) => { acceptedLine.textContent = s.accepted_n ? `${count(s.accepted_n)} accepted: ${money(s.accepted_cents)} action in progress. It counts as freed only when the units sell.` : 'Nothing accepted yet'; };
   showAccepted(summary);
   async function refreshMoney() {                      // the server's figure, never a sum made here
     const s = await api('/summary', { signal: ctx.signal });

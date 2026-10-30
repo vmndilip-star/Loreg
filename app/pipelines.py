@@ -47,10 +47,11 @@ _SKU_LIKE = re.compile(r"\b[A-Za-z]{2}-[A-Za-z0-9]{2,5}-\d{3,5}\b")
 
 # ------------------------------------------------------------------------------ plumbing
 class ResultCache:
-    """Agent results keyed by a hash of their facts, so the same question returns instantly. Fallbacks are never cached."""
+    """Agent results keyed by a hash of their facts and the shop, so the same question returns instantly. Fallbacks are never cached.
+    A shop's entries are dropped whenever its numbers change (an upload, an accept, a decline or an undo)."""
 
     def __init__(self, size: int = 512):
-        self._data: OrderedDict[str, AgentResult] = OrderedDict()
+        self._data: OrderedDict[str, tuple[int | None, AgentResult]] = OrderedDict()
         self._size, self._lock = size, Lock()
         self.hits = self.misses = 0
 
@@ -59,18 +60,30 @@ class ResultCache:
             if key in self._data:
                 self._data.move_to_end(key)
                 self.hits += 1
-                return self._data[key]
+                return self._data[key][1]
             self.misses += 1
             return None
 
-    def put(self, key: str, value: AgentResult) -> None:
+    def put(self, key: str, value: AgentResult, shop_id: int | None = None) -> None:
         if value.source not in ("model", "mock"):
             return
         with self._lock:
-            self._data[key] = value
+            self._data[key] = (shop_id, value)
             self._data.move_to_end(key)
             while len(self._data) > self._size:
                 self._data.popitem(last=False)
+
+    def drop_shop(self, shop_id: int) -> int:
+        """Forget every cached result for one shop. Returns how many were dropped."""
+        with self._lock:
+            gone = [k for k, (shop, _) in self._data.items() if shop == shop_id]
+            for k in gone:
+                del self._data[k]
+            return len(gone)
+
+    def count_shop(self, shop_id: int) -> int:
+        with self._lock:
+            return sum(1 for shop, _ in self._data.values() if shop == shop_id)
 
 
 @dataclass
@@ -97,7 +110,7 @@ class AgentCall:
 
     def __init__(self, ctx: Ctx, name: str, run: Callable[[], AgentResult], fallback: Callable[[], AgentResult], facts: list[Fact], extra: str = ""):
         self.ctx, self.name, self.fallback = ctx, name, fallback
-        self.key = facts_hash(name, facts, extra)
+        self.key = facts_hash(name, facts, f"shop {ctx.shop_id}|{extra}")
         self.started = time.perf_counter()
         self.cached = ctx.cache.get(self.key)
         self.future: Future | None = None if self.cached else ctx.executor.submit(run)
@@ -114,7 +127,7 @@ class AgentCall:
                 res = AgentResult(self.fallback().output, "fallback", [f"timed out after {self.ctx.timeout_s:g}s"])
             except Exception as e:  # noqa: BLE001 - an agent must never take the whole answer down
                 res = AgentResult(self.fallback().output, "fallback", [f"failed: {type(e).__name__}"])
-            self.ctx.cache.put(self.key, res)
+            self.ctx.cache.put(self.key, res, self.ctx.shop_id)
         self.ctx.timings.append((self.name, res.source, round(1000 * (time.perf_counter() - self.started)), was_cached))
         return res
 

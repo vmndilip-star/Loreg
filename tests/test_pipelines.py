@@ -226,9 +226,12 @@ def test_changing_the_facts_misses_the_cache(catalog_dir, shop):
     ask(shop, ASK)
     sku = shop.get("/api/launch/exposed").json()["groups"][0]["top"][0]["sku"]        # one of the three items the pipeline reads
     cache = shop.app.state.cache
-    hits = cache.hits
-    upload(shop, catalog_dir / "upload_demo_200.csv")                                   # the same stock again: same facts, so hits
+    upload(shop, catalog_dir / "upload_demo_200.csv")                                   # any upload drops the shop's cached answers
+    misses = cache.misses
     ask(shop, ASK)
+    assert cache.misses > misses
+    hits = cache.hits
+    ask(shop, ASK)                                                                       # and the same facts are served from memory again
     assert cache.hits > hits
     con = sqlite3.connect(shop.app.state.db_path)
     con.execute("UPDATE skus SET qty = qty + 1, capital_cents = capital_cents + unit_cost_cents WHERE sku = ?", (sku,))
