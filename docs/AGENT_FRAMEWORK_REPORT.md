@@ -55,8 +55,9 @@ Shared pieces used below:
   from `app/facts.py`) plus `TASK`. The system prompt is the agent's `SYSTEM` plus `GROUNDING_RULES`. After the reply it strips
   brackets from citation ids and runs `check_grounding`: every citation must be a real fact id; there must be at least one citation
   unless the text starts with "Not enough data"; every number in the text must appear in some fact's id, SKU, label, value or date.
-  Then the agent's own `extra_checks`. Any problem, or an `LLMError`, returns the agent's deterministic fallback with source
-  `fallback`.
+  Then the agent's own `extra_checks`. If any check fails, the model is asked once more with the problems listed (added on
+  2026-10-30; outcome `retried_ok` when the second answer passes). A second failure, or an `LLMError`, returns the agent's
+  deterministic fallback with source `fallback`. `tests/test_architecture.py` checks that these three agents share this function.
 - **`AgentCall`** (`app/pipelines.py`): runs an agent call on the app's `ThreadPoolExecutor` (8 workers), bounds the whole call by
   `AGENT_TIMEOUT_S = 20.0` seconds, and on timeout or any exception returns the fallback. Results with source `model` or `mock` are
   cached in memory by a SHA-256 of the agent name, the facts and an extra key (`ResultCache`, 512 entries); fallbacks are never cached.

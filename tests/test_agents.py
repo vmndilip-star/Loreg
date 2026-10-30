@@ -78,6 +78,50 @@ def test_inventory_rejects_claims_with_no_citation():
     assert inventory.explain(FakeModel(bad), SKU, FACTS).source == "fallback"
 
 
+class SeqModel(FakeModel):
+    """Answers with each output in turn (an exception in the list is raised), and keeps every user message it was sent."""
+
+    def __init__(self, *outputs):
+        self.outputs, self.sent = list(outputs), []
+
+    def complete_json(self, *, system, user, schema, mock_output=None, max_completion_tokens=0):
+        self.sent.append(user)
+        out = self.outputs.pop(0)
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+
+def test_a_rejected_answer_is_retried_once_and_a_good_second_answer_is_used():
+    bad = InventoryExplanation(sku=SKU, summary="No sale in 300 days.", citations=["m1"])
+    good = InventoryExplanation(sku=SKU, summary="No sale in 241 days.", citations=["m1"])
+    model = SeqModel(bad, good)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.source == "model" and r.retried and r.outcome == "retried_ok" and r.output == good
+    assert len(model.sent) == 2 and "REJECTED" in model.sent[1] and "300" in model.sent[1]      # the problem is named in the retry
+
+
+def test_two_rejected_answers_fall_back_to_the_rules():
+    bad = InventoryExplanation(sku=SKU, summary="No sale in 300 days.", citations=["m1"])
+    model = SeqModel(bad, bad)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.source == "fallback" and r.outcome == "fallback" and len(model.sent) == 2
+    assert any(n.startswith("after one retry") for n in r.notes)
+
+
+def test_a_retry_that_fails_to_answer_falls_back():
+    bad = Recommendation(sku=SKU, option="return", discount_pct=0, reasons=["Send it back."], citations=["m1"])
+    r = recommender.recommend(SeqModel(bad, LLMError("down")), SKU, FACTS, help_requested=True)
+    assert r.source == "fallback" and any("retry: model unavailable" in n for n in r.notes)
+
+
+def test_a_good_first_answer_is_not_retried():
+    good = InventoryExplanation(sku=SKU, summary="No sale in 241 days.", citations=["m1"])
+    model = SeqModel(good)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.outcome == "model_ok" and len(model.sent) == 1
+
+
 def test_inventory_falls_back_when_the_model_is_down():
     r = inventory.explain(FakeModel(error=LLMError("down")), SKU, FACTS)
     assert r.source == "fallback" and r.output.citations == ["m1", "m2", "m3", "m4"]
