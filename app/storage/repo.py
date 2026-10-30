@@ -388,25 +388,21 @@ def needs_look(conn: sqlite3.Connection, shop_id: int, limit: int = 100) -> dict
 OUTCOMES = ("model_ok", "retried_ok", "fallback", "mock")
 
 
-def _rates(rows) -> dict:
-    counts = {o: 0 for o in OUTCOMES}
-    for r in rows:
-        counts[r["outcome"]] = counts.get(r["outcome"], 0) + r["n"]
-    total = sum(counts.values())
-    asked = total - counts["mock"]                      # calls a real model was asked to answer
-    return {"calls": total, **counts, "fallback_rate": round(counts["fallback"] / asked, 4) if asked else None}
+def _rates(outcomes: list[str]) -> dict:
+    counts = {o: outcomes.count(o) for o in OUTCOMES}
+    asked = len(outcomes) - counts["mock"]               # calls a real model was asked to answer
+    return {"calls": len(outcomes), **counts, "fallback_rate": round(counts["fallback"] / asked, 4) if asked else None}
 
 
 def agent_quality(conn: sqlite3.Connection, shop_id: int, last_n: int = 500) -> dict:
     """How often the agents' answers were used, retried or replaced by the rules, over this shop's last `last_n` agent calls, and how many
     of the current plan's items carry a rules-based option. Counts only; nothing here calls a model."""
-    recent = f"SELECT * FROM agent_calls WHERE shop_id = ? ORDER BY id DESC LIMIT {int(last_n)}"
-    overall = conn.execute(f"SELECT outcome, COUNT(*) AS n FROM ({recent}) GROUP BY outcome", (shop_id,)).fetchall()
+    recent = conn.execute("SELECT agent, outcome, backend FROM agent_calls WHERE shop_id = ? ORDER BY id DESC LIMIT ?", (shop_id, last_n)).fetchall()
     by_agent: dict[str, list] = {}
-    for r in conn.execute(f"SELECT agent, outcome, COUNT(*) AS n FROM ({recent}) GROUP BY agent, outcome", (shop_id,)):
-        by_agent.setdefault(r["agent"], []).append(r)
-    backends = [r["backend"] for r in conn.execute(f"SELECT DISTINCT backend FROM ({recent})", (shop_id,))]
+    for r in recent:
+        by_agent.setdefault(r["agent"], []).append(r["outcome"])
     plans = conn.execute("SELECT COUNT(*) AS n, COALESCE(SUM(source IN ('rules', 'fallback')), 0) AS rules FROM recommendations WHERE shop_id = ?",
                          (shop_id,)).fetchone()
-    return {"window": last_n, "backends_seen": backends, **_rates(overall), "per_agent": {a: _rates(rows) for a, rows in sorted(by_agent.items())},
+    return {"window": last_n, "backends_seen": sorted({r["backend"] for r in recent}), **_rates([r["outcome"] for r in recent]),
+            "per_agent": {a: _rates(o) for a, o in sorted(by_agent.items())},
             "plan_items": {"items": plans["n"], "rules_based": plans["rules"]}}
