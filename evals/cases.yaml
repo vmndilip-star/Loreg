@@ -1,0 +1,117 @@
+# Loreg eval set: one stocked item per case, the expected status and the options the rules allow, worked out BY HAND from
+# config/thresholds.yaml (not by running the code). scripts/run_evals.py checks (1) the rules give exactly this, and (2) the
+# recommender, on the chosen backend, picks one of the allowed options with an allowed discount, grounded in its facts.
+#
+# Stock date 2026-10-26. Money in dollars. dsls: days since last sale (null: never sold). received: days ago (null: unknown;
+# default 365). return_days: days until the supplier's return window closes (negative: closed; null: none).
+# Thresholds used: tv and laptop slow 60, dead 120, 120 days of stock, 30 days new; phone 45/90/90/21;
+# washer, washer_dryer, refrigerator 75/150/150/45; seasonal x1.5 (not the new period). Ladder 5/10/15/20%: a step is allowed
+# while price x (1 - step) >= max(cost, MAP). Below cost only after 2x the dead limit with no sale, at most 10%, never below MAP.
+# Bundle when no sales in 90 days, days of stock above the limit, or days since last sale at or above the slow limit. Hold always.
+
+as_of: "2026-10-26"
+cases:
+  - id: dead-healthy-margin
+    title: Dead TV with plenty of margin
+    item: {category: tv, qty: 4, cost: 800, price: 1200, dsls: 150, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: below-cost-trap
+    title: Dead TV priced 4% above cost; the smallest step would sell below cost
+    item: {category: tv, qty: 3, cost: 1000, price: 1040, dsls: 130, sold_90d: 0}
+    expect: {status: dead, allowed: [bundle, hold], max_discount: null}
+
+  - id: return-window-open
+    title: Slow TV, no margin to discount, return window open 30 more days
+    item: {category: tv, qty: 2, cost: 500, price: 520, dsls: 70, sold_90d: 1, return_days: 30}
+    expect: {status: slow, allowed: [return, bundle, hold], max_discount: null}
+
+  - id: return-window-expired
+    title: The same TV, return window closed yesterday
+    item: {category: tv, qty: 2, cost: 500, price: 520, dsls: 70, sold_90d: 1, return_days: -1}
+    expect: {status: slow, allowed: [bundle, hold], max_discount: null}
+
+  - id: return-window-closes-today
+    title: The same TV, return window closes today (still open)
+    item: {category: tv, qty: 2, cost: 500, price: 520, dsls: 70, sold_90d: 1, return_days: 0}
+    expect: {status: slow, allowed: [return, bundle, hold], max_discount: null}
+
+  - id: map-caps-discount
+    title: Minimum advertised price $950 on a $1,000 TV allows only 5%
+    item: {category: tv, qty: 5, cost: 600, price: 1000, map: 950, dsls: 130, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 5}
+
+  - id: map-blocks-discount
+    title: Minimum advertised price $990 blocks every step that cost alone would allow
+    item: {category: tv, qty: 5, cost: 600, price: 1000, map: 990, dsls: 130, sold_90d: 0}
+    expect: {status: dead, allowed: [bundle, hold], max_discount: null, map_blocked: true}
+
+  - id: deep-dead-below-cost
+    title: No sale for 250 days (over 2x the dead limit) allows a below-cost discount up to 10%
+    item: {category: tv, qty: 2, cost: 1000, price: 1040, dsls: 250, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 10, below_cost: true}
+
+  - id: deep-dead-below-cost-but-map
+    title: The same deep-dead TV with a MAP at cost; below-cost steps would break the MAP
+    item: {category: tv, qty: 2, cost: 1000, price: 1040, map: 1000, dsls: 250, sold_90d: 0}
+    expect: {status: dead, allowed: [bundle, hold], max_discount: null, map_blocked: true}
+
+  - id: near-zero-data
+    title: Never sold and received date unknown
+    item: {category: tv, qty: 1, cost: 300, price: 400, dsls: null, received: null, sold_90d: 0}
+    expect: {status: insufficient_data, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: tiny-capital
+    title: One phone case-sized item, $5 tied up
+    item: {category: phone, qty: 1, cost: 5, price: 9, dsls: 100, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: conflicting-signals
+    title: Sold 5 days ago, but 40 on the shelf at 3 a quarter (1,200 days of stock)
+    item: {category: tv, qty: 40, cost: 500, price: 700, dsls: 5, sold_90d: 3}
+    expect: {status: slow, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: healthy-item
+    title: Selling well (15 days of stock); no bundle
+    item: {category: tv, qty: 5, cost: 500, price: 700, dsls: 10, sold_90d: 30}
+    expect: {status: healthy, allowed: [discount, hold], max_discount: 20}
+
+  - id: seasonal-washer
+    title: Seasonal washer, 160 days since a sale (slow at 112.5, dead at 225)
+    item: {category: washer, qty: 3, cost: 400, price: 500, dsls: 160, sold_90d: 0, seasonal: true}
+    expect: {status: slow, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: zero-margin-fridge
+    title: Fridge priced at cost, dead 200 days (not yet 2x the 150-day limit)
+    item: {category: refrigerator, qty: 2, cost: 900, price: 900, dsls: 200, sold_90d: 0}
+    expect: {status: dead, allowed: [bundle, hold], max_discount: null}
+
+  - id: zero-margin-fridge-very-old
+    title: The same fridge after 320 days with no sale (over 300)
+    item: {category: refrigerator, qty: 2, cost: 900, price: 900, dsls: 320, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 10, below_cost: true}
+
+  - id: exactly-twenty-percent-margin
+    title: Laptop where a 20% discount lands exactly on cost (allowed)
+    item: {category: laptop, qty: 2, cost: 800, price: 1000, dsls: 130, sold_90d: 0}
+    expect: {status: dead, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: phone-everything-allowed
+    title: Slow phone with a return window, a MAP and margin
+    item: {category: phone, qty: 6, cost: 300, price: 500, map: 450, dsls: 50, sold_90d: 2, return_days: 10}
+    expect: {status: slow, allowed: [return, discount, bundle, hold], max_discount: 10}
+
+  - id: nothing-on-the-shelf
+    title: Zero on the shelf is never at risk
+    item: {category: tv, qty: 0, cost: 500, price: 700, dsls: 200, sold_90d: 0}
+    expect: {status: healthy, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: new-stock
+    title: Received 10 days ago, not sold yet
+    item: {category: tv, qty: 4, cost: 500, price: 700, dsls: null, received: 10, sold_90d: 0}
+    expect: {status: new, allowed: [discount, bundle, hold], max_discount: 20}
+
+  - id: price-below-cost
+    title: Already priced below cost, dead 130 days
+    item: {category: tv, qty: 2, cost: 700, price: 600, dsls: 130, sold_90d: 0}
+    expect: {status: dead, allowed: [bundle, hold], max_discount: null}

@@ -1,0 +1,61 @@
+{
+  "backend": "mock",
+  "runs": 1,
+  "summary": {
+    "daily": {
+      "calls": 2,
+      "model_ok": 0,
+      "retried_ok": 0,
+      "fallback": 0,
+      "mock": 2,
+      "fallback_rate": null,
+      "p50_ms": 1,
+      "p95_ms": 1,
+      "cached": 1
+    },
+    "router": {
+      "calls": 8,
+      "model_ok": 0,
+      "retried_ok": 0,
+      "fallback": 0,
+      "mock": 8,
+      "fallback_rate": null,
+      "p50_ms": 1,
+      "p95_ms": 2,
+      "cached": 0
+    },
+    "inventory": {
+      "calls": 8,
+      "model_ok": 0,
+      "retried_ok": 0,
+      "fallback": 0,
+      "mock": 8,
+      "fallback_rate": null,
+      "p50_ms": 1,
+      "p95_ms": 3,
+      "cached": 1
+    },
+    "recommender": {
+      "calls": 7,
+      "model_ok": 0,
+      "retried_ok": 0,
+      "fallback": 0,
+      "mock": 7,
+      "fallback_rate": null,
+      "p50_ms": 10,
+      "p95_ms": 13,
+      "cached": 0
+    },
+    "ALL": {
+      "calls": 25,
+      "model_ok": 0,
+      "retried_ok": 0,
+      "fallback": 0,
+      "mock": 25,
+      "fallback_rate": null,
+      "p50_ms": 1,
+      "p95_ms": 12,
+      "cached": 2
+    }
+  }
+}
