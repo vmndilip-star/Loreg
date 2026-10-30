@@ -148,7 +148,7 @@ def ensure_demo_source(conn: sqlite3.Connection, shop_id: int, catalog, now: dat
     elif kind == "demo_synthetic":                            # the made-up date follows the stock list's date
         conn.execute("UPDATE market_events SET launch_date = ?, launch_iso = ?, date_stated = 1, quote = ? WHERE item_id = ?",
                      (launch, launch_iso, excerpt[:news.excerpt_chars], item_id))
-    attach_events_to_alerts(conn, shop_id)
+    attach_events_to_alerts(conn, shop_id, today=now.date())
     return "stored copy" if kind == "stored_copy" else "synthetic"
 
 

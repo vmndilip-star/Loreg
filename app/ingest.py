@@ -66,7 +66,8 @@ def read_rows(raw: bytes) -> list[dict]:
 
 
 def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw: bytes, as_of: date, th: Thresholds,
-                  catalog: Catalog) -> dict:
+                  catalog: Catalog, today: date | None = None) -> dict:
+    """`today`: the app clock's date, used when a stored article is attached to an alert (one published after today never is)."""
     rows = read_rows(raw)
     if not rows:
         raise UploadError("file has a header but no rows")
@@ -160,7 +161,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                       unsorted=len(unsorted_rows))
         conn.execute("UPDATE uploads SET rows=?, kept=?, blocked=?, look=?, zero_qty=?, unsorted=? WHERE id=?",
                      (counts["rows"], counts["kept"], counts["blocked"], counts["look"], counts["zero_qty"], counts["unsorted"], upload_id))
-        _refresh_launch_alerts(conn, shop_id, ts)
+        _refresh_launch_alerts(conn, shop_id, ts, today)
         conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                      (shop_id, ts, "owner", "upload", "upload", str(upload_id), json.dumps({"file": filename, **counts})))
         conn.execute("COMMIT")
@@ -170,7 +171,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
     return {"upload_id": upload_id, "as_of": as_of.isoformat(), **counts}
 
 
-def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str) -> None:
+def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str, today: date | None = None) -> None:
     """One alert per brand and category whose launch-family stock is dead or slow.
 
     There is no dated news source behind these yet, and the alert says so: the launch-family flag comes
@@ -188,4 +189,4 @@ def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str) -> N
             " VALUES (?,?,?,?,?,?,?,?,?)",
             (shop_id, "launch_family", f"{g['brand']} {CATEGORY_LABEL.get(g['category'], g['category'])} may be affected by a newer line",
              g["brand"], g["category"], NO_SOURCE_NOTE, g["n"], g["cap"], ts))
-    attach_events_to_alerts(conn, shop_id)  # a stored, dated event may already match; otherwise the note above stays
+    attach_events_to_alerts(conn, shop_id, today=today)  # a stored, dated event may already match; otherwise the note above stays

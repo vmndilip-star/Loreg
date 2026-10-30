@@ -241,7 +241,7 @@ def scan(conn: sqlite3.Connection, shop_id: int, *, http: httpx.Client, llm: LLM
         report["sources"].append(entry)
     conn.execute("BEGIN IMMEDIATE")
     try:
-        report["alerts_with_a_source"] = attach_events_to_alerts(conn, shop_id)
+        report["alerts_with_a_source"] = attach_events_to_alerts(conn, shop_id, today=(now or datetime.now(timezone.utc)).astimezone(timezone.utc).date())
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")

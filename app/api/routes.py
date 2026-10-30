@@ -50,7 +50,8 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
     state = request.app.state
     when = as_of or state.default_as_of or date.today()
     try:
-        result = commit_upload(conn, shop_id=shop_id, filename=filename, raw=raw, as_of=when, th=state.th, catalog=state.catalog)
+        result = commit_upload(conn, shop_id=shop_id, filename=filename, raw=raw, as_of=when, th=state.th, catalog=state.catalog,
+                               today=state.clock().date())
     except UploadError as e:
         raise HTTPException(422, str(e)) from None
     result["issues_url"] = f"/api/uploads/{result['upload_id']}/issues"
