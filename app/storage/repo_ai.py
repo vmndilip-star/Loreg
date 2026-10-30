@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 
+from app import obs
 from app.ingest import now_text
 
 _CITATION_MARKS = re.compile(r"\s*\[[A-Za-z0-9:_\-.]+\]")
@@ -97,6 +98,8 @@ def record_agent_calls(conn: sqlite3.Connection, shop_id: int, run_id: str, pipe
     """One row per agent call in a run: (agent, outcome, ms, cached). outcome: model_ok | retried_ok | fallback | mock."""
     if not calls:
         return
+    for agent, outcome, ms, cached in calls:                 # names, codes and numbers only: never a prompt or an answer
+        obs.event("agent_call", run_id=run_id, pipeline=pipeline, agent=agent, backend=backend, outcome=outcome, ms=int(ms), cached=bool(cached))
     at = now_text()
     conn.execute("BEGIN IMMEDIATE")
     try:

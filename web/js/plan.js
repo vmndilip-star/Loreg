@@ -31,6 +31,7 @@ export function planCard(r, ctx, refreshMoney) {
     el('ul', { class: 'mb-1 ps-3' }, r.reasons.map((x) => el('li', {}, x))),
     r.headroom ? headroomNote(r.headroom) : null,
     el('div', { class: 'd-flex flex-wrap gap-1' }, r.citations.map((c) => el('span', { class: 'chip' }, `${c.label}: ${c.value}`))),
+    el('div', { class: 'soft small', 'data-testid': 'plan-source' }, planSource(r.source)),
     state);
   draw(r.status);
   return card;
@@ -47,6 +48,13 @@ function headroomNote(h) {
     lines.push(`Next step, ${h.next_pct}% (${money2(h.next_price_cents)}), would go below ${what} (${money2(h.floor_cents)}).`);
   }
   return el('div', { class: 'soft small', 'data-testid': 'headroom' }, lines.map((t) => el('div', {}, t)));
+}
+
+// Who chose this option. A rules-based option is always called that, so a slow or rejected model answer is never hidden.
+export function planSource(source) {
+  if (source === 'model') return 'Chosen by the model from the allowed options, and checked by code.';
+  if (source === 'mock') return 'Chosen by the offline test writer, not a real model.';
+  return 'Using rules-based fallback: chosen by Loreg’s rules (the model was not used, was too slow, or its answer failed a check).';
 }
 
 function optionTitle(r) {

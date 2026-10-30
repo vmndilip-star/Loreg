@@ -51,6 +51,7 @@ def main() -> int:
     args = p.parse_args()
     from app.api.main import load_env
     load_env()
+    os.environ.setdefault("LOREG_LOG_LEVEL", "WARNING")            # the report is the output; the JSON log lines are for the server
     if args.backend:
         os.environ["LLM_BACKEND"] = args.backend
     os.environ["LOREG_DEMO"] = "1"                       # the demo shop and the demo alert's labelled source

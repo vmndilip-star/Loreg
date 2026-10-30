@@ -70,7 +70,9 @@ export async function mount(root, ctx) {
         else if (event === 'done') {
           status.textContent = '';
           moneyNumber.textContent = money(data.money_at_risk_cents);   // the server's figure, sent with the end of the stream
-          foot.textContent = `Answered in ${(data.total_ms / 1000).toFixed(1)} s.`;
+          const byRules = (data.agents || []).filter((a) => a.outcome === 'fallback').length;
+          foot.textContent = `Answered in ${(data.total_ms / 1000).toFixed(1)} s.`
+            + (byRules ? ` Using rules-based fallback for ${byRules} of ${data.agents.length} steps (the model was slow or its answer failed a check).` : '');
           if (data.pipeline === 'launch_clear' && !data.help_requested) launchQuestion = question;
           ctx.announce('Answer ready');
           ctx.refreshQuality();

@@ -23,7 +23,8 @@ from app.auth.middleware import AuthMiddleware
 from app.core.throttle import Backoff, Window
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
-from app.pipelines import AGENT_TIMEOUT_S, ResultCache
+from app import obs
+from app.pipelines import AGENT_TIMEOUT_S, REQUEST_TIMEOUT_S, ResultCache
 from app.storage.db import DEFAULT_DB_PATH, init_db
 
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
@@ -49,7 +50,7 @@ class WebFiles(StaticFiles):
 
 
 def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=None, catalog_path=None, llm=None, http_factory=None,
-               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None, auth_path=None) -> FastAPI:
+               agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None, auth_path=None, request_timeout_s: float | None = None) -> FastAPI:
     """`clock`: a function returning the current time (timezone-aware). Tests inject one; news freshness and fetch dates use it.
     `llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
     app = FastAPI(title="Loreg API", version="0.2.0")
@@ -64,6 +65,8 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.state.cache = ResultCache()                       # agent results by hash of their facts
     app.state.executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="agent")
     app.state.agent_timeout_s = agent_timeout_s
+    app.state.request_timeout_s = float(request_timeout_s or os.environ.get("LOREG_REQUEST_TIMEOUT_S") or REQUEST_TIMEOUT_S)
+    obs.setup()
     default = as_of or os.environ.get("LOREG_AS_OF")
     app.state.default_as_of = date.fromisoformat(default) if isinstance(default, str) and default else (default or None)
     cfg = app.state.auth = load_auth_config(auth_path)
@@ -71,6 +74,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     app.state.signup_limit = Window(cfg.signup_max_per_ip, cfg.signup_window_s, seconds)
     app.state.login_backoff = Backoff(cfg.login_free_failures, cfg.login_base_wait_s, cfg.login_max_wait_s, cfg.login_window_s, seconds)
     app.add_middleware(AuthMiddleware, state=app.state)   # sign-in and CSRF on every /api route; there is no switch to turn it off
+    app.add_middleware(obs.RequestLog)                    # added last, so it runs first: every request gets an id and one log line
     app.include_router(auth_router)
     app.include_router(router)
     app.include_router(demo_router)

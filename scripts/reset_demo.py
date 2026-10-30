@@ -24,6 +24,7 @@ def main() -> int:
     args = p.parse_args()
     from app.api.main import load_env
     load_env()
+    os.environ.setdefault("LOREG_LOG_LEVEL", "WARNING")            # the report is the output; the JSON log lines are for the server
     from app.storage.db import DEFAULT_DB_PATH
     db = Path(os.environ.get("LOREG_DB") or DEFAULT_DB_PATH)
     if not args.yes:

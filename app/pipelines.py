@@ -38,6 +38,7 @@ from app.schemas.outputs import NOT_ENOUGH_DATA, DailyBrief, Recommendation, Rou
 from app.storage import repo, repo_ai
 
 AGENT_TIMEOUT_S = 20.0
+REQUEST_TIMEOUT_S = 45.0        # a whole answer: no agent is waited for past this, whatever its own limit (LOREG_REQUEST_TIMEOUT_S)
 PIPELINES = ("launch_clear", "sku_question", "daily_brief")        # the only pipelines that exist
 PIPELINE_FOR_INTENT = {"launch_risk": "launch_clear", "plan_request": "launch_clear", "stock_question": "sku_question", "daily": "daily_brief"}
 ASK_PROMPT = "Want me to plan what to do with them?"
@@ -98,6 +99,7 @@ class Ctx:
     cache: ResultCache
     executor: ThreadPoolExecutor
     timeout_s: float = AGENT_TIMEOUT_S
+    deadline: float | None = None                 # time.perf_counter() value: the whole request's limit
     timings: list = field(default_factory=list)   # (agent, source, ms, cached, outcome): for the done event and the fallback-rate metric
     run_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     recorded: list = field(default_factory=list)  # timings already written to agent_calls
@@ -127,11 +129,14 @@ class AgentCall:
             res, was_cached = self.cached, True
         else:
             was_cached = False
-            remaining = max(0.0, self.ctx.timeout_s - (time.perf_counter() - self.started))
+            now = time.perf_counter()
+            remaining = max(0.0, self.ctx.timeout_s - (now - self.started))
+            whole = None if self.ctx.deadline is None else max(0.0, self.ctx.deadline - now)
             try:
-                res = self.future.result(timeout=remaining)
+                res = self.future.result(timeout=remaining if whole is None else min(remaining, whole))
             except FutureTimeout:
-                res = AgentResult(self.fallback().output, "fallback", [f"timed out after {self.ctx.timeout_s:g}s"])
+                why = "the request's time limit was reached" if whole is not None and whole < remaining else f"timed out after {self.ctx.timeout_s:g}s"
+                res = AgentResult(self.fallback().output, "fallback", [why])
             except Exception as e:  # noqa: BLE001 - an agent must never take the whole answer down
                 res = AgentResult(self.fallback().output, "fallback", [f"failed: {type(e).__name__}"])
             self.ctx.cache.put(self.key, res, self.ctx.shop_id)
