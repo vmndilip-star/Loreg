@@ -1,6 +1,6 @@
 """Every /api request passes here first. Two checks, with no switch to turn either off:
 
-1. Sign-in. Every /api route except the few in PUBLIC needs a live session; otherwise 401 (an expired session included). The signed-in
+1. Sign-in. Every /api route except the few in PUBLIC (matched exactly, never by prefix) needs a live session; otherwise 401 (an expired session included). The signed-in
    shop is put on the request (request.state.shop_id), and every route reads its shop from there and nowhere else.
 2. CSRF. Every POST, PUT, PATCH or DELETE that gets past (1), the streamed /api/ask included, must send X-CSRF-Token. With a session it
    must equal that session's token; signed out (sign-in, signup and sign-out only) it must equal the loreg_csrf cookie that
@@ -17,7 +17,8 @@ from starlette.requests import Request
 from app.auth import sessions
 from app.storage.db import connect
 
-PUBLIC = frozenset({"/api/health", "/api/session", "/api/signup", "/api/login", "/api/logout"})
+PUBLIC = frozenset({"/api/health", "/api/session", "/api/signup", "/api/login", "/api/logout",
+                    "/api/demo"})          # the public demo credential, for the sign-in page; 404 unless LOREG_DEMO=1
 UNSAFE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 

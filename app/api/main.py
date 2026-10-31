@@ -24,7 +24,8 @@ from app.auth.middleware import AuthMiddleware
 from app.core.throttle import Backoff, Window
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
-from app import obs
+from app import demo_seed, obs
+from app.demo import demo_enabled
 from app.pipelines import AGENT_TIMEOUT_S, REQUEST_TIMEOUT_S, ResultCache
 from app.storage.db import DEFAULT_DB_PATH, init_db
 
@@ -70,6 +71,8 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     obs.setup()
     default = as_of or os.environ.get("LOREG_AS_OF")
     app.state.default_as_of = date.fromisoformat(default) if isinstance(default, str) and default else (default or None)
+    if demo_enabled():
+        demo_seed.credentials()                           # a bad LOREG_DEMO_EMAIL or _PASSWORD stops the app here, not at a sign-in
     cfg = app.state.auth = load_auth_config(auth_path)
     seconds = lambda: app.state.clock().timestamp()       # noqa: E731  (the limits follow the same injectable clock)
     app.state.signup_limit = Window(cfg.signup_max_per_ip, cfg.signup_window_s, seconds)

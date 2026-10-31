@@ -12,3 +12,8 @@ NEWS_COPY = DEMO_DIR / "news_copy.json"      # a stored copy of one real article
 
 def demo_enabled() -> bool:
     return os.environ.get("LOREG_DEMO") == "1"
+
+
+def production() -> bool:
+    """LOREG_ENV=production: no demo account is made, and demo mode is refused."""
+    return os.environ.get("LOREG_ENV") == "production"

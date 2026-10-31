@@ -2,12 +2,14 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+from app import demo_seed
 from app.api.main import create_app
 from auth import AuthedClient
 from conftest import OfflineModel
@@ -79,4 +81,8 @@ def test_reset_refuses_without_yes_and_then_gives_the_same_numbers_every_time(tm
     assert first.returncode == 0, first.stdout + first.stderr
     second = run_script("reset_demo.py", "--yes", env_extra=env)
     assert second.returncode == 0 and "197 kept, 3 quarantined" in second.stdout and "stock date 2026-10-26" in second.stdout
-    assert first.stdout.split("Demo shop loaded:")[1] == second.stdout.split("Demo shop loaded:")[1]
+    assert first.stdout.split("BigDeal loaded:")[1] == second.stdout.split("BigDeal loaded:")[1]
+    con = sqlite3.connect(db)
+    [(email, stored)] = con.execute("SELECT email, password_hash FROM shops").fetchall()                 # one account: the demo account
+    con.close()
+    assert email == demo_seed.credentials()[0] and stored.startswith("scrypt$")

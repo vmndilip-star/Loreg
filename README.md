@@ -60,7 +60,14 @@ copy .env.example .env                    # macOS / Linux: cp .env.example .env
 python -m uvicorn app.main:app
 ```
 
-Then open http://127.0.0.1:8000/ and create an account (made-up details are fine: nothing is sent anywhere, and no email is checked). In `.env`, remove the `#` in front of `LOREG_DEMO=1` to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). Demo mode signs nobody in: every visitor signs in or creates an account first. `.env` is local and never committed; `.env.example` fixes the stock date at 2026-10-26 so the demo's numbers do not change with the calendar, and uses `LLM_BACKEND=mock`.
+Then open http://127.0.0.1:8000/ and create an account (made-up details are fine: nothing is sent anywhere, and no email is checked). In `.env`, remove the `#` in front of `LOREG_DEMO=1` to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). Demo mode signs nobody in: every visitor signs in or creates an account first.
+
+**Demo account.** `python scripts/reset_demo.py --yes` makes the demo account, the organization BigDeal, with the demo stock list. Start the app with `LOREG_DEMO=1` and sign in with:
+
+- email `demo@gmail.com`
+- password `Loreg@1234`
+
+In demo mode, "Use demo account" on the sign-in page fills these in. **This is a public demo credential:** it is printed here and shown on the sign-in page, so it protects nothing. Never put real data in the demo account, and never run with `LOREG_DEMO=1` on a host other people can reach. `LOREG_DEMO_EMAIL` and `LOREG_DEMO_PASSWORD` change it. The password is shorter than the 12 characters signup asks for; only the seed script may make an account like that. Account → "Reset demo data" puts the demo account back as the script left it (demo mode only, and for no other account). `.env` is local and never committed; `.env.example` fixes the stock date at 2026-10-26 so the demo's numbers do not change with the calendar, and uses `LLM_BACKEND=mock`.
 
 - **Real Meta model:** put `META_API_KEY` in `.env` and set `LLM_BACKEND=meta`. `python scripts/journey_meta.py` runs the whole demo journey once on it and saves a redacted transcript under `data/generated/`.
 - **More synthetic data (optional):** `python data/generate_catalog.py` writes the 3,000-product database and the demo files under `data/generated/`.
@@ -68,7 +75,7 @@ Then open http://127.0.0.1:8000/ and create an account (made-up details are fine
 
 - **Check the demo path:**
   - `python scripts/demo_smoke.py` runs the whole 3-minute demo headless and exits with an error on any failed check. Add `--backend meta` to run it on the real model.
-  - `python scripts/reset_demo.py --yes` deletes the database and loads the demo shop, with the stock date fixed, for a known first-run state.
+  - `python scripts/reset_demo.py --yes` deletes the database, makes the demo account (BigDeal) and loads its stock list, with the stock date fixed, for a known first-run state.
 - **Measure:** `python scripts/run_evals.py` (21 hand-worked cases) and `python scripts/eval_fallback_rate.py` (how often answers fall back to the rules, and latency). The latest results are in [`docs/EVALS.md`](docs/EVALS.md).
 
 The stock list may include an optional `map_price` column (minimum advertised price, in dollars; blank means none). See "Honest limits" for what the rule does and does not do.

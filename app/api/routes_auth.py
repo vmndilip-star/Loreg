@@ -17,7 +17,7 @@ from app.api.deps import get_conn, get_shop_id
 from app.auth import sessions
 from app.core.accounts import LoginBody, SignupBody
 from app.core.passwords import DUMMY_HASH, hash_password, verify_password
-from app.demo import demo_enabled
+from app.demo_seed import is_demo_shop
 
 router = APIRouter(prefix="/api")
 
@@ -41,7 +41,7 @@ def _signed_in(request: Request, conn, shop_id: int, status: int = 200) -> JSONR
     s, cfg = request.app.state, request.app.state.auth
     sessions.end(conn, request.cookies.get(cfg.session_cookie))
     token, csrf = sessions.create(conn, shop_id, s.clock(), cfg.session_hours)
-    response = JSONResponse({"signed_in": True, "csrf_token": csrf, "profile": sessions.profile(conn, shop_id), "demo": demo_enabled()},
+    response = JSONResponse({"signed_in": True, "csrf_token": csrf, "profile": sessions.profile(conn, shop_id), "demo": is_demo_shop(conn, shop_id)},
                             status_code=status)
     _cookie(response, request, cfg.session_cookie, token, int(cfg.session_hours * 3600))
     response.delete_cookie(cfg.csrf_cookie, path="/")
@@ -66,7 +66,8 @@ def session(request: Request, conn=Depends(get_conn)):
     s, cfg = request.app.state, request.app.state.auth
     live = sessions.lookup(conn, request.cookies.get(cfg.session_cookie), s.clock())
     if live:
-        return {"signed_in": True, "csrf_token": live["csrf_token"], "profile": sessions.profile(conn, live["shop_id"]), "demo": demo_enabled()}
+        return {"signed_in": True, "csrf_token": live["csrf_token"], "profile": sessions.profile(conn, live["shop_id"]),
+                "demo": is_demo_shop(conn, live["shop_id"])}          # true only for the demo account, in demo mode
     csrf = request.cookies.get(cfg.csrf_cookie) or sessions.new_token()
     response = JSONResponse({"signed_in": False, "csrf_token": csrf, "profile": None, "demo": False})
     _cookie(response, request, cfg.csrf_cookie, csrf, None)

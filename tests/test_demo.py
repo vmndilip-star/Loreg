@@ -35,7 +35,7 @@ def test_only_the_exact_value_1_turns_the_demo_on(tmp_path, monkeypatch, value):
 def test_demo_load_gives_the_same_result_as_uploading_the_same_file(tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
     demo, real = make(tmp_path, "a.sqlite"), make(tmp_path, "b.sqlite")
-    assert demo.get("/api/demo").json() == {"enabled": True}
+    assert set(demo.get("/api/demo").json()) == {"email", "password"}             # the demo credential, and nothing else
     loaded = demo.post("/api/demo/load").json()
     uploaded = real.post("/api/upload", files={"file": (DEMO_FILE.name, DEMO_FILE.read_bytes(), "text/csv")}).json()
     assert loaded == uploaded
@@ -72,7 +72,7 @@ def test_a_local_env_file_is_read_before_the_app_is_created(tmp_path, monkeypatc
         monkeypatch.delenv(key)
     load_env(env)
     c = AuthedClient(create_app(tmp_path / "e.sqlite"))
-    assert c.get("/api/demo").json() == {"enabled": True}
+    assert c.get("/api/demo").status_code == 200
     assert c.post("/api/demo/load").json()["as_of"] == "2026-10-26"
     monkeypatch.setenv("LOREG_AS_OF", "2026-11-01")               # a value already in the environment wins over the file
     load_env(env)

@@ -46,6 +46,18 @@ export async function mount(root, ctx) {
     field('Country', 'country', { maxlength: 100, autocomplete: 'country-name', required: true }),
   ], 'Create account', 'signup', async (v) => done(await api('/signup', { method: 'POST', json: v, signal: ctx.signal })));
 
+  // Demo mode only (the route answers 404 otherwise): a button that fills in the public demo credential. It never signs in by itself.
+  api('/demo', { signal: ctx.signal }).then((cred) => {
+    const fill = el('button', { type: 'button', class: 'btn-pill btn-soft align-self-start', 'data-testid': 'use-demo' }, 'Use demo account');
+    fill.addEventListener('click', () => {
+      signIn.querySelector('input[name=email]').value = cred.email;
+      signIn.querySelector('input[name=password]').value = cred.password;
+      signIn.querySelector('[data-testid=signin-submit]').focus();
+    });
+    append(signIn, [el('div', { class: 'd-flex flex-wrap gap-2 align-items-center' }, fill,
+      el('span', { class: 'soft small' }, 'Fills in the demo sign-in. Its data is synthetic.'))]);
+  }).catch(() => { /* 404: demo off, nothing to offer */ });
+
   append(root, [el('h1', { class: 'h3 mb-3' }, 'Sign in to Loreg'),
     el('div', { class: 'row g-3' }, el('div', { class: 'col-12 col-lg-5' }, signIn), el('div', { class: 'col-12 col-lg-7' }, signUp)),
     el('p', { class: 'small mt-3' }, 'No email is verified and there is no password reset yet. Use an address and a password you can keep.')]);

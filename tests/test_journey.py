@@ -48,7 +48,7 @@ def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
     assert c.get("/api/summary").status_code == 404
 
     # 1. upload (the demo file goes through the same path as a real upload)
-    assert c.get("/api/demo").json() == {"enabled": True}
+    assert set(c.get("/api/demo").json()) == {"email", "password"}
     up = c.post("/api/demo/load").json()
     assert up["kept"] == len(truth.items) and up["blocked"] == up["rows"] - up["kept"] == 3
 
