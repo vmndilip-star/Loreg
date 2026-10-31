@@ -1,7 +1,7 @@
 """Signed-in clients for the tests. The app has no switch that turns sign-in or CSRF off, so the tests sign in the way the page does:
 GET /api/session for a CSRF token, then sign up (or sign in, if that email exists), then send the session's token on every POST.
 
-With LOREG_DEMO=1, GET /api/session signs the visitor in to the demo shop, so every client in a demo test sees the same demo data.
+Demo mode (LOREG_DEMO=1) signs nobody in, so a client in a demo test signs in the same way.
 Every address and name here is made up (example.com is reserved for examples)."""
 
 from fastapi.testclient import TestClient

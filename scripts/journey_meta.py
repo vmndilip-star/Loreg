@@ -24,6 +24,7 @@ os.environ["LOREG_DEMO"] = "1"
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api.main import create_app  # noqa: E402
+from _session import sign_in  # noqa: E402
 
 ALLOWED = {"discount", "bundle", "return", "hold"}
 ASK = "What should I clear before the launch?"
@@ -79,7 +80,7 @@ def agents_line(done: dict) -> str:
 def main() -> int:
     tmp = Path(tempfile.mkdtemp())
     client = TestClient(create_app(tmp / "journey.sqlite", as_of="2026-10-26"))
-    client.headers["X-CSRF-Token"] = client.get("/api/session").json()["csrf_token"]      # LOREG_DEMO=1: signed in to the demo shop
+    sign_in(client)
     say(f"# Journey on the Meta backend, {datetime.now():%Y-%m-%d %H:%M}")
     say("Synthetic demo stock list, throwaway database. Model output below is real; every number is computed by code.")
     say()

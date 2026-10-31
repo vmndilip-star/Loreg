@@ -62,20 +62,11 @@ async def _body(request: Request, model):
 @router.get("/session")
 def session(request: Request, conn=Depends(get_conn)):
     """Who is signed in, and the CSRF token the page must send with every POST. Signed out, a token for signing in is issued in a
-    cookie. With LOREG_DEMO=1 a signed-out visitor is signed in to the demo shop (never run that on a public host)."""
+    cookie. Nobody is ever signed in here: demo mode included, a visitor signs in with an email and a password like everyone else."""
     s, cfg = request.app.state, request.app.state.auth
     live = sessions.lookup(conn, request.cookies.get(cfg.session_cookie), s.clock())
     if live:
         return {"signed_in": True, "csrf_token": live["csrf_token"], "profile": sessions.profile(conn, live["shop_id"]), "demo": demo_enabled()}
-    if demo_enabled():
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            response = _signed_in(request, conn, sessions.demo_shop(conn, s.clock()))
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
-        return response
     csrf = request.cookies.get(cfg.csrf_cookie) or sessions.new_token()
     response = JSONResponse({"signed_in": False, "csrf_token": csrf, "profile": None, "demo": False})
     _cookie(response, request, cfg.csrf_cookie, csrf, None)

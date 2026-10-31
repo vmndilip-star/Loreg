@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS shops (
     name TEXT NOT NULL,
     created_at TEXT NOT NULL,
     email TEXT,                      -- lower case; unique (index made by the version 6 migration). NULL only for a shop made before accounts
-    password_hash TEXT,              -- scrypt$N$r$p$salt$key (app/core/passwords.py); NULL: cannot sign in with a password (the demo shop)
+    password_hash TEXT,              -- scrypt$N$r$p$salt$key (app/core/passwords.py); NULL: cannot sign in with a password (a shop from before accounts)
     org_name TEXT,                   -- the organization profile: plain text, trimmed, length-limited (app/core/accounts.py)
     street TEXT,
     city TEXT,

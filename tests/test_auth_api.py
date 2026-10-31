@@ -1,4 +1,4 @@
-"""Accounts over HTTP: signup, sign-in, sign-out, sessions, CSRF, the limits and the demo shop. Offline, injected clock, made-up addresses."""
+"""Accounts over HTTP: signup, sign-in, sign-out, sessions, CSRF, the limits, and demo mode signing nobody in. Offline, injected clock, made-up addresses."""
 
 import hashlib
 import sqlite3
@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import create_app
-from auth import OWNER, PASSWORD, PROFILE, AuthedClient, sign_in
+from auth import OWNER, PASSWORD, PROFILE, AuthedClient
 from test_launch_tracker import at
 from test_news_provenance import Clock
 
@@ -170,28 +170,25 @@ def test_sign_in_and_signup_need_the_signed_out_token_from_the_session_route(app
 
 
 # ------------------------------------------------------------------------------ the demo shop
-def test_with_the_demo_switch_a_visitor_is_signed_in_to_the_demo_shop_which_has_no_password(app, monkeypatch):
+def test_with_the_demo_switch_a_visitor_is_still_signed_out_and_sees_nothing(app, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
     c = TestClient(app)
     s = c.get("/api/session").json()
-    assert s["signed_in"] and s["demo"] and s["profile"] == {"email": "demo@example.com", "org_name": "Demo shop (synthetic)",
-                                                             "street": "100 Example Street", "city": "Springfield", "state": "ST",
-                                                             "zip": "00000", "country": "US"}
-    assert rows(app, "SELECT password_hash FROM shops WHERE email = 'demo@example.com'") == [(None,)]
-    second = TestClient(app)                                                             # a second visitor: the same demo shop
-    assert second.get("/api/session").json()["profile"]["email"] == "demo@example.com"
-    assert rows(app, "SELECT COUNT(*) FROM shops") == [(1,)]
-    monkeypatch.delenv("LOREG_DEMO")
-    c3, token = fresh(app)
-    assert login(c3, token, email="demo@example.com", password="anything at all").status_code == 401        # no password signs in to it
+    assert s["signed_in"] is False and s["profile"] is None and s["csrf_token"]
+    assert "loreg_session" not in c.cookies
+    assert rows(app, "SELECT COUNT(*) FROM shops") == [(0,)] and rows(app, "SELECT COUNT(*) FROM sessions") == [(0,)]
+    for path in ("/api/summary", "/api/profile", "/api/products", "/api/notifications"):
+        assert c.get(path).status_code == 401, path
 
 
-def test_a_shop_made_before_accounts_is_taken_over_as_the_demo_shop(tmp_path, monkeypatch):
+def test_a_shop_made_before_accounts_is_never_taken_over_or_signed_in_to(tmp_path, monkeypatch):
     path = tmp_path / "legacy.sqlite"
     create_app(path)
     con = sqlite3.connect(path)
     con.execute("INSERT INTO shops (name, created_at) VALUES ('Sample shop', 'x')")
     con.commit()
     monkeypatch.setenv("LOREG_DEMO", "1")
-    s = sign_in(TestClient(create_app(path)))
-    assert s["profile"]["email"] == "demo@example.com" and rows(create_app(path), "SELECT id FROM shops") == [(1,)]
+    app = create_app(path)
+    c = TestClient(app)
+    assert c.get("/api/session").json()["signed_in"] is False and c.get("/api/summary").status_code == 401
+    assert rows(app, "SELECT id, email, password_hash FROM shops") == [(1, None, None)]          # still nobody's: no email, no password

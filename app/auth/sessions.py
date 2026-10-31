@@ -11,9 +11,6 @@ from datetime import datetime, timedelta, timezone
 
 from app.watch.common import stamp
 
-DEMO_EMAIL = "demo@example.com"
-DEMO_PROFILE = {"email": DEMO_EMAIL, "org_name": "Demo shop (synthetic)", "street": "100 Example Street", "city": "Springfield", "state": "ST",
-                "zip": "00000", "country": "US"}                       # a made-up address; example.com is reserved for examples
 PROFILE_FIELDS = ("email", "org_name", "street", "city", "state", "zip", "country")
 
 
@@ -61,20 +58,6 @@ def create_shop(conn: sqlite3.Connection, fields: dict, password_hash: str | Non
         "INSERT INTO shops (name, created_at, email, password_hash, org_name, street, city, state, zip, country) VALUES (?,?,?,?,?,?,?,?,?,?)",
         (fields["org_name"], stamp(now), fields["email"], password_hash, fields["org_name"], fields["street"], fields["city"], fields["state"],
          fields["zip"], fields["country"])).lastrowid
-
-
-def demo_shop(conn: sqlite3.Connection, now: datetime) -> int:
-    """The demo shop (LOREG_DEMO=1 only). It has no password, so nobody can sign in to it with one. A shop made before accounts existed
-    (no email) is taken over as the demo shop, so a local demo database keeps its data."""
-    row = shop_by_email(conn, DEMO_EMAIL)
-    if row:
-        return row["id"]
-    legacy = conn.execute("SELECT id FROM shops WHERE email IS NULL ORDER BY id LIMIT 1").fetchone()
-    if legacy:
-        conn.execute("UPDATE shops SET email = ?, org_name = ?, street = ?, city = ?, state = ?, zip = ?, country = ? WHERE id = ?",
-                     (*[DEMO_PROFILE[k] for k in PROFILE_FIELDS], legacy["id"]))
-        return legacy["id"]
-    return create_shop(conn, DEMO_PROFILE, None, now)
 
 
 def utc(now: datetime) -> datetime:

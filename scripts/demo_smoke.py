@@ -71,10 +71,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         app = create_app(db_path=Path(tmp) / "smoke.sqlite", as_of=as_of)
         with TestClient(app) as c:
-            s = c.get("/api/session").json()
-            if not check("signed in to the demo shop", s.get("signed_in"), ""):
+            from _session import sign_in
+            if not check("signed in", sign_in(c).get("signed_in"), ""):
                 return 1
-            c.headers["X-CSRF-Token"] = s["csrf_token"]
 
             up = c.post("/api/demo/load").json()
             check("demo stock list uploaded", up.get("kept", 0) > 0, f"{up.get('rows')} rows, {up.get('kept')} kept, {up.get('blocked')} blocked")

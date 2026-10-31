@@ -42,8 +42,8 @@ def main() -> int:
     from app.api.main import create_app
     as_of = os.environ.get("LOREG_AS_OF") or DEMO_AS_OF                 # fixed, so the numbers do not move with the calendar
     with TestClient(create_app(db_path=db, as_of=as_of)) as c:
-        s = c.get("/api/session").json()
-        c.headers["X-CSRF-Token"] = s["csrf_token"]
+        from _session import sign_in
+        sign_in(c)
         up = c.post("/api/demo/load")
         if up.status_code != 200:
             print(f"Loading the demo stock list failed: {up.status_code} {up.text[:200]}")
