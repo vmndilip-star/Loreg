@@ -69,7 +69,7 @@ def run_script(name, *args, env_extra=None):
 def test_demo_smoke_passes_on_the_mock_backend():
     r = run_script("demo_smoke.py", "--backend", "mock")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "FAIL" not in r.stdout and "15 of 15 checks passed" in r.stdout
+    assert "FAIL" not in r.stdout and "16 of 16 checks passed" in r.stdout and "Fallback rate: n/a (no model was asked)" in r.stdout
 
 
 def test_reset_refuses_without_yes_and_then_gives_the_same_numbers_every_time(tmp_path):

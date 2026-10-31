@@ -1,5 +1,5 @@
-"""The demo journey, end to end over the real HTTP API (no browser): upload -> dead stock -> daily brief -> alert ->
-chat -> help -> plan -> accept -> capital at risk updates -> undo. The expected numbers come from an independent
+"""The demo journey, end to end over the real HTTP API (no browser): signed out -> sign in as BigDeal -> upload -> dead stock ->
+daily brief -> alert -> chat -> help -> plan -> accept -> capital at risk updates -> undo. The expected numbers come from an independent
 recomputation of the CSV (tests/csv_truth.py), never from the app. Always runs; it is the gate for the browser test."""
 
 import json
@@ -11,7 +11,7 @@ from app.api.main import create_app
 from app.api.routes_demo import DEMO_FILE
 from csv_truth import Truth
 from test_watch import POISONS, FakeWeb, article, rss
-from auth import AuthedClient
+from auth import AuthedClient, seed_demo, sign_in_demo
 
 ASK = "What should I clear before the launch?"
 ALLOWED = {"discount", "bundle", "return", "hold"}
@@ -35,17 +35,23 @@ def truth(catalog_dir):
 
 
 @pytest.fixture
-def app_client(tmp_path, monkeypatch):
+def demo_app(tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
-    return AuthedClient(create_app(tmp_path / "journey.sqlite", as_of="2026-10-26"))
+    app = create_app(tmp_path / "journey.sqlite", as_of="2026-10-26")
+    seed_demo(app)                                                                 # what scripts/reset_demo.py makes
+    return app
 
 
-def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
-    c = app_client
+def test_the_demo_journey_matches_the_csv_at_every_step(demo_app, truth):
+    c = TestClient(demo_app)
     at_risk = truth.totals()["at_risk"]["cap_cents"]
 
-    # 0. nothing yet: the API says so plainly
-    assert c.get("/api/summary").status_code == 404
+    # 0. signed out: the sign-in page's answers only, no shop data anywhere
+    assert c.get("/api/session").json()["signed_in"] is False
+    assert c.get("/api/summary").status_code == 401 and c.get("/api/profile").status_code == 401
+    s = sign_in_demo(c)                                                            # "Use demo account", then "Sign in"
+    assert s["profile"]["org_name"] == "BigDeal" and s["demo"] is True             # the welcome screen names BigDeal
+    assert c.get("/api/summary").status_code == 404                                # nothing yet: the API says so plainly
 
     # 1. upload (the demo file goes through the same path as a real upload)
     assert set(c.get("/api/demo").json()) == {"email", "password"}

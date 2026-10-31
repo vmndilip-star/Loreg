@@ -14,7 +14,7 @@ import pytest
 from app.api.routes_demo import DEMO_FILE
 from app.core.thresholds import load_thresholds
 from csv_truth import Truth
-from auth import OWNER, PASSWORD, PROFILE, sign_in
+from auth import OWNER, PASSWORD, PROFILE, seed_demo, sign_in, sign_in_demo
 from live_server import LiveServer
 from test_watch import POISONS, FakeWeb, article, rss
 
@@ -33,7 +33,7 @@ def dollars(cents: int) -> str:
 
 
 def api(server) -> httpx.Client:
-    """A signed-in client for this server, made once per server: the same account as the pages (or the demo shop when LOREG_DEMO=1)."""
+    """A signed-in client for this server, made once per server: the same account as the pages (a test may set server.client first)."""
     if getattr(server, "client", None) is None:
         server.client = httpx.Client(base_url=server.url, timeout=30)
         sign_in(server.client)
@@ -73,15 +73,29 @@ def test_the_demo_journey_in_chrome(browser, catalog_dir, tmp_path, monkeypatch)
     web = FakeWeb(rss([article(title=POISON_TITLE, html=dict(POISONS)["ignore previous instructions"])]))
 
     with LiveServer(tmp_path / "browser.sqlite", http_factory=web.factory(), clock=lambda: NOW) as server:
-        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
+        seed_demo(server.app)                                                       # what scripts/reset_demo.py makes
+        server.client = httpx.Client(base_url=server.url, timeout=30)
+        sign_in_demo(server.client)                                                 # the API checks below read the same account
+        page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
         problems, dialogs = [], []
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
         page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
         page.on("response", lambda r: problems.append(f"HTTP {r.status} {r.url}") if r.status >= 400 and not re.search(r"/api/(summary|daily)$", r.url) else None)
         money = lambda: page.locator("[data-testid=money-at-risk]").first  # noqa: E731
 
-        # 0. before any upload: Home says so and points to Upload
-        page.goto(server.url + "/#home")
+        # 0. signed out, the app opens on sign-in and shows no shop data; "Use demo account" fills the form in, then a welcome by name
+        page.goto(server.url + "/")
+        expect(page).to_have_url(re.compile(r"#signin$"))
+        expect(page.locator("[data-testid=account-link]")).to_be_hidden()
+        assert page.locator("[data-testid=money-at-risk]").count() == 0 and "BigDeal" not in page.content()
+        page.locator("[data-testid=use-demo]").click()
+        expect(page).to_have_url(re.compile(r"#signin$"))                         # filling the form in signs nobody in
+        page.locator("[data-testid=signin-submit]").click()
+        expect(page.locator("[data-testid=welcome-name]")).to_have_text("Welcome, BigDeal.")
+        page.locator("[data-testid=welcome-continue]").click()
+
+        # before any upload: Home says so and points to Upload
+        expect(page).to_have_url(re.compile(r"#home$"))
         expect(page.get_by_text("No stock list yet")).to_be_visible()
 
         # 1. upload the real file through the file chooser (the primary path); the demo button is also offered

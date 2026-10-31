@@ -15,8 +15,8 @@ from app import demo_seed
 from app.api.main import create_app
 from app.api.routes_demo import NOT_THE_DEMO
 from app.core.accounts import LIMITS
-from app.storage.db import TABLES, connect
-from auth import PROFILE, AuthedClient
+from app.storage.db import TABLES
+from auth import PROFILE, AuthedClient, seed_demo, sign_in_demo
 from test_isolation import GLOBAL_TABLES
 from test_launch_tracker import at
 from test_news_provenance import Clock
@@ -32,25 +32,12 @@ def demo_app(tmp_path, monkeypatch):
     return create_app(tmp_path / "d.sqlite", as_of="2026-10-26", clock=Clock(at(2026, 10, 26)))
 
 
-def seed(app) -> int:
-    """What scripts/reset_demo.py does to make the account."""
-    conn = connect(app.state.db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        shop = demo_seed.create_demo_account(conn, app.state.clock())
-        conn.execute("COMMIT")
-        return shop
-    finally:
-        conn.close()
+seed = seed_demo
 
 
 def demo_client(app) -> TestClient:
-    """Signed in the way the page is after "Use demo account" and "Sign in": the credential from /api/demo, then /api/login."""
     c = TestClient(app)
-    token = {"X-CSRF-Token": c.get("/api/session").json()["csrf_token"]}
-    r = c.post("/api/login", json=c.get("/api/demo").json(), headers=token)
-    assert r.status_code == 200, r.text
-    c.headers["X-CSRF-Token"] = r.json()["csrf_token"]
+    sign_in_demo(c)
     return c
 
 

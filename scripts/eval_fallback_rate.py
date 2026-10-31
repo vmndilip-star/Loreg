@@ -39,8 +39,8 @@ def one_run(items: int) -> list[dict]:
     with tempfile.TemporaryDirectory() as tmp:
         app = create_app(db_path=Path(tmp) / "eval.sqlite", as_of=os.environ.get("LOREG_AS_OF") or "2026-10-26")
         with TestClient(app) as c:
-            from _session import sign_in
-            sign_in(c)
+            from _session import sign_in_demo
+            sign_in_demo(c, app)
             assert c.post("/api/demo/load").status_code == 200
             c.post("/api/daily/run")
             for q in QUESTIONS:

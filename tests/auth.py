@@ -40,3 +40,30 @@ class AuthedClient(TestClient):
             self.session = sign_in(self, self.email, profile=self.profile)
             r = super().request(method, url, *args, **kwargs)
         return r
+
+
+def seed_demo(app) -> int:
+    """Make the demo account (BigDeal) in `app`'s database, as scripts/reset_demo.py does. Returns its shop id."""
+    from app import demo_seed
+    from app.storage.db import connect
+    conn = connect(app.state.db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        shop = demo_seed.create_demo_account(conn, app.state.clock())
+        conn.execute("COMMIT")
+        return shop
+    finally:
+        conn.close()
+
+
+def sign_in_demo(client) -> dict:
+    """Sign `client` in to the demo account the way the page does after "Use demo account" and "Sign in": the credential from
+    GET /api/demo (demo mode only), then POST /api/login. Returns the session answer."""
+    token = {"X-CSRF-Token": client.get("/api/session").json()["csrf_token"]}
+    cred = client.get("/api/demo")
+    assert cred.status_code == 200, "the demo credential is offered only with LOREG_DEMO=1"
+    r = client.post("/api/login", json=cred.json(), headers=token)
+    assert r.status_code == 200, r.text
+    s = r.json()
+    client.headers["X-CSRF-Token"] = s["csrf_token"]
+    return s

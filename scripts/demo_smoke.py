@@ -3,10 +3,12 @@
     python scripts/demo_smoke.py                  (the backend from LLM_BACKEND, default mock; a real backend needs its key in .env)
     python scripts/demo_smoke.py --backend meta
 
-Steps, each checked: demo upload (data checks show quarantined rows) -> dead items and capital tied up -> Loreg Daily with citations ->
+Steps, each checked: signed out, nothing but the sign-in page -> sign in with the demo credential (BigDeal, made as
+scripts/reset_demo.py makes it) -> demo upload (data checks show quarantined rows) -> dead items and capital tied up -> Loreg Daily with citations ->
 a launch alert with a source address and dates -> "What should I clear before the launch?" streamed, every item explanation grounded
 in its facts -> help, plan, accept: capital moves from at risk to action in progress, the total stays, the shop's cached answers are
-dropped and the old brief is marked stale -> undo restores it. Nothing here changes the app or a real database.
+dropped and the old brief is marked stale -> undo restores it. Then the agent calls and the fallback rate are printed.
+Nothing here changes the app or a real database.
 """
 
 import argparse
@@ -71,8 +73,13 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         app = create_app(db_path=Path(tmp) / "smoke.sqlite", as_of=as_of)
         with TestClient(app) as c:
-            from _session import sign_in
-            if not check("signed in", sign_in(c).get("signed_in"), ""):
+            from _session import sign_in_demo
+            s = c.get("/api/session").json()
+            check("signed out, the visitor sees only the sign-in page", s.get("signed_in") is False and c.get("/api/summary").status_code == 401
+                  and c.get("/api/profile").status_code == 401, "summary and profile are 401")
+            s = sign_in_demo(c, app)
+            if not check("signed in with the demo credential, and welcomed by name", s.get("signed_in") and s["profile"]["org_name"] == "BigDeal",
+                         f"Welcome, {s['profile']['org_name']}."):
                 return 1
 
             up = c.post("/api/demo/load").json()
@@ -135,6 +142,10 @@ def main() -> int:
                   app.state.cache.count_shop(shop) == 0 and c.get("/api/daily").json()["stale"] is True)
             restored = c.post(f"/api/actions/{recs[0]['id']}/undo").json()["exposure"]
             check("undo restores the buckets", restored == before)
+            q = c.get("/api/quality").json()
+            rate = "n/a (no model was asked)" if q["fallback_rate"] is None else f"{q['fallback_rate']:.0%}"
+            print(f"Agent calls: {q['calls']} ({q['model_ok']} model ok, {q['retried_ok']} ok after a retry, {q['fallback']} fallback, "
+                  f"{q['mock']} mock). Fallback rate: {rate}. Plan items by rules: {q['plan_items']['rules_based']} of {q['plan_items']['items']}.")
 
     failed = [n for n, ok, _ in results if not ok]
     print(f"{len(results) - len(failed)} of {len(results)} checks passed in {time.perf_counter() - started:.1f} s.")
