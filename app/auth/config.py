@@ -1,4 +1,4 @@
-"""Load config/auth.yaml: session length, cookie names and the signup and sign-in limits."""
+"""Load config/auth.yaml: session length, cookie names and the signup and sign-in limits. And read LOREG_COOKIE_SECURE."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,3 +31,14 @@ def load_auth_config(path=None) -> AuthConfig:
     if cfg.session_hours <= 0 or cfg.signup_max_per_ip < 1 or cfg.login_free_failures < 1:
         raise ValueError("config/auth.yaml: session_hours, max_per_ip and free_failures must be positive")
     return cfg
+
+
+def cookie_secure(value: str | None, production: bool) -> bool | None:
+    """LOREG_COOKIE_SECURE: "1" marks the cookies Secure always (behind a proxy that ends https, the app itself sees plain http), "0"
+    never (a plain-http test), unset or empty: Secure when the app sees https, and always under LOREG_ENV=production. None means
+    "when the app sees https". Any other value stops the app at start."""
+    if value in (None, ""):
+        return True if production else None
+    if value not in ("0", "1"):
+        raise ValueError("LOREG_COOKIE_SECURE must be 1, 0 or unset")
+    return value == "1"

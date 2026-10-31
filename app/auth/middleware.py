@@ -6,7 +6,8 @@
    must equal that session's token; signed out (sign-in, signup and sign-out only) it must equal the loreg_csrf cookie that
    GET /api/session set. Otherwise 403.
 
-The static page files are not under /api and are served to anyone.
+Every /api answer is marked Cache-Control: no-store. The static page files are not under /api, hold no shop's data, and are served to
+anyone.
 """
 
 import hmac
@@ -53,4 +54,14 @@ class AuthMiddleware:
         scope.setdefault("state", {})
         scope["state"]["shop_id"] = session["shop_id"] if session else None
         scope["state"]["session_id"] = session["id"] if session else None
-        return await self.app(scope, receive, send)
+        return await self.app(scope, receive, _no_store(send))
+
+
+def _no_store(send):
+    """Every /api answer is one shop's data (or a sign-in token): no browser or proxy may keep a copy. A route that sets its own
+    Cache-Control (the chat stream's no-cache) keeps it."""
+    async def wrapped(message):
+        if message["type"] == "http.response.start" and not any(k.lower() == b"cache-control" for k, _ in message.get("headers", [])):
+            message = {**message, "headers": [*message.get("headers", []), (b"cache-control", b"no-store")]}
+        await send(message)
+    return wrapped

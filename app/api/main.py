@@ -19,13 +19,13 @@ from app.api.routes_tracker import router as tracker_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_quality import router as quality_router
 from app.api.routes_mapping import router as mapping_router
-from app.auth.config import load_auth_config
+from app.auth.config import cookie_secure, load_auth_config
 from app.auth.middleware import AuthMiddleware
 from app.core.throttle import Backoff, Window
 from app.catalog import load_catalog
 from app.core.thresholds import load_thresholds
 from app import demo_seed, obs
-from app.demo import demo_enabled
+from app.demo import demo_enabled, production
 from app.pipelines import AGENT_TIMEOUT_S, REQUEST_TIMEOUT_S, ResultCache
 from app.storage.db import DEFAULT_DB_PATH, init_db
 
@@ -55,7 +55,10 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
                agent_timeout_s: float = AGENT_TIMEOUT_S, web_dir=WEB_DIR, clock=None, auth_path=None, request_timeout_s: float | None = None) -> FastAPI:
     """`clock`: a function returning the current time (timezone-aware). Tests inject one; news freshness and fetch dates use it.
     `llm`: a model client (default: built from LLM_BACKEND on first use). `http_factory`: returns an httpx.Client (tests inject a fake)."""
-    app = FastAPI(title="Loreg API", version="0.2.0")
+    if production() and demo_enabled():
+        raise RuntimeError("LOREG_ENV=production refuses LOREG_DEMO=1: demo mode offers a public sign-in. Unset one of them.")
+    docs = {} if not production() else {"docs_url": None, "redoc_url": None, "openapi_url": None}     # no API map on a public host
+    app = FastAPI(title="Loreg API", version="0.2.0", **docs)
     path = Path(db_path or os.environ.get("LOREG_DB") or DEFAULT_DB_PATH)
     init_db(path)
     app.state.db_path = path
@@ -74,6 +77,7 @@ def create_app(db_path=None, as_of: str | date | None = None, thresholds_path=No
     if demo_enabled():
         demo_seed.credentials()                           # a bad LOREG_DEMO_EMAIL or _PASSWORD stops the app here, not at a sign-in
     cfg = app.state.auth = load_auth_config(auth_path)
+    app.state.cookie_secure = cookie_secure(os.environ.get("LOREG_COOKIE_SECURE"), production())
     seconds = lambda: app.state.clock().timestamp()       # noqa: E731  (the limits follow the same injectable clock)
     app.state.signup_limit = Window(cfg.signup_max_per_ip, cfg.signup_window_s, seconds)
     app.state.login_backoff = Backoff(cfg.login_free_failures, cfg.login_base_wait_s, cfg.login_max_wait_s, cfg.login_window_s, seconds)

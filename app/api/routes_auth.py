@@ -31,8 +31,14 @@ def _client(request: Request) -> str:
     return request.client.host if request.client else "unknown"           # no proxy headers are trusted (a stated limit)
 
 
+def _secure(request: Request) -> bool:
+    """LOREG_COOKIE_SECURE decides when it is set (app/auth/config.py); otherwise Secure when the app sees https."""
+    forced = request.app.state.cookie_secure
+    return request.url.scheme == "https" if forced is None else forced
+
+
 def _cookie(response, request: Request, name: str, value: str, max_age: int | None) -> None:
-    response.set_cookie(name, value, max_age=max_age, path="/", httponly=True, samesite="lax", secure=request.url.scheme == "https")
+    response.set_cookie(name, value, max_age=max_age, path="/", httponly=True, samesite="lax", secure=_secure(request))
 
 
 def _signed_in(request: Request, conn, shop_id: int, status: int = 200) -> JSONResponse:
@@ -44,7 +50,7 @@ def _signed_in(request: Request, conn, shop_id: int, status: int = 200) -> JSONR
     response = JSONResponse({"signed_in": True, "csrf_token": csrf, "profile": sessions.profile(conn, shop_id), "demo": is_demo_shop(conn, shop_id)},
                             status_code=status)
     _cookie(response, request, cfg.session_cookie, token, int(cfg.session_hours * 3600))
-    response.delete_cookie(cfg.csrf_cookie, path="/")
+    response.delete_cookie(cfg.csrf_cookie, path="/", secure=_secure(request), httponly=True, samesite="lax")
     return response
 
 
@@ -126,7 +132,7 @@ def logout(request: Request, conn=Depends(get_conn)):
     sessions.end(conn, request.cookies.get(cfg.session_cookie))
     csrf = sessions.new_token()
     response = JSONResponse({"signed_in": False, "csrf_token": csrf})
-    response.delete_cookie(cfg.session_cookie, path="/")
+    response.delete_cookie(cfg.session_cookie, path="/", secure=_secure(request), httponly=True, samesite="lax")
     _cookie(response, request, cfg.csrf_cookie, csrf, None)
     return response
 
