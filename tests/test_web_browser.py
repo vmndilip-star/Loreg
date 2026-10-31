@@ -658,3 +658,56 @@ def test_the_welcome_screen_names_the_organization_as_text_on_every_sign_in_and_
             page.locator("[data-testid=signout]").click()
             expect(page).to_have_url(re.compile(r"#signin$"))
         assert problems == [] and dialogs == [], (problems, dialogs)
+
+
+def test_signing_out_or_losing_the_session_leaves_nothing_of_the_shop_on_the_page(browser, catalog_dir, tmp_path):
+    """Sign out from Account, and separately have the session end on the server while the page is open: either way the page is
+    loaded again on #signin, and nothing of the shop is left in it (header date, search results, numbers), nor after Back."""
+    with LiveServer(tmp_path / "out.sqlite") as server:
+        with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
+            assert api(server).post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+        sku = api(server).get("/api/inventory/top", params={"limit": 1}).json()["items"][0]["sku"]
+        markers = [sku, PROFILE["org_name"], "Stock as of"]
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
+        problems = []
+        page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+        nav_type = lambda: page.evaluate("performance.getEntriesByType('navigation')[0].type")  # noqa: E731
+
+        def shop_on_screen():
+            page.goto(server.url + "/#stock")
+            expect(page.locator("[data-testid=money-at-risk]").first).to_be_visible()
+            expect(page.locator("#asOf")).to_contain_text("Stock as of")
+            page.locator("#siteSearch").fill(sku)
+            expect(page.locator("#searchList")).to_contain_text(sku)
+
+        def nothing_left():
+            expect(page).to_have_url(re.compile(r"#signin$"))
+            expect(page.get_by_role("heading", name="Sign in to Loreg")).to_be_visible()
+            assert nav_type() == "reload"                                            # a fresh page, not the old one with a new view
+            for hidden in ("#siteSearchForm", "#dock", "[data-testid=account-link]", "[data-testid=backend-badge]", "[data-testid=unread-count]"):
+                expect(page.locator(hidden)).to_be_hidden()
+            assert page.locator("#asOf").inner_text() == "" and page.locator("#searchList").inner_text() == ""
+            html = page.content()
+            assert not [m for m in markers if m in html], [m for m in markers if m in html]
+
+        shop_on_screen()
+        page.goto(server.url + "/#account")
+        page.locator("[data-testid=signout]").click()
+        nothing_left()
+        page.go_back()                                                               # Back does not bring the shop's screen back
+        expect(page).to_have_url(re.compile(r"#signin$"))
+        assert page.locator("[data-testid=money-at-risk]").count() == 0
+
+        sign = page.locator("[data-testid=signin]")
+        sign.locator("[name=email]").fill(OWNER)
+        sign.locator("[name=password]").fill(PASSWORD)
+        sign.locator("[data-testid=signin-submit]").click()
+        page.locator("[data-testid=welcome-continue]").click()
+        shop_on_screen()
+        con = sqlite3.connect(server.app.state.db_path)                              # the session ends on the server (as if it expired)
+        con.execute("DELETE FROM sessions")
+        con.commit()
+        con.close()
+        page.goto(server.url + "/#home")                                             # the next request is refused: 401
+        nothing_left()
+        assert problems == [], problems

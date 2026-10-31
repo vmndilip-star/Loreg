@@ -28,7 +28,7 @@
     <span class="brand">Loreg</span>
     <span id="viewName" class="fw-bold soft d-none d-sm-inline">Home</span>
     <a id="unread" class="chip chip-blue text-decoration-none text-nowrap" href="#watch" data-testid="unread-count" hidden></a>
-    <form id="siteSearchForm" class="search ms-auto" role="search" autocomplete="off">
+    <form id="siteSearchForm" class="search ms-auto" role="search" autocomplete="off" hidden>
       <label for="siteSearch" class="sr-live">Search your stock</label>
       <input id="siteSearch" class="search-input" type="search" placeholder="Search stock   ( / )" maxlength="100" role="combobox"
              aria-expanded="false" aria-controls="searchList" aria-autocomplete="list" autocomplete="off" spellcheck="false">
@@ -43,7 +43,7 @@
   <main id="main" tabindex="-1"></main>
 </div>
 
-<nav class="dock glass" aria-label="Main">
+<nav id="dock" class="dock glass" aria-label="Main" hidden>
   <a href="#home" data-nav="home"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span>Home</a>
   <a href="#stock" data-nav="stock"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg></span>Stock</a>
   <a href="#watch" data-nav="watch"><span class="c"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></span>Watch</a>

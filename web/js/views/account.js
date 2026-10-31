@@ -37,8 +37,7 @@ export async function mount(root, ctx) {
   out.addEventListener('click', async () => {
     out.disabled = true;
     try {
-      ctx.setSession(await api('/logout', { method: 'POST' }));
-      ctx.navigate('signin');
+      await ctx.signOut();                                   // the page starts again on #signin, holding nothing of this shop
     } catch (e) { out.disabled = false; ctx.fail(e); }
   });
   append(root, [el('h1', { class: 'h3 mb-3' }, 'Account'),

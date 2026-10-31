@@ -17,12 +17,18 @@ const ctx = {
   api, state,
   signal: null,
   session: { signed_in: false },
-  // Keep the session the server sent (its CSRF token goes with every POST) and show or hide the signed-in parts of the header.
+  // Keep the session the server sent (its CSRF token goes with every POST) and show or hide the signed-in parts of the page.
+  // Signed out, only the sign-in screen is shown: no search box, no navigation.
   setSession(s) {
     ctx.session = s || { signed_in: false };
     setCsrf(ctx.session.csrf_token);
-    document.getElementById('account').hidden = !ctx.session.signed_in;
+    for (const id of ['account', 'siteSearchForm', 'dock']) document.getElementById(id).hidden = !ctx.session.signed_in;
     if (!ctx.session.signed_in) ctx.setUnread(0);
+  },
+  // Sign out, then start the page again from nothing (see restartSignedOut).
+  async signOut() {
+    await api('/logout', { method: 'POST' });
+    restartSignedOut();
   },
   // Opening the app (or signing in) records what the launch tracker has newly noticed, each change once, and shows the unread count.
   refreshUnread() {
@@ -101,10 +107,18 @@ async function show(name) {
   }
 }
 
-// A request answered 401: the session is gone. Get a fresh sign-in token and show the sign-in screen.
-whenSignedOut(async () => {
-  try { ctx.setSession(await api('/session')); } catch { ctx.setSession(null); }
-  if (!ctx.session.signed_in) ctx.navigate('signin');
+// After signing out, or when the session is gone, the page is loaded again on #signin. A reload drops everything this page held in
+// memory for the last shop: search results, the header's stock date, the alert and upload it was looking at, any view's data.
+// Nothing is kept in localStorage, sessionStorage or a service worker, and every page file is served no-cache.
+function restartSignedOut() {
+  history.replaceState(null, '', `${location.pathname}#signin`);
+  location.reload();
+}
+
+// A request answered 401. Signed in until now: the session ended (expired, or signed out elsewhere), so start again. Already signed
+// out: just show the sign-in screen.
+whenSignedOut(() => {
+  if (ctx.session.signed_in) restartSignedOut(); else ctx.navigate('signin');
 });
 
 async function start() {
