@@ -26,7 +26,7 @@ PROFILE = {"org_name": "BigDeal", "street": "100 Example Street", "city": "Sprin
 # a made-up address, like the stock list
 
 # The shop's own rows a reset deletes, children before parents (foreign keys are on). Fixed statements: nothing is built into them.
-CLEAR = ("DELETE FROM notifications WHERE shop_id = ?", "DELETE FROM recommendations WHERE shop_id = ?", "DELETE FROM alerts WHERE shop_id = ?",
+CLEAR = ("DELETE FROM recommendations WHERE shop_id = ?", "DELETE FROM alerts WHERE shop_id = ?",
          "DELETE FROM daily_briefs WHERE shop_id = ?", "DELETE FROM agent_calls WHERE shop_id = ?", "DELETE FROM dq_issues WHERE shop_id = ?",
          "DELETE FROM classifications WHERE shop_id = ?", "DELETE FROM inventory_snapshots WHERE shop_id = ?",
          "DELETE FROM sales_events WHERE shop_id = ?", "DELETE FROM skus WHERE shop_id = ?", "DELETE FROM products WHERE shop_id = ?",
@@ -35,7 +35,8 @@ CLEAR = ("DELETE FROM notifications WHERE shop_id = ?", "DELETE FROM recommendat
 KEPT = {"sessions": "whoever is signed in stays signed in",
         "audit_log": "the record of what happened, the reset included",
         "launch_history": "append-only by design: its triggers refuse a delete",
-        "launch_watch": "launch_history refers to it; the next refresh adds the notifications again"}
+        "launch_watch": "launch_history and notifications refer to it",
+        "notifications": "the tracker's record, never deleted by the app (tests/test_launch_storage.py); marked unread again"}
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -74,9 +75,11 @@ def create_demo_account(conn: sqlite3.Connection, now: datetime) -> int:
 
 
 def clear_shop_data(conn: sqlite3.Connection, shop_id: int, now: datetime) -> dict:
-    """Delete the shop's own rows (CLEAR), put back the demo profile, and record the reset in the audit log. Returns rows deleted per
-    table. Only for the demo account (the caller checks). The caller holds the transaction."""
+    """Delete the shop's own rows (CLEAR), mark its notifications unread again (as they were when first shown), put back the demo
+    profile, and record the reset in the audit log. Returns rows deleted per table. Only for the demo account (the caller checks). The
+    caller holds the transaction."""
     deleted = {sql.split()[2]: conn.execute(sql, (shop_id,)).rowcount for sql in CLEAR}
+    conn.execute("UPDATE notifications SET read_at = NULL WHERE shop_id = ?", (shop_id,))
     conn.execute("UPDATE shops SET org_name = ?, name = ?, street = ?, city = ?, state = ?, zip = ?, country = ? WHERE id = ?",
                  (PROFILE["org_name"], PROFILE["org_name"], PROFILE["street"], PROFILE["city"], PROFILE["state"], PROFILE["zip"],
                   PROFILE["country"], shop_id))

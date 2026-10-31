@@ -13,7 +13,7 @@ function demoReset(ctx) {
   ask.addEventListener('click', () => {
     yes.hidden = false;
     clear(note);
-    append(note, ['This deletes the demo account’s plans, decisions, briefs and notifications, and loads the demo stock list again.']);
+    append(note, ['This deletes the demo account’s plans, decisions and briefs, marks its notifications unread, and loads the demo stock list again.']);
   });
   yes.addEventListener('click', async () => {
     ask.disabled = true; yes.disabled = true;

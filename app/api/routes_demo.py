@@ -38,9 +38,9 @@ def demo_load(request: Request, conn=Depends(get_conn), shop_id: int = Depends(g
 
 @router.post("/demo/reset")
 def demo_reset(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    """Put the demo account back as the seed script left it: its own rows deleted, then the demo stock list loaded through the upload
-    path. Refused (403) for every account but the demo account. Two steps, not one transaction: if the load failed, the account would
-    be left empty, and resetting again fixes it."""
+    """Put the demo account back as the seed script left it: its own rows deleted (the launch tracker's record is kept, its notifications
+    unread again), then the demo stock list loaded through the upload path. Refused (403) for every account but the demo account.
+    Two steps, not one transaction: if the load failed, the account would be left empty, and resetting again fixes it."""
     _demo_on()
     if not demo_seed.is_demo_shop(conn, shop_id):
         raise HTTPException(403, NOT_THE_DEMO)
