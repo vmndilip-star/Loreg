@@ -53,6 +53,14 @@ def page_in(browser, server, **context_args):
     return context.new_page()
 
 
+def signed_out_page(page):
+    """After Sign out the page sets #signin and then reloads (app.js restartSignedOut): the address is #signin before the new page has
+    loaded. Wait for the reloaded sign-in page, so the next navigation does not collide with the reload."""
+    expect(page).to_have_url(re.compile(r"#signin$"))
+    expect(page.get_by_role("heading", name="Sign in to Loreg")).to_be_visible()
+    page.wait_for_load_state("load")
+
+
 @pytest.fixture
 def browser():
     with sync_playwright() as p:
@@ -607,7 +615,7 @@ def test_signup_account_sign_out_and_a_wrong_password_in_chrome(browser, tmp_pat
         expect(page.locator("[data-testid=profile] [data-field=org_name]")).to_have_text("Chrome Example Shop")
         expect(page.locator("[data-testid=profile] [data-field=zip]")).to_have_text("00000")
         page.locator("[data-testid=signout]").click()
-        expect(page).to_have_url(re.compile(r"#signin$"))
+        signed_out_page(page)
         expect(page.locator("[data-testid=account-link]")).to_be_hidden()
         page.goto(server.url + "/#watch")
         expect(page).to_have_url(re.compile(r"#signin$"))
@@ -656,7 +664,7 @@ def test_the_welcome_screen_names_the_organization_as_text_on_every_sign_in_and_
             expect(page.locator("[data-testid=welcome]")).to_have_count(0)
             page.goto(server.url + "/#account")
             page.locator("[data-testid=signout]").click()
-            expect(page).to_have_url(re.compile(r"#signin$"))
+            signed_out_page(page)
         assert problems == [] and dialogs == [], (problems, dialogs)
 
 
