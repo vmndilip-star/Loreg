@@ -37,7 +37,7 @@ gives the same numbers.
 | 1:55 | **Yes, plan it** | "One option per item: discount, bundle, return or hold. Code decides which options are allowed; the model picks one and explains it." Point at "Chosen by the model from the allowed options, and checked by code" on a card. |
 | 2:20 | **Accept** on the first card (TV-SAM-0040) | Point at **Money at risk**: it drops by exactly that item's tied-up capital (the card says **$10,649 tied up**; the screens round to whole dollars). "That money is now an action in progress. Loreg does not call it freed until the units sell." |
 | 2:40 | The badge under the header | "Backend: meta, and how many items used the rules-based fallback. When the model is slow or wrong, the rules answer, and the screen says so." |
-| 2:50 | Close | "21 of 21 eval cases pass on the real model, and 0 of 75 calls fell back on today's run. The limits are written down in the README. The owner makes every decision." |
+| 2:50 | Close | "21 of 21 eval cases pass on the real model, and in our last measured run 0 of 75 calls fell back. The limits are written down in the README. The owner makes every decision." |
 
 **Optional, if you have 20 seconds more:** on Upload, choose `data/demo/upload_demo_200_messy.csv`. It has headers like
 "Qty OH", "Cost Pr" and "Ammakam Dhara". Loreg matches every column, shows how it matched each one, and stores nothing
@@ -61,3 +61,8 @@ until you press **Confirm**.
 | Date | Backend | `demo_smoke.py` | Fallback rate (from `/api/quality`) |
 |---|---|---|---|
 | 2026-10-31 | mock | 16 of 16 checks passed | n/a: the mock asks no model (8 mock calls) |
+| 2026-10-31 | Meta (`muse-spark-1.3`) | 16 of 16 checks passed, in each of two runs | 0%: 0 of 8 agent calls fell back, in each run |
+
+Eight calls per run is a small sample. The larger measurement (0 of 75 calls over the demo workload, 2026-10-30) is in
+[`EVALS.md`](EVALS.md). On Meta the chosen options vary between runs (TV-SAM-0040 was a discount in one run and a bundle in the
+other); the money figures do not.
