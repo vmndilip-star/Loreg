@@ -14,8 +14,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import create_app
+from app.auth.middleware import PUBLIC as ALLOWLIST
 from app.storage.db import TABLES, init_db
-from auth import AuthedClient, sign_in
+from auth import AuthedClient, seed_demo, sign_in, sign_in_demo
 from test_launch_tracker import LAUNCH, at
 from test_news_provenance import Clock
 from test_watch import FakeWeb, rss
@@ -42,12 +43,37 @@ ROUTES = {
 }
 
 
-@pytest.fixture(scope="module")
-def world(tmp_path_factory, catalog_dir):
+@pytest.fixture(scope="module", params=["demo off", "demo on"])
+def shared_world(request, tmp_path_factory, catalog_dir):
+    """Every test here runs twice: with demo mode off, and with it on, where shop A is the demo account (BigDeal) and the demo routes
+    answer. The demo account's data is as private as any other shop's; only its sign-in is public."""
+    with pytest.MonkeyPatch.context() as mp:
+        for key in ("LOREG_DEMO", "LOREG_DEMO_EMAIL", "LOREG_DEMO_PASSWORD", "LOREG_ENV"):
+            mp.delenv(key, raising=False)
+        if request.param == "demo on":
+            mp.setenv("LOREG_DEMO", "1")
+        yield make_world(tmp_path_factory, catalog_dir, demo=request.param == "demo on")
+
+
+@pytest.fixture
+def world(shared_world, monkeypatch):
+    """The conftest clears LOREG_DEMO before every test, so the demo half sets it again for each one."""
+    if shared_world["demo"]:
+        monkeypatch.setenv("LOREG_DEMO", "1")
+    return shared_world
+
+
+def make_world(tmp_path_factory, catalog_dir, demo: bool) -> dict:
     path = tmp_path_factory.mktemp("isolation") / "i.sqlite"
     web = FakeWeb(rss([LAUNCH]))
     app = create_app(path, as_of="2026-10-26", http_factory=web.factory(), clock=Clock(at(2026, 10, 26)))
-    a = AuthedClient(app, email="a@example.com", profile=PROFILE_A)
+    if demo:
+        seed_demo(app)
+        a = TestClient(app)
+        profile = sign_in_demo(a)["profile"]
+    else:
+        a = AuthedClient(app, email="a@example.com", profile=PROFILE_A)
+        profile = {"email": "a@example.com", **PROFILE_A}
     with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
         upload = a.post("/api/upload", files={"file": ("a.csv", f, "text/csv")}).json()
     assert a.post("/api/watch/scan").json()["network"] == "ok"
@@ -62,8 +88,8 @@ def world(tmp_path_factory, catalog_dir):
     skus = [i["sku"] for i in a.get("/api/inventory/top", params={"limit": 50}).json()["items"]]
     ids = {"alert_id": alert_id, "rec_id": recs[1]["id"], "notification_id": notes[0]["id"], "upload_id": upload["upload_id"]}
     b = AuthedClient(app, email="b@example.com", profile=PROFILE_B)
-    return {"app": app, "a": a, "b": b, "ids": ids, "skus": skus, "accepted": recs[0]["id"], "path": path,
-            "markers": ["a@example.com", *PROFILE_A.values()][:-1] + skus}
+    return {"app": app, "a": a, "b": b, "ids": ids, "skus": skus, "accepted": recs[0]["id"], "path": path, "demo": demo, "a_profile": profile,
+            "markers": [profile[k] for k in ("email", "org_name", "street", "city")] + skus}
 
 
 def snapshot(world) -> dict:
@@ -90,6 +116,22 @@ def test_the_table_covers_every_route_the_app_has(world):
     paths = world["app"].openapi()["paths"]
     have = {(m, p) for p, ops in paths.items() for m in ops}
     assert have == set(ROUTES), {"not in the table": sorted(have - set(ROUTES)), "gone from the app": sorted(set(ROUTES) - have)}
+
+
+def test_the_public_routes_are_exactly_the_sign_in_allowlist(world):
+    assert {path for (method, path), kind in ROUTES.items() if kind == PUBLIC} == set(ALLOWLIST)
+
+
+def test_signed_out_the_public_routes_answer_without_any_shop_s_data(world):
+    anon = TestClient(world["app"])
+    assert anon.get("/api/session").json() == {"signed_in": False, "csrf_token": anon.cookies["loreg_csrf"], "profile": None, "demo": False}
+    for (method, path), kind in ROUTES.items():
+        if kind == PUBLIC and method == "get":
+            r = anon.get(path)
+            public = {world["a_profile"]["email"]} if path == "/api/demo" else set()    # the demo sign-in is public on purpose
+            leaks = [m for m in world["markers"] if m in r.text and m not in public]
+            assert not leaks and "set-cookie" not in r.headers or path == "/api/session", (path, leaks)
+    assert anon.get("/api/demo").status_code == (200 if world["demo"] else 404)
 
 
 def test_signed_out_every_protected_route_is_401_and_every_public_post_needs_its_token(world):
@@ -133,7 +175,8 @@ def test_every_other_route_answers_shop_b_without_any_of_shop_a_s_data(world):
         if kind != OWN or path in ("/api/upload", "/api/demo/load"):
             continue
         r = call(b, method, path, world["ids"])
-        assert r.status_code in (200, 404, 409, 422), (method, path, r.status_code, r.text)
+        allowed = (200, 404, 409, 422) + ((403,) if path == "/api/demo/reset" and world["demo"] else ())   # B is not the demo account
+        assert r.status_code in allowed, (method, path, r.status_code, r.text)
         seen.append((path, r.text))
     seen.append(("search", b.get("/api/search", params={"q": sku}).text))
     seen.append(("products", b.get("/api/products", params={"q": sku}).text))
@@ -151,7 +194,7 @@ def test_every_other_route_answers_shop_b_without_any_of_shop_a_s_data(world):
 
 def test_each_shop_reads_only_its_own_profile(world):
     a, b = world["a"].get("/api/profile").json(), world["b"].get("/api/profile").json()
-    assert a == {"email": "a@example.com", **PROFILE_A} and b == {"email": "b@example.com", **PROFILE_B}
+    assert a == world["a_profile"] and b == {"email": "b@example.com", **PROFILE_B}
     assert "password" not in json.dumps(a) and "scrypt" not in json.dumps(a)
 
 
@@ -175,8 +218,10 @@ def test_every_table_that_holds_one_shop_s_rows_has_a_shop_id(tmp_path):
 def test_a_second_signup_with_the_same_email_in_any_case_is_409_and_signs_nobody_in(world):
     c = TestClient(world["app"])
     token = c.get("/api/session").json()["csrf_token"]
+    a = world["a_profile"]
     r = c.post("/api/signup", headers={"X-CSRF-Token": token},
-               json={"email": "A@Example.com", "password": "another long password", **PROFILE_B})
+               json={"email": a["email"].upper(), "password": "another long password", **PROFILE_B})
     assert r.status_code == 409 and r.json()["detail"] == "That email is already registered. Sign in instead."
     assert c.get("/api/profile").status_code == 401
-    assert sign_in(TestClient(world["app"]), "a@example.com", "test password, not a real one")["profile"]["org_name"] == "Shop A Example"
+    again = sign_in_demo(TestClient(world["app"])) if world["demo"] else sign_in(TestClient(world["app"]), a["email"], "test password, not a real one")
+    assert again["profile"] == a
