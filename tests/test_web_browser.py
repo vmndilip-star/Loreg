@@ -5,6 +5,7 @@ tests/test_journey.py is the gate. Expected numbers come from tests/csv_truth.py
 
 import json
 import re
+import sqlite3
 from datetime import datetime, timezone
 
 import httpx
@@ -582,6 +583,9 @@ def test_signup_account_sign_out_and_a_wrong_password_in_chrome(browser, tmp_pat
         expect(page.locator("[data-testid=signup-note]")).to_contain_text("Organization name must be plain text")      # < and > refused
         form.locator("[name=org_name]").fill("Chrome Example Shop")
         form.locator("[data-testid=signup-submit]").click()
+        expect(page).to_have_url(re.compile(r"#welcome$"))
+        expect(page.locator("[data-testid=welcome-name]")).to_have_text("Welcome, Chrome Example Shop.")
+        page.locator("[data-testid=welcome-continue]").click()
         expect(page).to_have_url(re.compile(r"#home$"))
         expect(page.locator("[data-testid=account-link]")).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth") <= 360
@@ -602,5 +606,41 @@ def test_signup_account_sign_out_and_a_wrong_password_in_chrome(browser, tmp_pat
         sign.locator("[name=email]").fill("chrome@example.com")
         sign.locator("[name=password]").fill("a long test password")
         sign.locator("[data-testid=signin-submit]").click()
-        expect(page).to_have_url(re.compile(r"#home$"))
+        expect(page).to_have_url(re.compile(r"#welcome$"))
+        expect(page.locator("[data-testid=welcome-name]")).to_have_text("Welcome, Chrome Example Shop.")
         assert problems == [], problems
+
+
+def test_the_welcome_screen_names_the_organization_as_text_on_every_sign_in_and_not_on_a_reload(browser, tmp_path):
+    """The name is the signed-in shop's, from the session. Signup refuses < and >, so markup is written straight into the database (as an
+    old or hand-edited row could hold it): the page must show it as text and run nothing."""
+    name = "Tom & \"Jerry's\" <img src=x onerror=alert(1)>"
+    with LiveServer(tmp_path / "welcome.sqlite") as server:
+        sign_in(httpx.Client(base_url=server.url, timeout=30), email="welcome@example.com")
+        con = sqlite3.connect(server.app.state.db_path)
+        con.execute("UPDATE shops SET org_name = ? WHERE email = 'welcome@example.com'", (name,))
+        con.commit()
+        con.close()
+        problems, dialogs = [], []
+        page = browser.new_context(viewport={"width": 360, "height": 800}).new_page()
+        page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+        page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
+        for _ in range(2):                                                           # every sign-in, not only the first
+            page.goto(server.url + "/#signin")
+            sign = page.locator("[data-testid=signin]")
+            sign.locator("[name=email]").fill("welcome@example.com")
+            sign.locator("[name=password]").fill(PASSWORD)
+            sign.locator("[data-testid=signin-submit]").click()
+            expect(page).to_have_url(re.compile(r"#welcome$"))
+            expect(page.locator("[data-testid=welcome-name]")).to_have_text(f"Welcome, {name}.")
+            expect(page.locator("[data-testid=welcome]")).to_contain_text("I'm ready to provide a smart assistant for your data.")
+            assert page.locator("main img").count() == 0
+            page.locator("[data-testid=welcome-continue]").click()
+            expect(page).to_have_url(re.compile(r"#home$"))
+            page.reload()                                                            # a reload with a live session goes on to Home
+            expect(page).to_have_url(re.compile(r"#home$"))
+            expect(page.locator("[data-testid=welcome]")).to_have_count(0)
+            page.goto(server.url + "/#account")
+            page.locator("[data-testid=signout]").click()
+            expect(page).to_have_url(re.compile(r"#signin$"))
+        assert problems == [] and dialogs == [], (problems, dialogs)

@@ -29,7 +29,7 @@ function form(title, fields, submitLabel, testid, onSubmit) {
 }
 
 export async function mount(root, ctx) {
-  const done = (s) => { ctx.setSession(s); ctx.refreshUnread(); ctx.navigate('home'); };
+  const done = (s) => { ctx.setSession(s); ctx.refreshUnread(); ctx.navigate('welcome'); };   // every sign-in and signup
   const signIn = form('Sign in', [
     field('Email', 'email', { type: 'email', maxlength: 254, autocomplete: 'username', required: true }),
     field('Password', 'password', { type: 'password', maxlength: 128, autocomplete: 'current-password', required: true }),
