@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS sales_events (
     unit_price_cents INTEGER NOT NULL,
     event_type TEXT NOT NULL CHECK (event_type IN ('sale','return'))
 );
+CREATE INDEX IF NOT EXISTS idx_sales_shop_sku ON sales_events(shop_id, sku, event_date);
 
 CREATE TABLE IF NOT EXISTS dq_issues (
     id INTEGER PRIMARY KEY,

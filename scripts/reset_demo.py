@@ -54,12 +54,13 @@ def main() -> int:
         s = sign_in_demo(c, app)
         up = c.post("/api/demo/load")
         if up.status_code != 200:
-            print(f"Loading the demo stock list failed: {up.status_code} {up.text[:200]}")
+            print(f"Loading the demo stock list and sales history failed: {up.status_code} {up.text[:200]}")
             return 1
         u, m = up.json(), c.get("/api/summary").json()
         c.post("/api/logout")
     print(f"Fresh database at {db}. {s['profile']['org_name']} loaded: {u['rows']} rows, {u['kept']} kept, {u['blocked']} quarantined; "
           f"money at risk ${m['money_at_risk_cents'] / 100:,.2f}, stock date {m['as_of']}.")
+    print(f"Sales history (synthetic): {u['sales']['kept']:,} rows, {u['sales']['first_date']} to {u['sales']['last_date']}.")
     print(f"Start the app with LOREG_DEMO=1 (in .env) and sign in as {s['profile']['email']} (\"Use demo account\" fills it in).")
     return 0
 

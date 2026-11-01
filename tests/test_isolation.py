@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import create_app
 from app.auth.middleware import PUBLIC as ALLOWLIST
+from app.demo import DEMO_SALES_FILE
 from app.storage.db import TABLES, init_db
 from auth import AuthedClient, seed_demo, sign_in, sign_in_demo
 from test_launch_tracker import LAUNCH, at
@@ -41,6 +42,7 @@ ROUTES = {
     ("post", "/api/actions/{rec_id}/accept"): BY_ID, ("post", "/api/actions/{rec_id}/decline"): BY_ID, ("post", "/api/actions/{rec_id}/undo"): BY_ID,
     ("post", "/api/notifications/{notification_id}/read"): BY_ID, ("get", "/api/uploads/{upload_id}/issues"): BY_ID,
     ("get", "/api/categories/{category}"): BY_ID, ("get", "/api/categories/{category}/restock"): BY_ID,      # a category B does not stock
+    ("get", "/api/categories/{category}/sales"): BY_ID, ("post", "/api/sales/upload"): OWN,
 }
 
 
@@ -77,6 +79,7 @@ def make_world(tmp_path_factory, catalog_dir, demo: bool) -> dict:
         profile = {"email": "a@example.com", **PROFILE_A}
     with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
         upload = a.post("/api/upload", files={"file": ("a.csv", f, "text/csv")}).json()
+    assert a.post("/api/sales/upload", files={"file": ("s.csv", DEMO_SALES_FILE.read_bytes(), "text/csv")}).json()["kept"] > 10_000
     assert a.post("/api/watch/scan").json()["network"] == "ok"
     alert_id = a.get("/api/launch/exposed").json()["groups"][0]["alert_id"]
     a.post(f"/api/alerts/{alert_id}/help")

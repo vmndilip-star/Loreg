@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import create_app
-from app.api.routes_demo import DEMO_FILE
+from app.api.routes_demo import DEMO_FILE, DEMO_SALES_FILE
 from auth import AuthedClient
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,8 +37,11 @@ def test_demo_load_gives_the_same_result_as_uploading_the_same_file(tmp_path, mo
     demo, real = make(tmp_path, "a.sqlite"), make(tmp_path, "b.sqlite")
     assert set(demo.get("/api/demo").json()) == {"email", "password"}             # the demo credential, and nothing else
     loaded = demo.post("/api/demo/load").json()
+    sales = loaded.pop("sales")                                     # the demo loads its synthetic sales history too, through the same path
     uploaded = real.post("/api/upload", files={"file": (DEMO_FILE.name, DEMO_FILE.read_bytes(), "text/csv")}).json()
     assert loaded == uploaded
+    uploaded_sales = real.post("/api/sales/upload", files={"file": (DEMO_SALES_FILE.name, DEMO_SALES_FILE.read_bytes(), "text/csv")}).json()
+    assert sales == {**uploaded_sales, "synthetic": True} and uploaded_sales["synthetic"] is False
     assert loaded["blocked"] == 3 and loaded["rows"] == 200        # the data checks ran: 3 seeded errors are quarantined
     assert demo.get("/api/summary").json() == real.get("/api/summary").json()
     assert demo.get(loaded["issues_url"]).json() == real.get(uploaded["issues_url"]).json()

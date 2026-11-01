@@ -1,7 +1,7 @@
 """The Analyze page: one category's figures, its sales history and what to buy in it. All GET, all code and database: no model is
 involved anywhere in this file. A category the shop does not stock is 404, as for /api/products."""
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 
 from app.api.deps import get_conn, get_shop_id
 from app.storage import analyze
@@ -27,4 +27,15 @@ def category_restock(request: Request, category: str = CATEGORY, conn=Depends(ge
     try:
         return analyze.restock(conn, shop_id, category, request.app.state.th)
     except analyze.NoCategory as e:
+        raise HTTPException(404, str(e)) from None
+
+
+@router.get("/categories/{category}/sales")
+def category_sales(category: str = CATEGORY, sku: str | None = Query(None, max_length=64), conn=Depends(get_conn),
+                   shop_id: int = Depends(get_shop_id)):
+    """The category's sales (or one item's, with sku) for the last day, 7, 30 and 365 days, by month for 12 months and by year, counted
+    back from the stock list's date. Without an uploaded sales history: the stock list's own 30- and 90-day totals, labelled so."""
+    try:
+        return analyze.sales_history(conn, shop_id, category, sku)
+    except (analyze.NoCategory, analyze.NoItem) as e:
         raise HTTPException(404, str(e)) from None

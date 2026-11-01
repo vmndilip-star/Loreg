@@ -1,23 +1,29 @@
-"""The Analyze page: one category's figures, and what to buy in it. Parameterized SQL only, every query filtered by the shop. No model call.
+"""The Analyze page: one category's figures, its sales history, and what to buy in it. Parameterized SQL only, every query filtered by the shop. No model call.
 
 Counting rules are the ones /api/categories and /api/summary use: "items" counts every kept row, including ones with nothing on the
 shelf; "at risk" means dead or slow with something on the shelf. Money is integer cents. Every bar length is worked out here, so the
 page never divides money.
 """
 
+import calendar
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from app.core import restock as rs
 from app.core.classify import AT_RISK, STATUSES
 from app.core.metrics import age_days
 from app.core.thresholds import Thresholds
+from app.sales import latest_sales_upload
 from app.storage.browse import AT_RISK_CASE, _why, category_label, known_categories
 from app.storage.repo import latest_upload
 
 
 class NoCategory(LookupError):
     """The shop has no stock in this category (or no stock list at all); the route answers 404, as for /api/products."""
+
+
+class NoItem(LookupError):
+    """The SKU is not one of this shop's items in this category; the route answers 404."""
 
 
 def _check(conn: sqlite3.Connection, shop_id: int, category: str) -> date:
@@ -114,3 +120,85 @@ def restock(conn: sqlite3.Connection, shop_id: int, category: str, th: Threshold
         "note": (f"Each healthy item is stocked up to {target} days at its own pace over the last {rs.PACE_DAYS} days, at what you paid per unit. "
                  f"{target} days is an assumption (config/thresholds.yaml), and the pace is the past, not a forecast."),
     }
+
+
+# ------------------------------------------------------------------------------------------------ sales history
+WINDOWS = (("1d", 1), ("7d", 7), ("30d", 30), ("365d", 365))       # each ends on the stock list's date and includes it
+MONTHS = 12
+NO_HISTORY = ("No sales history has been uploaded, so these are the stock list's own totals: the last 30 days, and the average of the "
+              "two 30-day stretches before them. Upload a sales history to see the last day, week, month and year.")
+
+
+def _month_start(d: date, back: int = 0) -> date:
+    y, m = divmod(d.year * 12 + d.month - 1 - back, 12)
+    return date(y, m + 1, 1)
+
+
+def _bucket(days: dict, first: date, last: date) -> dict:
+    """Units sold, units returned and net revenue (sales minus returns, in cents) for the days first..last, both included."""
+    out = {"units": 0, "returned": 0, "revenue_cents": 0}
+    for d, v in days.items():
+        if first <= d <= last:
+            out["units"] += v["sold"]
+            out["returned"] += v["returned"]
+            out["revenue_cents"] += v["revenue"]
+    return out
+
+
+def _bars(rows: list[dict]) -> list[dict]:
+    top = max((r["units"] for r in rows), default=0)
+    return [{**r, "bar_pct": _pct(r["units"], top)} for r in rows]
+
+
+def sales_history(conn: sqlite3.Connection, shop_id: int, category: str, sku: str | None = None) -> dict:
+    """One category's sales (or one item's, with `sku`), counted back from the stock list's date. Without any stored sales history,
+    only the stock list's own 30- and 90-day totals, labelled as such."""
+    as_of = _check(conn, shop_id, category)
+    label = category_label(category)
+    item_sql, item_args = ("", ()) if sku is None else (" AND s.sku = ?", (sku,))
+    item = None
+    if sku is not None:
+        r = conn.execute("SELECT s.sku, p.brand, p.model, p.variant FROM skus s JOIN products p ON p.id = s.product_id"
+                         " WHERE s.shop_id = ? AND p.category = ? AND s.sku = ?", (shop_id, category, sku)).fetchone()
+        if r is None:
+            raise NoItem(f"no item {sku!r} in your {label}")
+        item = {"sku": r["sku"], "name": f"{r['brand']} {r['model']}".strip(), "variant": r["variant"]}
+    t = conn.execute("SELECT COALESCE(SUM(s.units_sold_30d), 0) AS u30, COALESCE(SUM(s.units_sold_90d), 0) AS u90 FROM skus s"
+                     " JOIN products p ON p.id = s.product_id WHERE s.shop_id = ? AND p.category = ?" + item_sql,
+                     (shop_id, category, *item_args)).fetchone()
+    before = t["u90"] - t["u30"]                                     # the 60 days before the last 30
+    top = max(2 * t["u30"], before)                                  # bars compare the last 30 days with the average 30 days before
+    stock_list = {"sold_30d": t["u30"], "sold_90d": t["u90"], "month_before_avg": round(before / 2, 1),
+                  "bar_pct_30d": _pct(2 * t["u30"], top), "bar_pct_before": _pct(before, top)}
+    base = {"category": category, "label": label, "as_of": as_of.isoformat(), "item": item, "stock_list": stock_list}
+    first_row = conn.execute("SELECT MIN(event_date) AS first FROM sales_events WHERE shop_id = ?", (shop_id,)).fetchone()
+    if first_row["first"] is None:
+        return {**base, "source": "stock_list", "note": NO_HISTORY}
+    first = date.fromisoformat(first_row["first"])
+    days = {}
+    for r in conn.execute(
+            "SELECT e.event_date AS d, SUM(CASE WHEN e.event_type = 'sale' THEN e.qty ELSE 0 END) AS sold,"
+            " SUM(CASE WHEN e.event_type = 'return' THEN e.qty ELSE 0 END) AS returned,"
+            " SUM(CASE WHEN e.event_type = 'sale' THEN e.qty * e.unit_price_cents ELSE -e.qty * e.unit_price_cents END) AS revenue"
+            " FROM sales_events e JOIN products p ON p.shop_id = e.shop_id AND p.sku = e.sku JOIN skus s ON s.product_id = p.id"
+            " WHERE e.shop_id = ? AND p.category = ? AND e.event_date <= ?" + item_sql + " GROUP BY e.event_date",
+            (shop_id, category, as_of.isoformat(), *item_args)):
+        days[date.fromisoformat(r["d"])] = r
+    windows = [{"key": k, "days": n, "from": (as_of - timedelta(days=n - 1)).isoformat(), "to": as_of.isoformat(),
+                "covered": first <= as_of - timedelta(days=n - 1), **_bucket(days, as_of - timedelta(days=n - 1), as_of)} for k, n in WINDOWS]
+    monthly = []
+    for back in range(MONTHS - 1, -1, -1):
+        start = _month_start(as_of, back)
+        month_end = date(start.year, start.month, calendar.monthrange(start.year, start.month)[1])
+        end, covered = min(month_end, as_of), min(month_end, as_of) >= first        # a month before the history starts is not a zero
+        monthly.append({"month": start.strftime("%Y-%m"), "from": (max(start, first) if covered else start).isoformat(), "to": end.isoformat(),
+                        "covered": covered, "partial": covered and (start < first or month_end > as_of), **_bucket(days, start, end)})
+    yearly = [{"year": y, "from": max(date(y, 1, 1), first).isoformat(), "to": min(date(y, 12, 31), as_of).isoformat(),
+               "partial": date(y, 1, 1) < first or date(y, 12, 31) > as_of, **_bucket(days, date(y, 1, 1), date(y, 12, 31))}
+              for y in range(first.year, as_of.year + 1)]
+    last30 = next(w for w in windows if w["key"] == "30d")["units"]
+    upload = latest_sales_upload(conn, shop_id) or {}
+    return {**base, "source": "history", "first_date": first.isoformat(), "file": upload.get("file"), "synthetic": bool(upload.get("synthetic")),
+            "windows": windows, "monthly": _bars(monthly), "yearly": _bars(yearly),
+            "check_30d": {"history": last30, "stock_list": t["u30"], "match": last30 == t["u30"]},
+            "note": f"Counted back from the stock list's date, {as_of.isoformat()}. Units are sales; returns are shown apart and taken off the revenue."}

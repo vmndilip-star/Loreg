@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.api.deps import get_conn, get_shop_id
 from app.demo import NEWS_COPY, NEWS_ITEMS, NEWS_ITEMS_LOCAL, demo_enabled
 from app.ingest import MAX_BYTES, UploadError, commit_upload
+from app.sales import NoStockList, SalesError, commit_sales
 from app.storage import repo
 from app.watch.demo_news import ensure_demo_source
 
@@ -32,22 +33,27 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
     not Loreg's own needs the multipart field `mapping`: JSON {"their header": "loreg_field"}, as the owner confirmed it after
     POST /api/upload/mapping. It is checked again here before any row is read.
     """
+    raw, filename, form = await read_file(request)
+    return store_upload(request, conn, shop_id, raw, filename, as_of, parse_mapping(form.get("mapping")) if form is not None else None)
+
+
+async def read_file(request: Request) -> tuple[bytes, str, object]:
+    """The uploaded CSV (multipart field `file`, or the raw request body), its name, and the form (None for a raw body). 413 over 5 MB."""
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BYTES + 4096:
         raise HTTPException(413, "file is larger than 5 MB")
+    form = None
     if request.headers.get("content-type", "").startswith("multipart/form-data"):
         form = await request.form()
         f = form.get("file")
         if f is None or not hasattr(f, "read"):
             raise HTTPException(422, "send the CSV in a form field named file")
         raw, filename = await f.read(), f.filename or "upload.csv"
-        mapping = parse_mapping(form.get("mapping"))
     else:
         raw, filename = await request.body(), request.headers.get("x-filename") or "upload.csv"
-        mapping = None
     if len(raw) > MAX_BYTES:
         raise HTTPException(413, "file is larger than 5 MB")
-    return store_upload(request, conn, shop_id, raw, filename, as_of, mapping)
+    return raw, filename, form
 
 
 def parse_mapping(value) -> dict | None:
@@ -82,6 +88,27 @@ def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str
         except BaseException:
             conn.execute("ROLLBACK")
             raise
+    return result
+
+
+@router.post("/sales/upload")
+async def sales_upload(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    """Upload a sales history (multipart field `file`, or the raw CSV): sku, date, qty, unit_price and optionally type (sale or return).
+    Replaces the shop's sales history. Rows dated after the stock list's date are blocked; a file with no usable row is refused (422)
+    and the stored history stays. Without a stock list: 409."""
+    raw, filename, _ = await read_file(request)
+    return store_sales(request, conn, shop_id, raw, filename)
+
+
+def store_sales(request: Request, conn, shop_id: int, raw: bytes, filename: str, synthetic: bool = False) -> dict:
+    """The one path every sales history takes (a real upload, or the demo's synthetic one)."""
+    try:
+        result = commit_sales(conn, shop_id=shop_id, raw=raw, filename=filename, synthetic=synthetic)
+    except NoStockList as e:
+        raise HTTPException(409, str(e)) from None
+    except SalesError as e:
+        raise HTTPException(422, str(e)) from None
+    request.app.state.cache.drop_shop(shop_id)
     return result
 
 
