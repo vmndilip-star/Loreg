@@ -719,3 +719,95 @@ def test_signing_out_or_losing_the_session_leaves_nothing_of_the_shop_on_the_pag
         page.goto(server.url + "/#home")                                             # the next request is refused: 401
         nothing_left()
         assert problems == [], problems
+
+
+def test_analyze_a_category_then_the_report_the_sales_history_and_what_to_buy_in_chrome(browser, catalog_dir, tmp_path, monkeypatch):
+    """Pick TVs, see their figures, then each of the three choices. The expected numbers come from the CSV (csv_truth classifies; the
+    restock arithmetic is written out here again). Back returns to the previous choice, a chart value shows on keyboard focus, and
+    nothing scrolls sideways at 360 px."""
+    import csv
+    import math
+    monkeypatch.setenv("LOREG_DEMO", "1")
+    truth = Truth(catalog_dir, master="upload_demo_200.csv")
+    with open(DEMO_FILE, newline="", encoding="utf-8-sig") as f:
+        sold = {r["sku"]: (int(r["units_sold_30d"] or 0), int(r["units_sold_90d"] or 0)) for r in csv.DictReader(f)}
+    tvs = [i for i in truth.items if i["category"] == "tv"]
+    buy = {}
+    for i in tvs:
+        need = max(0, math.ceil(45 * sold[i["sku"]][1] / 90) - max(i["qty"], 0))
+        if i["status"] == "healthy" and not i["launch"] and need:
+            buy[i["sku"]] = (need, need * i["cost"])
+    dead = [i for i in truth.by_status("dead") if i["category"] == "tv"]
+    with LiveServer(tmp_path / "analyze.sqlite", clock=lambda: NOW) as server:
+        api(server).post("/api/demo/load")
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
+        problems = []
+        page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
+        page.goto(server.url + "/#home")
+        page.locator("nav.dock a[data-nav=analyze]").click()
+        page.locator("[data-testid=analyze-category][data-category=tv]").click()
+        expect(page.locator("[data-testid=analyze-category][data-category=tv]")).to_have_attribute("aria-pressed", "true")
+        stats = page.locator("[data-testid=cat-stats]")
+        expect(stats).to_contain_text(f"Items{len(tvs)}")
+        expect(page.locator("[data-testid=status-bar] .legend")).to_contain_text(f"Dead{len(dead)} items · {dollars(sum(i['cap'] for i in dead))}")
+        assert page.locator("[data-testid=brand-bars] .hbar-row").count() == 8
+
+        page.locator("[data-testid=show-buy]").click()
+        expect(page).to_have_url(re.compile(r"#analyze\?category=tv&show=buy$"))
+        units, cost = sum(n for n, _ in buy.values()), sum(c for _, c in buy.values())
+        expect(page.locator("[data-testid=buy-total]")).to_have_text(f"Buy {units} units of {len(buy)} items, about {dollars(cost)}")
+        expect(page.locator("[data-testid=buy-note]")).to_contain_text("45 days is an assumption")
+        rows = page.locator("[data-testid=buy-table] tbody tr")
+        assert rows.count() == len(buy) and len([r for r in rows.all() if r.is_visible()]) == 10
+        page.locator("[data-testid=buy-table-more]").click()
+        expect(rows.nth(len(buy) - 1)).to_be_visible()
+        assert {r.get_attribute("data-sku") for r in rows.all()} == set(buy)
+        assert page.locator("[data-testid=wait-table] tr[data-reason=launch]").count() >= 1
+
+        page.locator("[data-testid=show-sales]").click()
+        history = page.locator("[data-testid=sales-history]")
+        expect(history.locator("[data-testid=synthetic]")).to_have_text("Synthetic sales history")
+        expect(history.locator("[data-window='30d']")).to_contain_text(f"{sum(sold[i['sku']][0] for i in tvs)} units")
+        assert history.locator("[data-testid=monthly-chart] .col-slot").count() == 12
+        assert history.locator("[data-testid=history-mismatch]").count() == 0          # the synthetic history agrees with the stock list
+        last = history.locator("[data-testid=monthly-chart] [role=img]").last
+        last.focus()
+        expect(history.locator("[data-testid=monthly-chart] .chart-tip")).to_contain_text("Oct 2026:")
+        page.locator("[data-testid=sales-item]").select_option("TV-SON-0419")
+        expect(page).to_have_url(re.compile(r"show=sales&sku=TV-SON-0419$"))
+        expect(page.locator("[data-testid=sales-history] [data-window='30d']")).to_contain_text(f"{sold['TV-SON-0419'][0]} units")
+
+        page.go_back()
+        expect(page).to_have_url(re.compile(r"show=sales$"))
+        page.go_back()
+        expect(page.locator("[data-testid=what-to-buy]")).to_be_visible()
+
+        page.locator("[data-testid=show-report]").click()
+        expect(page.locator("[data-testid=stock-report] tbody tr")).to_have_count(25)
+        assert problems == [], problems
+        page.close()
+
+        narrow = page_in(browser, server, viewport={"width": 360, "height": 800})
+        for show, ready in (("report", "stock-report"), ("sales", "monthly-chart"), ("buy", "what-to-buy")):
+            narrow.goto(f"{server.url}/#analyze?category=tv&show={show}")
+            expect(narrow.locator(f"[data-testid={ready}]")).to_be_visible()
+            assert narrow.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth"), f"{show} scrolls sideways"
+        narrow.close()
+
+
+def test_analyze_shows_names_from_the_stock_list_as_text_and_says_when_there_is_no_sales_history(browser, tmp_path):
+    header = "sku,brand,model,category,qty_on_hand,unit_cost,sell_price,last_sale_date,received_date,units_sold_30d,units_sold_90d"
+    rows = ["TV-X-1,<b id=bold>Bold</b>,<img src=x onerror=alert(1)> 55 inch,tv,1,100.00,150.00,2026-10-20,2026-01-01,2,6"]
+    with LiveServer(tmp_path / "markup.sqlite", clock=lambda: NOW) as server:
+        assert api(server).post("/api/upload", files={"file": ("m.csv", "\n".join([header, *rows]).encode(), "text/csv")}).status_code == 200
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
+        dialogs = []
+        page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
+        page.goto(server.url + "/#analyze?category=tv&show=buy")
+        expect(page.locator("[data-testid=brand-bars]")).to_contain_text("<b id=bold>Bold</b>")
+        expect(page.locator("[data-testid=buy-table]")).to_contain_text("<img src=x onerror=alert(1)> 55 inch")
+        assert page.locator("#bold").count() == 0 and page.locator("main img").count() == 0 and dialogs == []
+        page.locator("[data-testid=show-sales]").click()
+        expect(page.locator("[data-testid=no-history]")).to_contain_text("No sales history has been uploaded")
+        expect(page.locator("[data-testid=stock-list-bars]")).to_contain_text("2 units")
+        page.close()

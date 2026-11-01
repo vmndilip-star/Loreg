@@ -5,7 +5,7 @@ import { date } from './format.js';
 import { initSearch } from './search.js';
 import { state } from './state.js';
 
-const VIEWS = { home: 'Home', stock: 'Stock', watch: 'Loreg Watch', ask: 'Ask Loreg', upload: 'Upload', signin: 'Sign in', account: 'Account', welcome: 'Welcome' };
+const VIEWS = { home: 'Home', stock: 'Stock', analyze: 'Analyze', watch: 'Loreg Watch', ask: 'Ask Loreg', upload: 'Upload', signin: 'Sign in', account: 'Account', welcome: 'Welcome' };
 const OPEN_VIEWS = new Set(['signin']);              // every other view needs a session; the server refuses its data without one too
 const main = document.getElementById('main');
 const banner = document.getElementById('banner');
