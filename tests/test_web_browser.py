@@ -811,3 +811,23 @@ def test_analyze_shows_names_from_the_stock_list_as_text_and_says_when_there_is_
         expect(page.locator("[data-testid=no-history]")).to_contain_text("No sales history has been uploaded")
         expect(page.locator("[data-testid=stock-list-bars]")).to_contain_text("2 units")
         page.close()
+
+
+def test_a_sales_history_uploaded_on_the_upload_page_shows_on_analyze_in_chrome(browser, tmp_path):
+    with LiveServer(tmp_path / "sales.sqlite", clock=lambda: NOW) as server:
+        assert api(server).post("/api/upload", files={"file": (DEMO_FILE.name, DEMO_FILE.read_bytes(), "text/csv")}).status_code == 200
+        page = page_in(browser, server, viewport={"width": 1280, "height": 900})
+        page.goto(server.url + "/#upload")
+        text = "sku,date,qty,unit_price,type\nTV-SON-0419,2026-10-26,2,288.20,sale\nTV-SON-0419,2026-10-20,1,288.20,\nTV-SON-0419,2026-10-27,1,288.20,sale\n"
+        page.locator("[data-testid=sales-file]").set_input_files({"name": "my sales.csv", "mimeType": "text/csv", "buffer": text.encode()})
+        result = page.locator("[data-testid=sales-result]")
+        expect(result).to_contain_text("my sales.csv: 2 of 3 rows kept, 1 set aside. Sales from Oct 20, 2026 to Oct 26, 2026.")
+        expect(result).to_contain_text("Dated after the stock list's date (2026-10-26)")
+        result.get_by_role("link", name="See it on Analyze").click()
+        page.locator("[data-testid=analyze-category][data-category=tv]").click()
+        page.locator("[data-testid=show-sales]").click()
+        history = page.locator("[data-testid=sales-history]")
+        expect(history.locator("[data-window='7d']")).to_contain_text("3 units")
+        assert history.locator("[data-testid=synthetic]").count() == 0                     # the owner's own file is not called synthetic
+        expect(history.locator("[data-testid=history-mismatch]")).to_be_visible()         # 3 in the history, 122 in the stock list
+        page.close()
