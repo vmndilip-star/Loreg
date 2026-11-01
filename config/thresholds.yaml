@@ -30,6 +30,10 @@ actions:
   below_cost_max_pct: 10                 # and never deeper than this
   holding_cost_rate: 0.25                # yearly holding cost as a share of capital (assumption)
 
+# What to buy (the Analyze page): stock each healthy item up to this many days at its own pace over the last 90 days.
+restock:
+  target_days: 45                        # assumption: chosen by us, not taken from any rule or source; it is not a forecast
+
 # Loreg Watch: a news source older than this many days (counted from the stock list's as-of date) is shown as old, never as fresh news.
 watch:
   stale_after_days: 30                   # assumption: chosen by us, not taken from any rule or source

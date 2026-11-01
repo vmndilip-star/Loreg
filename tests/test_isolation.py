@@ -40,6 +40,7 @@ ROUTES = {
     ("get", "/api/alerts/{alert_id}"): BY_ID, ("post", "/api/alerts/{alert_id}/help"): BY_ID, ("post", "/api/alerts/{alert_id}/plan"): BY_ID,
     ("post", "/api/actions/{rec_id}/accept"): BY_ID, ("post", "/api/actions/{rec_id}/decline"): BY_ID, ("post", "/api/actions/{rec_id}/undo"): BY_ID,
     ("post", "/api/notifications/{notification_id}/read"): BY_ID, ("get", "/api/uploads/{upload_id}/issues"): BY_ID,
+    ("get", "/api/categories/{category}"): BY_ID, ("get", "/api/categories/{category}/restock"): BY_ID,      # a category B does not stock
 }
 
 
@@ -86,7 +87,7 @@ def make_world(tmp_path_factory, catalog_dir, demo: bool) -> dict:
     notes = a.get("/api/notifications").json()["items"]
     assert notes, "shop A needs a notification for this test"
     skus = [i["sku"] for i in a.get("/api/inventory/top", params={"limit": 50}).json()["items"]]
-    ids = {"alert_id": alert_id, "rec_id": recs[1]["id"], "notification_id": notes[0]["id"], "upload_id": upload["upload_id"]}
+    ids = {"alert_id": alert_id, "rec_id": recs[1]["id"], "notification_id": notes[0]["id"], "upload_id": upload["upload_id"], "category": "tv"}
     b = AuthedClient(app, email="b@example.com", profile=PROFILE_B)
     return {"app": app, "a": a, "b": b, "ids": ids, "skus": skus, "accepted": recs[0]["id"], "path": path, "demo": demo, "a_profile": profile,
             "markers": [profile[k] for k in ("email", "org_name", "street", "city")] + skus}

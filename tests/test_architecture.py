@@ -100,7 +100,7 @@ def numbers_app(catalog_dir, tmp_path, monkeypatch):
     monkeypatch.setattr(llm_client.LLMClient, "__init__", lambda *a, **k: (_ for _ in ()).throw(AssertionError("model client built")))
     app.state.llm = Sentinel()
     Sentinel.calls = 0
-    return c, {"alert_id": alert, "rec_id": recs[0]["id"], "upload_id": upload["upload_id"], "notification_id": 1}
+    return c, {"alert_id": alert, "rec_id": recs[0]["id"], "upload_id": upload["upload_id"], "notification_id": 1, "category": "tv"}
 
 
 def test_every_route_outside_the_model_routes_runs_without_a_model(numbers_app, catalog_dir):

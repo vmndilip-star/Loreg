@@ -31,6 +31,7 @@ class Thresholds:
     generator: dict
     stale_source_days: int = 30
     launch_grace_days: int = 7
+    restock_target_days: int = 45
     launch_confirm_phrases: tuple = ("now available", "on sale now")
     launch_block_phrases: tuple = ("will be available", "delay", "postpone", "pushed back")
 
@@ -62,6 +63,7 @@ def load_thresholds(path: Path | str | None = None) -> Thresholds:
         generator=raw["generator"],
         stale_source_days=int(raw.get("watch", {}).get("stale_after_days", 30)),
         launch_grace_days=int(lt.get("grace_days", 7)),
+        restock_target_days=int((raw.get("restock") or {}).get("target_days", 45)),
         launch_confirm_phrases=tuple(str(x) for x in lt.get("confirm_phrases", Thresholds.launch_confirm_phrases)),
         launch_block_phrases=tuple(str(x) for x in lt.get("block_phrases", Thresholds.launch_block_phrases)),
     )
