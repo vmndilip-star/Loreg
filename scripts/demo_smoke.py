@@ -4,8 +4,8 @@
     python scripts/demo_smoke.py --backend meta
 
 Steps, each checked: signed out, nothing but the sign-in page -> sign in with the demo credential (BigDeal, made as
-scripts/reset_demo.py makes it) -> demo upload (data checks show quarantined rows) -> dead items and capital tied up -> Loreg Daily with citations ->
-a launch alert with a source address and dates -> "What should I clear before the launch?" streamed, every item explanation grounded
+scripts/reset_demo.py makes it) -> demo upload (data checks show quarantined rows) -> dead items and capital tied up ->
+Analyze TVs (figures, synthetic sales history, what to buy) -> Loreg Daily with citations -> a launch alert with a source address and dates -> "What should I clear before the launch?" streamed, every item explanation grounded
 in its facts -> help, plan, accept: capital moves from at risk to action in progress, the total stays, the shop's cached answers are
 dropped and the old brief is marked stale -> undo restores it. Then the agent calls and the fallback rate are printed.
 Nothing here changes the app or a real database.
@@ -91,6 +91,11 @@ def main() -> int:
             t = summary["totals"]
             check("dead items found", t["dead"]["n"] > 0, f"{t['dead']['n']} dead, {t['slow']['n']} slow")
             check("capital tied up is above zero", summary["money_at_risk_cents"] > 0, f"${summary['money_at_risk_cents'] / 100:,.2f}")
+            tv, hist, buy = (c.get(f"/api/categories/tv{tail}").json() for tail in ("", "/sales", "/restock"))
+            w30 = {w["key"]: w for w in hist.get("windows", [])}.get("30d", {})
+            check("Analyze TVs: figures, the synthetic sales history (agreeing with the stock list) and what to buy",
+                  tv.get("items", 0) > 0 and hist.get("synthetic") is True and hist.get("check_30d", {}).get("match") is True and bool(buy.get("buy")),
+                  f"{tv.get('items')} TVs, {w30.get('units')} sold in 30 days; buy {buy.get('buy_units')} units of {len(buy.get('buy', []))} items")
 
             brief = c.post("/api/daily/run").json()
             check("Loreg Daily written with citations", brief.get("headline") and brief.get("citations"),

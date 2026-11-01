@@ -1,7 +1,7 @@
 # Demo script (3 minutes)
 
 The figures below come from the demo stock list with the stock date fixed at 2026-10-26, as checked by
-`scripts/demo_smoke.py` (16 checks, from the signed-out start to undo). Last run: see the end of this file.
+`scripts/demo_smoke.py` (17 checks, from the signed-out start to undo). Last run: see the end of this file.
 
 On Meta, the wording of the brief, the explanations and the chosen options changes from run to run. The money figures never
 change, because code computes them.
@@ -10,10 +10,10 @@ change, because code computes them.
 
 1. Stop the server if it is running. Then reset to a known state:
    `python scripts/reset_demo.py --yes`
-   This makes the demo account, **BigDeal**, and loads its stock list. The sign-in details are in the README.
+   This makes the demo account, **BigDeal**, and loads its stock list and its synthetic sales history. The sign-in details are in the README.
 2. Run the smoke test on the backend you will demo with:
    `python scripts/demo_smoke.py --backend meta`
-   It must print `16 of 16 checks passed`. If it fails on Meta, demo on mock (see Plan B).
+   It must print `17 of 17 checks passed`. If it fails on Meta, demo on mock (see Plan B).
 3. Check `.env`: `LLM_BACKEND=meta`, `LOREG_DEMO=1`, `LOREG_AS_OF=2026-10-26`.
 4. Start the server: `python -m uvicorn app.main:app`, then open http://127.0.0.1:8000/. The sign-in page opens: nobody is signed in.
 5. Sign in once (**Use demo account**, then **Sign in**, then **Continue**) and check that the badge under the header says
@@ -43,6 +43,12 @@ gives the same numbers.
 "Qty OH", "Cost Pr" and "Ammakam Dhara". Loreg matches every column, shows how it matched each one, and stores nothing
 until you press **Confirm**.
 
+**Optional, if you have 30 seconds more (Analyze):** **Analyze** → **TVs** shows 80 TVs, $114,091 at risk and the split by
+status and brand. **What to buy**: "Buy 53 units of 37 items, about $43,507. Each healthy TV is stocked up to 45 days at its own
+pace; 45 days is our assumption, and it is not a forecast." Point at **Wait**: the Samsung line a newer one may replace. Then
+**Sales history**: the label **Synthetic sales history**, then the last day, 7, 30 and 365 days, the months and the years. "The
+demo's history is made from its stock list, so the 30 days agree: 122 TVs."
+
 ## Plan B for every live dependency
 
 | If this fails | What you see | Do this |
@@ -62,6 +68,8 @@ until you press **Confirm**.
 |---|---|---|---|
 | 2026-10-31 | mock | 16 of 16 checks passed | n/a: the mock asks no model (8 mock calls) |
 | 2026-10-31 | Meta (`muse-spark-1.3`) | 16 of 16 checks passed, in each of two runs | 0%: 0 of 8 agent calls fell back, in each run |
+| 2026-11-01 | mock | 17 of 17 checks passed (Analyze added) | n/a: the mock asks no model (8 mock calls) |
+| 2026-11-01 | Meta (`muse-spark-1.3`) | 17 of 17 checks passed | 0%: 0 of 8 agent calls fell back |
 
 Eight calls per run is a small sample. The larger measurement (0 of 75 calls over the demo workload, 2026-10-30) is in
 [`EVALS.md`](EVALS.md). On Meta the chosen options vary between runs (TV-SAM-0040 was a discount in one run and a bundle in the

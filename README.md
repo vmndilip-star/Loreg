@@ -14,6 +14,7 @@ A small shop owner often has money tied up in stock that has stopped selling, an
 - **Loreg Watch:** monitors manufacturer and market news for launches that put current stock at risk.
 - **Loreg Daily:** a short morning summary.
 - **Ask Loreg:** a chat for questions about the shop's stock.
+- **Analyze:** pick a category to see its figures, its sales history (the last day, 7, 30 and 365 days, by month and by year) and what to buy.
 - **One recommended action per at-risk item** (discount, bundle, return or hold). The owner accepts or declines.
 
 ## Principles
@@ -62,7 +63,7 @@ python -m uvicorn app.main:app
 
 Then open http://127.0.0.1:8000/ and create an account (made-up details are fine: nothing is sent anywhere, and no email is checked). In `.env`, remove the `#` in front of `LOREG_DEMO=1` to get a "Use the demo stock list" button on the Upload screen (or choose the file `data/demo/upload_demo_200.csv`). Demo mode signs nobody in: every visitor signs in or creates an account first.
 
-**Demo account.** `python scripts/reset_demo.py --yes` makes the demo account, the organization BigDeal, with the demo stock list. Start the app with `LOREG_DEMO=1` and sign in with:
+**Demo account.** `python scripts/reset_demo.py --yes` makes the demo account, the organization BigDeal, with the demo stock list and a synthetic sales history made from it. Start the app with `LOREG_DEMO=1` and sign in with:
 
 - email `demo@gmail.com`
 - password `Loreg@1234`
@@ -93,8 +94,8 @@ Custom code, with no agent framework (no LangChain, LangGraph, LlamaIndex, CrewA
 
 ```mermaid
 flowchart TD
-    Pages["Browser (web/): Home, Stock, Watch, Ask, Upload"] -->|"session cookie + CSRF token"| Auth["Auth middleware: one shop per session"]
-    Auth --> Numbers["Numbers routes: summary, stock, alerts, accept, undo (never call a model)"]
+    Pages["Browser (web/): Home, Stock, Analyze, Watch, Ask, Upload"] -->|"session cookie + CSRF token"| Auth["Auth middleware: one shop per session"]
+    Auth --> Numbers["Numbers routes: summary, stock, analyze, alerts, accept, undo (never call a model)"]
     Auth --> ModelRoutes["Model routes: ask, daily, plan, news check, column matching"]
     CSV["Stock list CSV"] --> Columns["Column matching: names, aliases, then model; owner confirms"]
     Columns --> Ingest["Data checks, quarantine, classify (app/core)"]
@@ -138,11 +139,14 @@ Each shop has its own account. Every `/api` route needs a signed-in session, eve
 - **No email verification and no password reset.** An account is created without checking that its email is real, and a forgotten password cannot be reset.
 - **Rate limits live in memory.** Signup (5 per address per 15 minutes) and sign-in back-off reset when the app restarts, and are per app process. The address is the direct connection's: behind a proxy every visitor would share the proxy's address. No proxy headers are trusted, so behind a proxy that ends https set `LOREG_COOKIE_SECURE=1` (the default under `LOREG_ENV=production`); otherwise the cookies are marked Secure only when the app itself sees https.
 - **Data from before accounts belongs to a shop no one can sign in to.** A database made before accounts keeps its rows under its first shop, which has no email and no password. Nothing signs in to it, demo mode included.
+- **"What to buy" is arithmetic, not a forecast.** It stocks each healthy item up to 45 days (`restock.target_days` in `config/thresholds.yaml`, our assumption) at its own pace over the last 90 days, in whole units rounded up, at what the shop paid per unit. It knows nothing about lead times, minimum orders, supplier prices, the season ahead or the shop's cash. It suggests waiting on new items and on lines Loreg's catalog marks as ones a newer line may replace, and buying no more of dead or slow stock.
+- **A sales history is a separate CSV, matched exactly.** It needs the columns `sku`, `date`, `qty` and `unit_price` (`type` is optional) by those names; there is no column matching for it. It is read against the stock list's date: a sale dated after it is set aside. SKUs are matched exactly as written, so `tv-1` and `TV-1` are different items. Without one, Analyze shows only the stock list's own 30- and 90-day totals and says so.
+- **The demo's sales history is synthetic.** `scripts/make_demo_sales.py` makes it from the demo stock list with a fixed seed: every item's sales in the last 30 and 90 days and its last sale date match the list. Before that, sales follow the item's 90-day pace, with more in November and December (an assumption). The page labels it "Synthetic sales history".
 - **Accepting a plan is not selling.** Accepting moves an item's capital from "at risk" to "action in progress". It counts as freed only when the units sell, and Loreg cannot see sales after the upload. At risk plus action in progress always stays the same total.
 - **The fallback rate is measured, not promised.** On 2026-10-30, 0 of 75 Meta calls over the demo workload fell back to the rules, and all 21 eval cases passed on Meta ([`docs/EVALS.md`](docs/EVALS.md)). That sample is small and was taken on one day. The app still falls back whenever an answer fails a check, and the badge under the header shows how often it has.
 - **An eval pass is a safety check.** It shows the proposal stayed within the allowed options and passed the checks. It does not judge whether the option was the best one for the shop.
 - **Column matching knows common spellings only.** The aliases (including Hindi and Telugu in Latin letters) are a fixed list. Anything else goes to the model, and its suggestions are marked "please check". The owner's confirmation is what counts. Data checks still run on every row, but a column confirmed under the wrong field can still give wrong numbers.
-- **No point-of-sale integration.** Stock comes only from a CSV upload. Loreg does not see live sales.
+- **No point-of-sale integration.** Stock and sales history come only from CSV uploads. Loreg does not see live sales.
 - **No investment advice.** "Stock" always means shelf inventory, never securities.
 - **Logs go to stderr only.** One JSON line per request and per agent call, with no prompts, answers or secrets. Nothing collects or keeps them.
 - **Everything else is synthetic.** All stock data, prices and sales are generated; they show that the app works, not that any price is true.
@@ -156,8 +160,8 @@ In demo mode (`LOREG_DEMO=1`) every launch alert carries a labelled source: a st
 ## Status
 
 These work end to end on synthetic data:
-- **Backend:** deterministic core, upload and data checks, column matching, storage, Loreg Watch, agents, streamed chat with a non-streaming fallback, daily brief.
-- **Web app:** Home, Stock with browse and search, Watch, Ask, Upload.
+- **Backend:** deterministic core, upload and data checks, column matching, sales history upload, storage, Loreg Watch, agents, streamed chat with a non-streaming fallback, daily brief.
+- **Web app:** Home, Stock with browse and search, Analyze, Watch, Ask, Upload.
 - **Accounts:** signup, sign-in, sign-out, sessions, CSRF, per-shop data.
 - **Measurement:** the fallback rate and the eval set, on mock and on Meta.
 
