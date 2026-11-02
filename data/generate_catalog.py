@@ -538,6 +538,9 @@ def build_demo_upload(skus, seed, as_of):
       2nd  2% margin, return window open         -> every discount would go below cost, so the rules propose a return
       3rd  25% margin, map_price just under price -> a discount would go below the minimum advertised price, so a bundle
     The upload has an extra optional column, map_price (minimum advertised price); it is blank for every other row.
+
+    One healthy phone is changed to "never sold, received date unknown", so the demo shows a 'Not enough data' item (the classifier
+    cannot tell dead from new without a received date). It was healthy before, so no at-risk total moves.
     """
     rr = R(seed, "demo")
     ok = [s for s in skus if not s["fixed"] and s["category"] != "refrigerator"]
@@ -564,6 +567,12 @@ def build_demo_upload(skus, seed, as_of):
     third[ix["sell_price"]], third[ix["return_window_end"]] = money(cost(biggest[2]) * 1.25), ""
     third[len(HEADER)] = money(float(third[ix["sell_price"]]) * 0.99)
     rr.shuffle(rows)
+    by_sku = {s["sku"]: s for s in chosen}
+    unclear = min((r for n, r in enumerate(rows) if n not in (7, 41, 93) and by_sku[r[0]]["category"] == "phone" and not by_sku[r[0]]["launch"]
+                   and by_sku[r[0]]["status"] == HEALTHY and by_sku[r[0]]["qty"] > 0), key=lambda r: r[0])
+    for col in ("last_sale_date", "received_date"):
+        unclear[ix[col]] = ""                                    # INSUFFICIENT_DATA: never sold, received date unknown
+    unclear[ix["units_sold_30d"]] = unclear[ix["units_sold_90d"]] = 0
     rows[7][ix["unit_cost"]] = ""            # MISSING_COST
     rows[41][ix["qty_on_hand"]] = -2         # NEGATIVE_QTY
     rows.append(list(rows[93]))              # DUPLICATE_SKU (row 200)

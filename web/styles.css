@@ -154,3 +154,57 @@ main h1:focus { outline: none; }
 .top { position: relative; z-index: 30; }   /* the search results drop over the page, so the header sits above it */
 .linkbtn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-weight: 700; }
 .table-glass td:first-child { min-width: 11rem; }
+
+.excerpt { border-left: 4px solid rgba(255, 255, 255, 0.4); padding: 4px 0 4px 12px; margin: 4px 0; color: var(--soft); font-style: italic; }
+
+/* On narrow screens the results drop from the whole header, not from the small search box, so they stay inside the screen. */
+@media (max-width: 767.98px) {
+  .search { position: static; }
+  .search-list { left: 8px; right: 8px; min-width: 0; }
+}
+
+/* ---- Analyze page: charts (web/js/chart.js) ----
+   Status colors are the app's own (the chips use them); a label and a value always name each one, and every chart has a table view.
+   Single-series marks use a lighter blue, at least 3:1 against the glass in both themes. Marks are thin, rounded at the data end,
+   separated by a 2px gap in the surface color, never by a border. */
+:root { --chart-one: #79AEFF; --chart-rest: #B9C0C8; --chart-none: #9AA3AD; --chart-grid: rgba(255, 255, 255, 0.16); }
+.num-md { font-size: clamp(1.35rem, 2.2vw, 1.75rem); font-variant-numeric: normal; }
+.stat { border-radius: 24px; padding: 0.9rem 1rem; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-line); }
+.chart { position: relative; margin: 0; }
+.chart-tip { position: absolute; transform: translate(-50%, calc(-100% - 8px)); z-index: 5; pointer-events: none; max-width: min(320px, 90vw);
+  background: #11151B; color: #fff; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600; }
+.chart [role="img"]:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.seg-dead { background: var(--red); } .seg-slow, .seg-risk { background: var(--amber); } .seg-healthy { background: var(--green); }
+.seg-new { background: var(--blue); } .seg-insufficient_data { background: var(--chart-none); } .seg-rest { background: var(--chart-rest); }
+.seg-one { background: var(--chart-one); }
+.stack { display: flex; gap: 2px; height: 24px; border-radius: 4px; overflow: hidden; }
+.stack .seg { flex: 0 1 0; min-width: 3px; }
+.stack .seg:hover, .hbar-row:hover .hbar-part, .col-slot:hover .col-fill { filter: brightness(1.15); }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; padding: 0; margin: 0.6rem 0 0; font-size: 0.85rem; }
+.legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend .key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.hbars { display: flex; flex-direction: column; gap: 4px; }
+.hbar-row { display: grid; grid-template-columns: minmax(5.5rem, 9rem) 1fr auto; align-items: center; gap: 0.75rem; min-height: 32px; border-radius: 10px; padding: 0 4px; }
+.hbar-label { font-weight: 600; font-size: 0.9rem; overflow-wrap: anywhere; }
+.hbar-value { font-weight: 700; font-size: 0.85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hbar-track { display: flex; gap: 2px; height: 16px; border-left: 1px solid var(--chart-grid); }
+.hbar-part { height: 100%; }
+.hbar-part:last-child { border-radius: 0 4px 4px 0; }
+.cols { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; border-bottom: 1px solid var(--chart-grid); }
+.col-slot { display: flex; flex-direction: column; align-items: center; border-radius: 8px; min-width: 0; }
+.col-plot { height: 150px; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.col-fill { width: min(24px, 70%); background: var(--chart-one); border-radius: 4px 4px 0 0; }
+.col-fill.partial { opacity: 0.55; }
+.col-value { font-size: 0.75rem; font-weight: 700; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.col-label { font-size: 0.72rem; color: var(--soft); padding: 4px 0 2px; white-space: nowrap; }
+#salesItem { max-width: 28rem; min-width: 0; flex: 1 1 auto; }   /* long item names: the box shrinks to the screen */
+.chart-table summary { cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; }
+@media (max-width: 480px) {
+  .dock { gap: 2px; padding: 8px; }
+  .dock a { min-width: 46px; font-size: 11px; }
+  .dock .c { width: 44px; height: 44px; }
+  .hbar-row { grid-template-columns: 1fr auto; row-gap: 2px; padding: 4px; }   /* the name above its bar, the value at the bar's end */
+  .hbar-label { grid-column: 1 / -1; }
+  .col-slot:nth-child(even) .col-label { visibility: hidden; }                      /* every other month named; the table names them all */
+  .col-slot:first-child .col-label { align-self: flex-start; }                     /* the first name starts at the edge, never past it */
+}

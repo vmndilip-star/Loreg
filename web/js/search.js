@@ -49,13 +49,13 @@ export function initSearch(ctx) {
     const parts = [];
     if (result.lines.length) {
       parts.push(el('div', { class: 'search-group', role: 'presentation' }, 'Lines'));
-      result.lines.forEach((l, n) => parts.push(option(`opt-line-${n}`, stockLink({ category: l.category, q: l.line }),
+      result.lines.forEach((l, n) => parts.push(option(`opt-line-${n}`, stockLink({ category: l.category, q: l.line, status: 'all' }),
         el('span', { class: 'fw-bold' }, `${l.brand} ${l.line}`),
         el('span', { class: 'small soft' }, `${l.category_label} · ${plural(l.items, 'item')} · ${money(l.at_risk_cap_cents)} at risk`))));
     }
     if (result.items.length) {
       parts.push(el('div', { class: 'search-group', role: 'presentation' }, 'Items'));
-      result.items.forEach((i, n) => parts.push(option(`opt-item-${n}`, stockLink({ q: i.sku }),
+      result.items.forEach((i, n) => parts.push(option(`opt-item-${n}`, stockLink({ q: i.sku, status: 'all' }),
         el('span', { class: 'd-flex gap-2 align-items-center flex-wrap' }, el('span', { class: 'fw-bold' }, i.name), statusChip(i.status)),
         el('span', { class: 'small soft' }, `${i.sku} · ${count(i.qty)} on shelf · ${money(i.tied_up_cents)} tied up`))));
     }
@@ -88,7 +88,7 @@ export function initSearch(ctx) {
       e.preventDefault();
       const q = input.value.trim();
       if (active >= 0 && !list.hidden) go(options[active].href);
-      else if (q.length >= MIN_CHARS) go(stockLink({ q }));          // Enter on a query opens the full results table
+      else if (q.length >= MIN_CHARS) go(stockLink({ q, status: 'all' }));          // Enter on a query opens the full results table
     }
   });
   form.addEventListener('submit', (e) => e.preventDefault());

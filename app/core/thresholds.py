@@ -30,6 +30,10 @@ class Thresholds:
     holding_cost_rate: float
     generator: dict
     stale_source_days: int = 30
+    launch_grace_days: int = 7
+    restock_target_days: int = 45
+    launch_confirm_phrases: tuple = ("now available", "on sale now")
+    launch_block_phrases: tuple = ("will be available", "delay", "postpone", "pushed back")
 
     def for_category(self, category: str, seasonal: bool = False) -> CategoryThresholds:
         """Thresholds for a category; seasonal items get slow, dead and days-of-stock x multiplier (not grace)."""
@@ -42,7 +46,7 @@ class Thresholds:
 
 def load_thresholds(path: Path | str | None = None) -> Thresholds:
     raw = yaml.safe_load(Path(path or DEFAULT_PATH).read_text(encoding="utf-8"))
-    dq, act = raw["data_quality"], raw["actions"]
+    dq, act, lt = raw["data_quality"], raw["actions"], raw.get("launch_tracker") or {}
     return Thresholds(
         rule_version=int(raw["rule_version"]),
         categories={k: CategoryThresholds(float(v["slow_dsls"]), float(v["dead_dsls"]),
@@ -58,4 +62,8 @@ def load_thresholds(path: Path | str | None = None) -> Thresholds:
         holding_cost_rate=float(act["holding_cost_rate"]),
         generator=raw["generator"],
         stale_source_days=int(raw.get("watch", {}).get("stale_after_days", 30)),
+        launch_grace_days=int(lt.get("grace_days", 7)),
+        restock_target_days=int((raw.get("restock") or {}).get("target_days", 45)),
+        launch_confirm_phrases=tuple(str(x) for x in lt.get("confirm_phrases", Thresholds.launch_confirm_phrases)),
+        launch_block_phrases=tuple(str(x) for x in lt.get("block_phrases", Thresholds.launch_block_phrases)),
     )

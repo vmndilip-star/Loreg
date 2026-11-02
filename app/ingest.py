@@ -13,7 +13,7 @@ from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.catalog import (CATEGORY_LABEL, UNSORTED_LINE, UNSORTED_LINE_ID, Catalog, norm, search_text)
-from app.core import metrics
+from app.core import columns, metrics
 from app.core.classify import AT_RISK, INSUFFICIENT, classify
 from app.core.quality import SEVERITY, dq_check, normalize_category, parse_date, parse_int, split_by_severity
 from app.core.thresholds import Thresholds
@@ -49,7 +49,8 @@ def _as_date(raw):
     return d if isinstance(d, date) else None
 
 
-def read_rows(raw: bytes) -> list[dict]:
+def read_table(raw: bytes) -> tuple[list[str], list[dict]]:
+    """(headers, rows) exactly as the file has them, headers trimmed. No column is required here."""
     if len(raw) > MAX_BYTES:
         raise UploadError("file is larger than 5 MB")
     try:
@@ -59,15 +60,30 @@ def read_rows(raw: bytes) -> list[dict]:
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames:
         raise UploadError("file is empty")
-    missing = [c for c in REQUIRED_COLUMNS if c not in [f.strip() for f in reader.fieldnames]]
+    headers = [(f or "").strip() for f in reader.fieldnames]
+    return headers, [{(k or "").strip(): v for k, v in row.items()} for row in reader]
+
+
+def read_rows(raw: bytes, mapping: dict | None = None) -> list[dict]:
+    """Rows keyed by Loreg's field names. Without a mapping the file must use them already; with one (confirmed by the owner,
+    see app/core/columns.py) it is checked again here and applied."""
+    headers, rows = read_table(raw)
+    if mapping:
+        problems = columns.validate(mapping, headers, rows[:20])
+        if problems:
+            raise UploadError("the column mapping cannot be used: " + "; ".join(problems))
+        return columns.apply(rows, mapping)
+    missing = [c for c in REQUIRED_COLUMNS if c not in headers]
     if missing:
         raise UploadError(f"missing columns: {', '.join(missing)}")
-    return [{(k or "").strip(): v for k, v in row.items()} for row in reader]
+    return rows
 
 
 def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw: bytes, as_of: date, th: Thresholds,
-                  catalog: Catalog) -> dict:
-    rows = read_rows(raw)
+                  catalog: Catalog, today: date | None = None, mapping: dict | None = None) -> dict:
+    """`today`: the app clock's date, used when a stored article is attached to an alert (one published after today never is).
+    `mapping`: the owner's confirmed header -> field mapping, for a file that does not use Loreg's column names."""
+    rows = read_rows(raw, mapping)
     if not rows:
         raise UploadError("file has a header but no rows")
     issues = dq_check(rows, as_of, th)
@@ -93,8 +109,8 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
         for n, r in enumerate(rows, start=1):
             sku = str(r.get("sku") or "").strip()
             for code in sorted(codes_by_row.get(n, ())):
-                conn.execute("INSERT INTO dq_issues (upload_id, row_number, sku, code, severity, quarantined) VALUES (?, ?, ?, ?, ?, ?)",
-                             (upload_id, n, sku, code, SEVERITY[code], 1 if n in err_rows else 0))
+                conn.execute("INSERT INTO dq_issues (upload_id, shop_id, row_number, sku, code, severity, quarantined) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                             (upload_id, shop_id, n, sku, code, SEVERITY[code], 1 if n in err_rows else 0))
             if n in err_rows:
                 continue  # quarantined: never reaches the stock tables
 
@@ -148,10 +164,10 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                  last_sale.isoformat() if last_sale else None, received.isoformat() if received else None, u30, u90, seasonal,
                  (r.get("supplier") or "").strip() or None, rw.isoformat() if rw else None,
                  status, th.rule_version, dsls, capital, 1 if reasons else 0, ",".join(reasons) or None))
-            conn.execute("INSERT INTO inventory_snapshots (upload_id, sku, qty, unit_cost_cents, sell_price_cents, status, capital_cents)"
-                         " VALUES (?,?,?,?,?,?,?)", (upload_id, sku, qty, cost, sell, status, capital))
-            conn.execute("INSERT INTO classifications (upload_id, sku, status, rule_version, dsls, classified_at) VALUES (?,?,?,?,?,?)",
-                         (upload_id, sku, status, th.rule_version, dsls, ts))
+            conn.execute("INSERT INTO inventory_snapshots (upload_id, shop_id, sku, qty, unit_cost_cents, sell_price_cents, status, capital_cents)"
+                         " VALUES (?,?,?,?,?,?,?,?)", (upload_id, shop_id, sku, qty, cost, sell, status, capital))
+            conn.execute("INSERT INTO classifications (upload_id, shop_id, sku, status, rule_version, dsls, classified_at) VALUES (?,?,?,?,?,?,?)",
+                         (upload_id, shop_id, sku, status, th.rule_version, dsls, ts))
             kept += 1
 
         look_rows = (warn_rows | unsorted_rows | bad_date_rows | bad_map_rows) - err_rows
@@ -160,7 +176,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
                       unsorted=len(unsorted_rows))
         conn.execute("UPDATE uploads SET rows=?, kept=?, blocked=?, look=?, zero_qty=?, unsorted=? WHERE id=?",
                      (counts["rows"], counts["kept"], counts["blocked"], counts["look"], counts["zero_qty"], counts["unsorted"], upload_id))
-        _refresh_launch_alerts(conn, shop_id, ts)
+        _refresh_launch_alerts(conn, shop_id, ts, today)
         conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                      (shop_id, ts, "owner", "upload", "upload", str(upload_id), json.dumps({"file": filename, **counts})))
         conn.execute("COMMIT")
@@ -170,7 +186,7 @@ def commit_upload(conn: sqlite3.Connection, *, shop_id: int, filename: str, raw:
     return {"upload_id": upload_id, "as_of": as_of.isoformat(), **counts}
 
 
-def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str) -> None:
+def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str, today: date | None = None) -> None:
     """One alert per brand and category whose launch-family stock is dead or slow.
 
     There is no dated news source behind these yet, and the alert says so: the launch-family flag comes
@@ -188,4 +204,4 @@ def _refresh_launch_alerts(conn: sqlite3.Connection, shop_id: int, ts: str) -> N
             " VALUES (?,?,?,?,?,?,?,?,?)",
             (shop_id, "launch_family", f"{g['brand']} {CATEGORY_LABEL.get(g['category'], g['category'])} may be affected by a newer line",
              g["brand"], g["category"], NO_SOURCE_NOTE, g["n"], g["cap"], ts))
-    attach_events_to_alerts(conn, shop_id)  # a stored, dated event may already match; otherwise the note above stays
+    attach_events_to_alerts(conn, shop_id, today=today)  # a stored, dated event may already match; otherwise the note above stays

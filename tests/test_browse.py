@@ -12,10 +12,11 @@ from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.catalog import CATEGORY_LABEL, load_catalog
 from csv_truth import Truth
+from auth import AuthedClient
 
 pytestmark = pytest.mark.usefixtures("no_model")
 AS_OF = "2026-10-26"
-STATUSES = ["all", "dead", "slow", "healthy", "new"]
+STATUSES = ["all", "at_risk", "dead", "slow", "healthy", "new"]
 
 
 def upload(client, path):
@@ -27,14 +28,14 @@ def upload(client, path):
 
 @pytest.fixture(scope="module")
 def demo(catalog_dir, tmp_path_factory):
-    client = TestClient(create_app(tmp_path_factory.mktemp("browse") / "d.sqlite", as_of=AS_OF))
+    client = AuthedClient(create_app(tmp_path_factory.mktemp("browse") / "d.sqlite", as_of=AS_OF))
     upload(client, catalog_dir / "upload_demo_200.csv")
     return client
 
 
 @pytest.fixture(scope="module")
 def full(catalog_dir, tmp_path_factory):
-    client = TestClient(create_app(tmp_path_factory.mktemp("browse_full") / "f.sqlite", as_of=AS_OF))
+    client = AuthedClient(create_app(tmp_path_factory.mktemp("browse_full") / "f.sqlite", as_of=AS_OF))
     upload(client, catalog_dir / "skus_master.csv")
     return client
 
@@ -50,7 +51,9 @@ def truth_full(catalog_dir):
 
 
 def subset(truth, category=None, status="all"):
-    return [i for i in truth.items if (category is None or i["category"] == category) and (status == "all" or i["status"] == status)]
+    want = ("dead", "slow") if status == "at_risk" else None
+    return [i for i in truth.items if (category is None or i["category"] == category)
+            and (status == "all" or (want and i["status"] in want and i["qty"] > 0) or i["status"] == status)]
 
 
 def at_risk(items):
@@ -267,3 +270,22 @@ def test_the_browse_code_never_imports_a_model_and_builds_no_query_from_caller_t
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
             assert not any(n == "openai" or n.startswith(("app.llm", "app.agents", "openai.")) for n in names), (path.name, names)
+
+
+def test_the_at_risk_filter_is_dead_plus_slow_and_the_chips_say_so(demo, truth):
+    body = get(demo, "/api/products", status="at_risk").json()
+    both = [i for i in truth.items if i["status"] in ("dead", "slow") and i["qty"] > 0]
+    assert body["totals"]["items"] == len(both) and body["totals"]["status_counts"]["at_risk"] == len(both)
+    assert body["totals"]["status_counts"]["at_risk"] == body["totals"]["status_counts"]["dead"] + body["totals"]["status_counts"]["slow"]
+    assert {r["status"] for r in body["rows"]} <= {"dead", "slow"} and body["totals"]["at_risk_cap_cents"] == sum(i["cap"] for i in both)
+
+
+def test_the_demo_has_one_item_with_not_enough_data_and_it_is_never_counted_as_at_risk(demo, truth):
+    """One demo row was never sold and has no received date, so nothing can tell dead from new. The API says so; it is not guessed."""
+    expected = [i["sku"] for i in truth.items if i["status"] == "insufficient_data"]
+    assert len(expected) == 1
+    rows, _ = all_rows(demo)
+    unclear = [r for r in rows if r["status"] == "insufficient_data"]
+    assert [r["sku"] for r in unclear] == expected and unclear[0]["days_since_sold"] is None
+    assert expected[0] not in {r["sku"] for r in all_rows(demo, status="at_risk")[0]}
+    assert get(demo, "/api/search", q=expected[0]).json()["items"][0]["status"] == "insufficient_data"

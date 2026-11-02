@@ -17,6 +17,7 @@ from app.core import actions
 from app.core.thresholds import load_thresholds
 from app.facts import item_facts
 from app.storage.db import SCHEMA_VERSION, init_db
+from auth import AuthedClient
 
 TH = load_thresholds()
 AS_OF = date(2026, 10, 26)
@@ -89,7 +90,7 @@ def stock_csv(map_values):
 
 @pytest.fixture
 def client(tmp_path):
-    return TestClient(create_app(tmp_path / "m.sqlite", as_of="2026-10-26")), tmp_path / "m.sqlite"
+    return AuthedClient(create_app(tmp_path / "m.sqlite", as_of="2026-10-26")), tmp_path / "m.sqlite"
 
 
 def stored(path):
@@ -127,7 +128,7 @@ def test_an_unreadable_map_is_ignored_and_the_row_is_flagged_not_blocked(client,
 
 def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
     path = tmp_path / "old.sqlite"
-    c = TestClient(create_app(path, as_of="2026-10-26"))
+    c = AuthedClient(create_app(path, as_of="2026-10-26"))
     upload(c, stock_csv(["822.31"]))
     con = sqlite3.connect(path)
     con.execute("ALTER TABLE skus DROP COLUMN map_cents")       # what a version 2 database looked like
@@ -136,7 +137,7 @@ def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
     con.close()
     init_db(path)
     con = sqlite3.connect(path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 3
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert con.execute("SELECT sku, map_cents, qty FROM skus").fetchall() == [("TV-SAM-9001", None, 6)]   # data kept, MAP unknown
     con.close()
     init_db(path)                                               # running it again changes nothing
@@ -145,7 +146,7 @@ def test_a_version_2_database_is_migrated_and_keeps_its_rows(tmp_path):
 def test_an_empty_database_starts_at_the_current_version(tmp_path):
     init_db(tmp_path / "new.sqlite")
     con = sqlite3.connect(tmp_path / "new.sqlite")
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert "map_cents" in [r[1] for r in con.execute("PRAGMA table_info(skus)")]
     con.close()
 
@@ -166,4 +167,4 @@ def test_the_fallback_recommendation_says_why_no_discount_is_offered():
     row = dict(sku="TV-SAM-0032", category="tv", unit_cost_cents=66_450, sell_price_cents=83_062, qty=6, dsls=83, units_sold_90d=1,
                is_seasonal=0, status="slow", capital_cents=398_700, return_window_end=None, map_cents=82_231)
     rec = recommender._fallback("TV-SAM-0032", item_facts(row, TH, AS_OF))
-    assert rec.option == "hold" and rec.reasons[0] == "Minimum advertised price: $822" and "blocked" in rec.reasons[1]
+    assert rec.option == "bundle" and rec.reasons[0] == "Minimum advertised price: $822" and "blocked" in rec.reasons[1]

@@ -4,13 +4,17 @@ Alert-first is enforced here and in the storage layer, not only in the page: a p
 until the owner has asked for help on that alert, and nothing can be accepted or declined before then.
 """
 
+import json
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.deps import get_conn, get_shop_id
+from app.demo import NEWS_COPY, NEWS_ITEMS, NEWS_ITEMS_LOCAL, demo_enabled
 from app.ingest import MAX_BYTES, UploadError, commit_upload
+from app.sales import NoStockList, SalesError, commit_sales
 from app.storage import repo
+from app.watch.demo_news import ensure_demo_source
 
 router = APIRouter(prefix="/api")
 
@@ -25,11 +29,20 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
                  conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Upload a stock list (multipart field `file`, or the raw CSV as the request body).
 
-    Runs the data checks, quarantines rows with errors and commits the rest. Replaces the shop's current stock.
+    Runs the data checks, quarantines rows with errors and commits the rest. Replaces the shop's current stock. A file whose headers are
+    not Loreg's own needs the multipart field `mapping`: JSON {"their header": "loreg_field"}, as the owner confirmed it after
+    POST /api/upload/mapping. It is checked again here before any row is read.
     """
+    raw, filename, form = await read_file(request)
+    return store_upload(request, conn, shop_id, raw, filename, as_of, parse_mapping(form.get("mapping")) if form is not None else None)
+
+
+async def read_file(request: Request) -> tuple[bytes, str, object]:
+    """The uploaded CSV (multipart field `file`, or the raw request body), its name, and the form (None for a raw body). 413 over 5 MB."""
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BYTES + 4096:
         raise HTTPException(413, "file is larger than 5 MB")
+    form = None
     if request.headers.get("content-type", "").startswith("multipart/form-data"):
         form = await request.form()
         f = form.get("file")
@@ -40,25 +53,69 @@ async def upload(request: Request, as_of: date | None = Query(None, description=
         raw, filename = await request.body(), request.headers.get("x-filename") or "upload.csv"
     if len(raw) > MAX_BYTES:
         raise HTTPException(413, "file is larger than 5 MB")
-    return store_upload(request, conn, shop_id, raw, filename, as_of)
+    return raw, filename, form
 
 
-def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str, as_of: date | None = None) -> dict:
+def parse_mapping(value) -> dict | None:
+    """The owner's confirmed mapping from the form, as {header: field}; blank choices are left out. None when there is none."""
+    if value is None or value == "":
+        return None
+    try:
+        data = json.loads(str(value))
+    except ValueError:
+        raise HTTPException(422, "mapping must be JSON: {\"their header\": \"loreg_field\"}") from None
+    if not isinstance(data, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in data.items()) or len(data) > 200:
+        raise HTTPException(422, "mapping must be JSON: {\"their header\": \"loreg_field\"}")
+    return {k: v for k, v in data.items() if v} or None
+
+
+def store_upload(request: Request, conn, shop_id: int, raw: bytes, filename: str, as_of: date | None = None, mapping: dict | None = None) -> dict:
     """The one path every stock file takes (a real upload, or the demo file): parse, data checks, quarantine, commit."""
     state = request.app.state
     when = as_of or state.default_as_of or date.today()
     try:
-        result = commit_upload(conn, shop_id=shop_id, filename=filename, raw=raw, as_of=when, th=state.th, catalog=state.catalog)
+        result = commit_upload(conn, shop_id=shop_id, filename=filename, raw=raw, as_of=when, th=state.th, catalog=state.catalog,
+                               today=state.clock().date(), mapping=mapping)
     except UploadError as e:
         raise HTTPException(422, str(e)) from None
     result["issues_url"] = f"/api/uploads/{result['upload_id']}/issues"
+    state.cache.drop_shop(shop_id)                        # the numbers changed: no agent answer about the old stock may be reused
+    if demo_enabled():                                    # the demo alert always carries a labelled source, whichever way the stock list arrived
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            ensure_demo_source(conn, shop_id, state.catalog, state.clock(), NEWS_COPY, NEWS_ITEMS, items_local_path=NEWS_ITEMS_LOCAL, as_of=when)
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    return result
+
+
+@router.post("/sales/upload")
+async def sales_upload(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    """Upload a sales history (multipart field `file`, or the raw CSV): sku, date, qty, unit_price and optionally type (sale or return).
+    Replaces the shop's sales history. Rows dated after the stock list's date are blocked; a file with no usable row is refused (422)
+    and the stored history stays. Without a stock list: 409."""
+    raw, filename, _ = await read_file(request)
+    return store_sales(request, conn, shop_id, raw, filename)
+
+
+def store_sales(request: Request, conn, shop_id: int, raw: bytes, filename: str, synthetic: bool = False) -> dict:
+    """The one path every sales history takes (a real upload, or the demo's synthetic one)."""
+    try:
+        result = commit_sales(conn, shop_id=shop_id, raw=raw, filename=filename, synthetic=synthetic)
+    except NoStockList as e:
+        raise HTTPException(409, str(e)) from None
+    except SalesError as e:
+        raise HTTPException(422, str(e)) from None
+    request.app.state.cache.drop_shop(shop_id)
     return result
 
 
 @router.get("/uploads/{upload_id}/issues")
-def upload_issues(upload_id: int, conn=Depends(get_conn)):
+def upload_issues(upload_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     try:
-        return repo.upload_issues(conn, upload_id)
+        return repo.upload_issues(conn, shop_id, upload_id)
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 
@@ -79,7 +136,7 @@ def inventory_top(request: Request, limit: int = Query(8, ge=1, le=50), conn=Dep
 @router.get("/launch/exposed")
 def launch_exposed(request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Launch-family items that are dead or slow. No options here: plans come only after the owner asks for help."""
-    return {"groups": repo.launch_exposed(conn, shop_id, request.app.state.th)}
+    return {"groups": repo.launch_exposed(conn, shop_id, request.app.state.th, request.app.state.clock().date())}
 
 
 @router.get("/needs-look")
@@ -88,9 +145,9 @@ def needs_look(limit: int = Query(100, ge=1, le=500), conn=Depends(get_conn), sh
 
 
 @router.get("/alerts/{alert_id}")
-def alert(alert_id: int, request: Request, conn=Depends(get_conn)):
+def alert(alert_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     try:
-        return repo.alert_state(conn, alert_id, request.app.state.th)
+        return repo.alert_state(conn, shop_id, alert_id, request.app.state.th, request.app.state.clock().date())
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 
@@ -99,27 +156,20 @@ def alert(alert_id: int, request: Request, conn=Depends(get_conn)):
 def alert_help(alert_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """The owner asks Loreg to help with this alert. Recorded once; nothing is planned or changed by this call."""
     try:
-        return repo.request_help(conn, shop_id, alert_id, request.app.state.th)
+        return repo.request_help(conn, shop_id, alert_id, request.app.state.th, request.app.state.clock().date())
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
 
 
-@router.post("/alerts/{alert_id}/plan")
-def alert_plan(request: Request, alert_id: int, limit: int = Query(3, ge=1, le=10), conn=Depends(get_conn),
-               shop_id: int = Depends(get_shop_id)):
-    """One proposed option per item. 409 unless help was recorded for this alert."""
-    try:
-        recs = repo.plan(conn, shop_id, alert_id, limit, request.app.state.th)
-    except repo.NotFound as e:
-        raise HTTPException(404, str(e)) from None
-    except repo.Conflict as e:
-        raise HTTPException(409, str(e)) from None
-    return {"alert_id": alert_id, "recommendations": recs, **repo.money_at_risk(conn, shop_id)}
+def _changed(request: Request, shop_id: int, result: dict) -> dict:
+    """A decision changed the shop's numbers: drop every cached agent answer for this shop, so nothing written before is reused."""
+    request.app.state.cache.drop_shop(shop_id)
+    return result
 
 
-def _decide(rec_id: int, accept: bool, conn, shop_id: int):
+def _decide(request: Request, rec_id: int, accept: bool, conn, shop_id: int):
     try:
-        return repo.decide(conn, shop_id, rec_id, accept)
+        return _changed(request, shop_id, repo.decide(conn, shop_id, rec_id, accept))
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
     except repo.Conflict as e:
@@ -127,20 +177,22 @@ def _decide(rec_id: int, accept: bool, conn, shop_id: int):
 
 
 @router.post("/actions/{rec_id}/accept")
-def accept(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    return _decide(rec_id, True, conn, shop_id)
+def accept(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    """Accept one proposed plan. Its item's capital moves from at risk to action in progress (see app/core/exposure.py); the
+    response carries the new exposure. Accepting twice changes nothing the second time."""
+    return _decide(request, rec_id, True, conn, shop_id)
 
 
 @router.post("/actions/{rec_id}/decline")
-def decline(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
-    return _decide(rec_id, False, conn, shop_id)
+def decline(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+    return _decide(request, rec_id, False, conn, shop_id)
 
 
 @router.post("/actions/{rec_id}/undo")
-def undo(rec_id: int, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
+def undo(rec_id: int, request: Request, conn=Depends(get_conn), shop_id: int = Depends(get_shop_id)):
     """Take back an accepted or declined decision (409 if the plan has no decision). Money at risk is recomputed."""
     try:
-        return repo.undo(conn, shop_id, rec_id)
+        return _changed(request, shop_id, repo.undo(conn, shop_id, rec_id))
     except repo.NotFound as e:
         raise HTTPException(404, str(e)) from None
     except repo.Conflict as e:

@@ -1,0 +1,88 @@
+{
+ "brand": "Samsung",
+ "source": "Samsung Global Newsroom",
+ "captured_by": "scripts/capture_demo_news.py",
+ "robots_checked_on": "2026-10-28",
+ "items": [
+  {
+   "url": "https://news.samsung.com/global/hands-on-comfort-convenience-and-more-a-day-with-galaxy-buds-on",
+   "title": "[Hands-On] Comfort, Convenience, and More: A Day With Galaxy Buds On",
+   "published_at": "2026-10-27T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "20705bffc1c1fdc33d99ca1c3979c1e0da8f185adb65dc630250f55d0389faea",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/interview-sound-that-connects-80-years-of-audio-and-the-future-of-connected-experiences",
+   "title": "[Interview] Sound That Connects: 80 Years of Audio and the Future of Connected Experiences",
+   "published_at": "2026-10-26T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "2c07da2248c8c3d2029b4c7fb7d4495da01b7cbe15836b0cd19e6068de7a2c44",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/inside-jbl-playback-gallery-80-years-of-sound-innovation",
+   "title": "Inside JBL Playback Gallery: 80 Years of Sound Innovation",
+   "published_at": "2026-10-23T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "f28b062cfc08a39cd621baf3e9fa7b63a87f612ee19f9d8d3df849c79d7f4026",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/infographic-80-years-of-jbl-from-studios-and-stages-to-everyday-life",
+   "title": "[Infographic] 80 Years of JBL: From Studios and Stages to Everyday Life",
+   "published_at": "2026-10-21T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "7dacadc52f9a78061419554aa4f02bb59665a8b87b4e9112ccaf9fccc584c434",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/discover-new-ways-to-live-smarter-samsung-electronics-launches-samsung-week-2026-in-63-countries",
+   "title": "“Discover New Ways to Live Smarter”: Samsung Electronics Launches Samsung Week 2026 in 63 Countries",
+   "published_at": "2026-10-21T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "038a03618dcb23c38d16c7a913f4864e84d5c678bd53bdcc6c6b1790d53fb49c",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/photo-inside-samsungs-design-is-an-act-of-love-exhibition-at-seoul-design-week-2026",
+   "title": "[Photo] Inside Samsung’s ‘Design Is an Act of Love’ Exhibition at Seoul Design Week 2026",
+   "published_at": "2026-10-21T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "bd011340efc162e70e3eae5aab79e99a7cc20f522702fc023efc322830a07820",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/tailored-for-every-home-samsung-the-brief-goes-global-with-ai-powered-home-appliances",
+   "title": "Tailored for Every Home: Samsung “The Brief” Goes Global With AI-Powered Home Appliances",
+   "published_at": "2026-10-20T08:00:31Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "f5d0c0090d70c8b3cf989aff187a873ad347093dff28d580cfba2ec29c3bf2b0",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/samsung-art-store-unveils-curated-collection-from-art-basel-paris-2026",
+   "title": "Samsung Art Store Unveils Curated Collection From Art Basel Paris 2026",
+   "published_at": "2026-10-20T08:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "b7d4cd0e0071738db8002ccc2ba46aecd1a1ea2ec23df1306870ba27263b7dc6",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/samsung-electronics-expands-ssd-brand-campaign-across-global-landmarks",
+   "title": "Samsung Electronics Expands SSD Brand Campaign Across Global Landmarks",
+   "published_at": "2026-10-19T17:20:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "a34a97591d92fa251e9ad71db25d208b9ad4cef3b1e75c2e09df5586de464d7f",
+   "domain": "news.samsung.com"
+  },
+  {
+   "url": "https://news.samsung.com/global/samsung-presents-design-is-an-act-of-love-at-seoul-design-week-2026",
+   "title": "Samsung Presents ‘Design Is an Act of Love’ at Seoul Design Week 2026",
+   "published_at": "2026-10-15T10:00:00Z",
+   "fetched_at": "2026-10-28T04:02:30Z",
+   "content_hash": "49eff1a5147b440507f08e8ec83054be1e79a99d753e055bc0b61562268c5ece",
+   "domain": "news.samsung.com"
+  }
+ ]
+}

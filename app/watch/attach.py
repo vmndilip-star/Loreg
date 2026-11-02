@@ -7,20 +7,51 @@ that no dated source is attached.
 
 import json
 import sqlite3
+from datetime import date, datetime, timedelta, timezone
+
+from app.demo import demo_enabled
 
 NO_SOURCE_NOTE = ("No dated news source is attached. These items are in the catalog's launch family (a newer generation is expected); "
                   "no launch date is claimed.")
 
 
+def is_dated(published: str | None) -> bool:
+    """True only if the publication date can be read. An article without one is never a source for an alert."""
+    try:
+        date.fromisoformat(str(published)[:10])
+        return True
+    except ValueError:
+        return False
+
+
+def published_in_future(published: str | None, today: date) -> bool:
+    """True when the article says it was published after today (one day of grace for time zones). Such a date cannot be right,
+    so the article is never an alert's source."""
+    try:
+        return date.fromisoformat(str(published)[:10]) > today + timedelta(days=1)
+    except ValueError:
+        return False
+
+
 def _note(name: str, published: str | None, launch: str | None, date_stated: bool) -> str:
-    when = f"published {published[:10]}" if published else "publication date unknown"
+    when = f"published {published[:10]}"
     if date_stated and launch:
         return f"Source: {name}, {when}. Launch date: {launch} (as written in the article)."
     return f"Source: {name}, {when}. Announced, no launch date given in the article."
 
 
-def attach_events_to_alerts(conn: sqlite3.Connection, shop_id: int) -> int:
-    """Set or clear the source on each launch-family alert. Returns how many alerts now have a source."""
+DEMO_ORIGINS = ("demo_synthetic", "stored_copy")
+
+
+def attach_events_to_alerts(conn: sqlite3.Connection, shop_id: int, pin_demo: bool | None = None, today: date | None = None) -> int:
+    """Set or clear the source on each launch-family alert. Returns how many alerts now have a source.
+
+    With the demo switch on (LOREG_DEMO=1) the alert is pinned to the demo's own sources: a news scan adds real items to the news list but
+    never replaces the synthetic demo alert. Without the switch the newest real article wins, and the synthetic one can never exist.
+    """
+    pin = demo_enabled() if pin_demo is None else pin_demo
+    today = today or datetime.now(timezone.utc).date()                 # the app's clock when the caller has one
+    only_demo = " AND i.origin IN ('demo_synthetic', 'stored_copy')" if pin else ""
     attached = 0
     for a in conn.execute("SELECT * FROM alerts WHERE shop_id = ? AND kind = 'launch_family'", (shop_id,)).fetchall():
         line_ids = {r["line_id"] for r in conn.execute(
@@ -28,10 +59,13 @@ def attach_events_to_alerts(conn: sqlite3.Connection, shop_id: int) -> int:
             (shop_id, a["brand"], a["category"]))}
         chosen = None
         for ev in conn.execute(
-                "SELECT e.*, i.title AS title, i.published_at AS published_at, i.url AS url, s.name AS source_name FROM market_events e"
+                "SELECT e.*, i.title AS title, i.published_at AS published_at, i.url AS url, i.origin AS origin,"
+                " s.name AS source_name FROM market_events e"
                 " JOIN market_items i ON i.id = e.item_id JOIN market_sources s ON s.id = i.source_id WHERE e.flagged = 0"
-                " ORDER BY i.published_at DESC, e.id DESC"):
-            if line_ids & set(json.loads(ev["matched_line_ids"])):
+                " AND i.published_at IS NOT NULL" + only_demo +
+                " ORDER BY (i.origin = 'demo_synthetic'), i.published_at DESC, e.id DESC"):        # real articles before the synthetic demo one
+            usable = is_dated(ev["published_at"]) and not published_in_future(ev["published_at"], today)
+            if usable and line_ids & set(json.loads(ev["matched_line_ids"])):
                 chosen = ev
                 break
         if chosen is None:

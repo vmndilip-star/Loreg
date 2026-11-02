@@ -1,10 +1,14 @@
 """Loreg Watch routes: fetch real dated news on demand and list what is stored."""
 
+from datetime import timezone
+
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.deps import get_conn, get_shop_id
 from app.api.deps_ai import get_http, get_llm
 from app.watch import scan as watch
+from app.watch import tracker
+from app.watch.common import stamp
 
 router = APIRouter(prefix="/api/watch")
 
@@ -14,7 +18,15 @@ def scan_now(request: Request, conn=Depends(get_conn), shop_id: int = Depends(ge
     """Fetch the configured feed once (robots.txt, conditional GET, 10 s timeout, 2 MB cap), store sanitized items,
     read launch events and match them to catalog lines. If the network is down the stored items are returned and the
     response says so. Nothing is invented: an alert only gets a source that really matched."""
-    report = watch.scan(conn, shop_id, http=http, llm=llm, catalog=request.app.state.catalog)
+    now = request.app.state.clock()
+    report = watch.scan(conn, shop_id, http=http, llm=llm, catalog=request.app.state.catalog, now=now)
+    conn.execute("BEGIN IMMEDIATE")                       # the launch tracker learns from what was just stored; this is how a launch gets confirmed
+    try:
+        report["tracker"] = tracker.sync(conn, shop_id, now.astimezone(timezone.utc).date(), request.app.state.th, stamp(now))
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
     return {**report, "items": watch.list_items(conn, 20)}
 
 

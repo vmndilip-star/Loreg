@@ -1,7 +1,7 @@
 // One option card, with Accept, Decline and Undo. Used by Watch and by the chat.
 import { api } from './api.js';
 import { append, clear, el } from './dom.js';
-import { count, money } from './format.js';
+import { count, money, money2 } from './format.js';
 
 export function planCard(r, ctx, refreshMoney) {
   const state = el('div', { class: 'd-flex gap-2 flex-wrap align-items-center mt-auto' });
@@ -29,10 +29,32 @@ export function planCard(r, ctx, refreshMoney) {
     el('div', { class: 'soft small' }, `SKU ${r.sku} · ${count(r.shelf)} on shelf · ${money(r.tied_cents)} tied up`),
     el('div', { class: 'num num-lg' }, optionTitle(r)),
     el('ul', { class: 'mb-1 ps-3' }, r.reasons.map((x) => el('li', {}, x))),
+    r.headroom ? headroomNote(r.headroom) : null,
     el('div', { class: 'd-flex flex-wrap gap-1' }, r.citations.map((c) => el('span', { class: 'chip' }, `${c.label}: ${c.value}`))),
+    el('div', { class: 'soft small', 'data-testid': 'plan-source' }, planSource(r.source)),
     state);
   draw(r.status);
   return card;
+}
+
+// How far a discount may go and what stops the next step. The server works out every figure; this only puts them in words.
+function headroomNote(h) {
+  const lines = [];
+  lines.push(h.largest_pct === null
+    ? 'No discount step is allowed.'
+    : `Largest discount allowed: ${h.largest_pct}% (${money2(h.largest_price_cents)} on the shelf).`);
+  if (h.next_pct !== null) {
+    const what = h.blocked_by === 'map' ? 'the minimum advertised price' : 'cost';
+    lines.push(`Next step, ${h.next_pct}% (${money2(h.next_price_cents)}), would go below ${what} (${money2(h.floor_cents)}).`);
+  }
+  return el('div', { class: 'soft small', 'data-testid': 'headroom' }, lines.map((t) => el('div', {}, t)));
+}
+
+// Who chose this option. A rules-based option is always called that, so a slow or rejected model answer is never hidden.
+export function planSource(source) {
+  if (source === 'model') return 'Chosen by the model from the allowed options, and checked by code.';
+  if (source === 'mock') return 'Chosen by the offline test writer, not a real model.';
+  return 'Using rules-based fallback: chosen by Loreg’s rules (the model was not used, was too slow, or its answer failed a check).';
 }
 
 function optionTitle(r) {

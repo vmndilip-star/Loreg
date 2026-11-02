@@ -1,7 +1,7 @@
 // Runs under plain Node (no DOM). Checks formatting and the SSE reader, with a fake fetch that splits frames at awkward places.
 import assert from 'node:assert/strict';
-import { money, money2, count, date } from '../../web/js/format.js';
-import { askStream, parseFrame, api, ApiError } from '../../web/js/api.js';
+import { money, money2, count, date, excerptText } from '../../web/js/format.js';
+import { askStream, parseFrame, api, ApiError, setCsrf, whenSignedOut } from '../../web/js/api.js';
 
 assert.equal(money(123456789), '$1,234,568');
 assert.equal(money(0), '$0');
@@ -13,6 +13,15 @@ assert.equal(count(3000), '3,000');
 assert.equal(date('2026-10-26'), 'Oct 26, 2026');
 assert.equal(date('2026-10-26T08:00:00Z'), 'Oct 26, 2026');
 assert.equal(date('March 12'), 'March 12');   // never guessed
+
+// an excerpt that starts or stops partway through a sentence says so; a whole sentence is shown as it is
+assert.equal(excerptText('Samsung will launch it. Done.'), 'Samsung will launch it. Done.');
+assert.equal(excerptText('comfort and awareness of one’s surroundings are no'), '… comfort and awareness of one’s surroundings are no …');
+assert.equal(excerptText('Launched in 1957, the home speaker'), 'Launched in 1957, the home speaker …');
+assert.equal(excerptText('can also easily access Care+.'), '… can also easily access Care+.');
+assert.equal(excerptText('Rogers: “They’ll feel it.”'), 'Rogers: “They’ll feel it.”');
+assert.equal(excerptText(''), '');
+assert.equal(excerptText(undefined), '');
 
 assert.deepEqual(parseFrame('event: status\ndata: {"text":"hi"}'), { event: 'status', data: { text: 'hi' } });
 assert.equal(parseFrame(': comment only'), null);
@@ -36,6 +45,27 @@ globalThis.fetch = async () => new Response(new ReadableStream({ start(c) { c.en
 const euro = []; for await (const e of askStream('q')) euro.push(e.data.text);
 assert.deepEqual(euro, ['€']);
 
+// a stream that breaks before its first event is asked once more without streaming; one that breaks later is not repeated
+const broken = (first) => {          // hands over `first` (if any), then fails on the next read
+  let sent = !first;
+  return new ReadableStream({ pull(c) { if (sent) c.error(new TypeError('network')); else { c.enqueue(new TextEncoder().encode(first)); sent = true; } } });
+};
+let calls = [];
+globalThis.fetch = async (url) => {
+  calls.push(url);
+  return url === '/api/ask' ? new Response(broken(''), { status: 200 })
+    : new Response(JSON.stringify({ events: [{ event: 'token', data: { text: 'whole' } }, { event: 'done', data: {} }] }), { status: 200 });
+};
+const whole = []; for await (const e of askStream('q')) whole.push(e.event);
+assert.deepEqual(whole, ['token', 'done']);
+assert.deepEqual(calls, ['/api/ask', '/api/ask?stream=false']);
+calls = [];
+globalThis.fetch = async (url) => { calls.push(url); return new Response(broken('event: status\ndata: {"message":"x"}\n\n'), { status: 200 }); };
+const partial = [];
+await assert.rejects(async () => { for await (const e of askStream('q')) partial.push(e.event); });
+assert.deepEqual(partial, ['status']);
+assert.deepEqual(calls, ['/api/ask']);                                   // nothing is shown twice
+
 // errors: the server's own detail is shown; an unreachable server is status 0
 globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'no item with SKU X in your stock' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 await assert.rejects(() => api('/x'), (e) => e instanceof ApiError && e.status === 404 && e.detail === 'no item with SKU X in your stock');
@@ -44,4 +74,20 @@ await assert.rejects(() => api('/x'), (e) => e.detail === 'field required');
 globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
 await assert.rejects(() => api('/x'), (e) => e.status === 0 && /Could not reach Loreg/.test(e.detail));
 await assert.rejects(async () => { for await (const _ of askStream('q')) { /* nothing */ } }, (e) => e.status === 0);
+// the CSRF token goes with every request that is not a GET, the chat stream included; a 401 tells the page to show sign-in
+setCsrf('tok-123');
+const sent = [];
+globalThis.fetch = async (url, init) => { sent.push([url, init.method, (init.headers || {})['X-CSRF-Token']]); return new Response('{}', { status: 200 }); };
+await api('/summary');
+await api('/notifications/refresh', { method: 'POST' });
+await api('/upload', { method: 'POST', form: new FormData() });
+for await (const _ of askStream('q')) { /* nothing */ }
+assert.deepEqual(sent, [['/api/summary', 'GET', undefined], ['/api/notifications/refresh', 'POST', 'tok-123'], ['/api/upload', 'POST', 'tok-123'],
+  ['/api/ask', 'POST', 'tok-123'], ['/api/ask?stream=false', 'POST', 'tok-123']]);       // an empty stream is asked once more, without streaming
+let out = 0;
+whenSignedOut(() => { out += 1; });
+globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Sign in first.' }), { status: 401 });
+await assert.rejects(() => api('/summary'), (e) => e.status === 401 && e.detail === 'Sign in first.');
+await assert.rejects(() => api('/session'), (e) => e.status === 401);
+assert.equal(out, 1);                                                    // /session itself never triggers it
 console.log('web units ok');

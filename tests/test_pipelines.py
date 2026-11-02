@@ -25,6 +25,7 @@ from app.pipelines import PIPELINES, Ctx, ResultCache, answer, choose
 from app.schemas.outputs import NOT_ENOUGH_DATA, Recommendation, RouteDecision
 from app.storage import repo, repo_ai
 from app.storage.db import connect, default_shop_id
+from auth import AuthedClient, sign_in
 
 AS_OF = "2026-10-26"
 ASK = "What should I clear before the launch?"
@@ -54,7 +55,7 @@ class FakeModel(LLMClient):
 
 
 def make_client(tmp_path, llm=None, **kw):
-    return TestClient(create_app(db_path=tmp_path / "t.sqlite", as_of=AS_OF, llm=llm, **kw))
+    return AuthedClient(create_app(db_path=tmp_path / "t.sqlite", as_of=AS_OF, llm=llm, **kw))
 
 
 def upload(client, path):
@@ -169,12 +170,14 @@ def test_the_first_status_event_leaves_before_any_model_call(catalog_dir, tmp_pa
                     break
             except httpx.HTTPError:
                 time.sleep(0.05)
+        http = httpx.Client(base_url=base, timeout=60)
+        sign_in(http)
         with open(catalog_dir / "upload_demo_200.csv", "rb") as f:
-            assert httpx.post(base + "/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
+            assert http.post("/api/upload", files={"file": ("d.csv", f, "text/csv")}).status_code == 200
         calls_before = model.calls
         start = time.perf_counter()
         first_at = first_event = None
-        with httpx.stream("POST", base + "/api/ask", json={"question": ASK}, timeout=60) as r:
+        with http.stream("POST", "/api/ask", json={"question": ASK}) as r:
             for line in r.iter_lines():
                 if line.startswith("event: ") and first_at is None:
                     first_at, first_event = time.perf_counter() - start, line[7:]
@@ -223,9 +226,12 @@ def test_changing_the_facts_misses_the_cache(catalog_dir, shop):
     ask(shop, ASK)
     sku = shop.get("/api/launch/exposed").json()["groups"][0]["top"][0]["sku"]        # one of the three items the pipeline reads
     cache = shop.app.state.cache
-    hits = cache.hits
-    upload(shop, catalog_dir / "upload_demo_200.csv")                                   # the same stock again: same facts, so hits
+    upload(shop, catalog_dir / "upload_demo_200.csv")                                   # any upload drops the shop's cached answers
+    misses = cache.misses
     ask(shop, ASK)
+    assert cache.misses > misses
+    hits = cache.hits
+    ask(shop, ASK)                                                                       # and the same facts are served from memory again
     assert cache.hits > hits
     con = sqlite3.connect(shop.app.state.db_path)
     con.execute("UPDATE skus SET qty = qty + 1, capital_cents = capital_cents + unit_cost_cents WHERE sku = ?", (sku,))
@@ -241,6 +247,46 @@ def test_the_pipeline_allowlist_is_fixed():
     assert PIPELINES == ("launch_clear", "sku_question", "daily_brief")
     assert set(pipelines.PIPELINE_FOR_INTENT.values()) <= set(PIPELINES)
     assert pipelines.PIPELINE_FOR_INTENT.get("unclear") is None and pipelines.PIPELINE_FOR_INTENT.get("anything_else") is None
+
+
+class RouterOnly(FakeModel):
+    """Counts router calls and always answers with a real SKU of the shop it was asked about."""
+
+    def __init__(self):
+        super().__init__()
+        self.routes = 0
+
+    def complete_json(self, *, system, user, schema, mock_output=None, max_completion_tokens=0):
+        if schema is RouteDecision:
+            self.routes += 1
+        return super().complete_json(system=system, user=user, schema=schema, mock_output=mock_output, max_completion_tokens=max_completion_tokens)
+
+
+def router_ctx(client, model, shop_id):
+    s = client.app.state
+    return Ctx(conn=connect(s.db_path), shop_id=shop_id, th=s.th, as_of=date(2026, 10, 26), today=date(2026, 10, 26), llm=model, cache=s.cache,
+               executor=s.executor)
+
+
+def test_the_router_cache_is_per_stock_list_and_per_shop(catalog_dir, tmp_path):
+    model = RouterOnly()
+    client = make_client(tmp_path, llm=model)
+    upload(client, catalog_dir / "upload_demo_200.csv")
+    q = "tell me something interesting"
+    ctx = router_ctx(client, model, 1)
+    skus = repo_ai.known_skus(ctx.conn, 1)
+    choose(ctx, q, skus)
+    choose(ctx, q, skus)
+    assert model.routes == 1                                                            # the same question on the same stock: cached
+    upload(client, catalog_dir / "upload_demo_200.csv")                                 # a new stock list, even with the same rows
+    choose(ctx, q, skus)
+    assert model.routes == 2
+    ctx.conn.execute("INSERT INTO shops (name, created_at) VALUES ('second', 'x')")
+    other = router_ctx(client, model, 2)
+    choose(other, q, set())
+    assert model.routes == 3                                                            # another shop never gets this shop's route
+    ctx.conn.close()
+    other.conn.close()
 
 
 def question_cases(sku):

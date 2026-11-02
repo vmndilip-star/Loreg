@@ -1,0 +1,241 @@
+{
+  "backend": "mock",
+  "as_of": "2026-10-26",
+  "passed": 21,
+  "cases": 21,
+  "fallback": 0,
+  "asked": 0,
+  "results": [
+    {
+      "id": "dead-healthy-margin",
+      "title": "Dead TV with plenty of margin",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "below-cost-trap",
+      "title": "Dead TV priced 4% above cost; the smallest step would sell below cost",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "return-window-open",
+      "title": "Slow TV, no margin to discount, return window open 30 more days",
+      "pass": true,
+      "problems": [],
+      "option": "return",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "return-window-expired",
+      "title": "The same TV, return window closed yesterday",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "return-window-closes-today",
+      "title": "The same TV, return window closes today (still open)",
+      "pass": true,
+      "problems": [],
+      "option": "return",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "map-caps-discount",
+      "title": "Minimum advertised price $950 on a $1,000 TV allows only 5%",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "map-blocks-discount",
+      "title": "Minimum advertised price $990 blocks every step that cost alone would allow",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "deep-dead-below-cost",
+      "title": "No sale for 250 days (over 2x the dead limit) allows a below-cost discount up to 10%",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 10,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "deep-dead-below-cost-but-map",
+      "title": "The same deep-dead TV with a MAP at cost; below-cost steps would break the MAP",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "near-zero-data",
+      "title": "Never sold and received date unknown",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "tiny-capital",
+      "title": "One phone case-sized item, $5 tied up",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "conflicting-signals",
+      "title": "Sold 5 days ago, but 40 on the shelf at 3 a quarter (1,200 days of stock)",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "healthy-item",
+      "title": "Selling well (15 days of stock); no bundle",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "seasonal-washer",
+      "title": "Seasonal washer, 160 days since a sale (slow at 112.5, dead at 225)",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "zero-margin-fridge",
+      "title": "Fridge priced at cost, dead 200 days (not yet 2x the 150-day limit)",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "zero-margin-fridge-very-old",
+      "title": "The same fridge after 320 days with no sale (over 300)",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 10,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "exactly-twenty-percent-margin",
+      "title": "Laptop where a 20% discount lands exactly on cost (allowed)",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "phone-everything-allowed",
+      "title": "Slow phone with a return window, a MAP and margin",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "nothing-on-the-shelf",
+      "title": "Zero on the shelf is never at risk",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "new-stock",
+      "title": "Received 10 days ago, not sold yet",
+      "pass": true,
+      "problems": [],
+      "option": "discount",
+      "discount_pct": 5,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    },
+    {
+      "id": "price-below-cost",
+      "title": "Already priced below cost, dead 130 days",
+      "pass": true,
+      "problems": [],
+      "option": "bundle",
+      "discount_pct": 0,
+      "outcome": "mock",
+      "ms": 0,
+      "notes": []
+    }
+  ]
+}

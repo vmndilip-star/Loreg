@@ -1,5 +1,5 @@
-"""The demo journey, end to end over the real HTTP API (no browser): upload -> dead stock -> daily brief -> alert ->
-chat -> help -> plan -> accept -> capital at risk updates -> undo. The expected numbers come from an independent
+"""The demo journey, end to end over the real HTTP API (no browser): signed out -> sign in as BigDeal -> upload -> dead stock ->
+daily brief -> alert -> chat -> help -> plan -> accept -> capital at risk updates -> undo. The expected numbers come from an independent
 recomputation of the CSV (tests/csv_truth.py), never from the app. Always runs; it is the gate for the browser test."""
 
 import json
@@ -11,6 +11,7 @@ from app.api.main import create_app
 from app.api.routes_demo import DEMO_FILE
 from csv_truth import Truth
 from test_watch import POISONS, FakeWeb, article, rss
+from auth import AuthedClient, seed_demo, sign_in_demo
 
 ASK = "What should I clear before the launch?"
 ALLOWED = {"discount", "bundle", "return", "hold"}
@@ -34,20 +35,26 @@ def truth(catalog_dir):
 
 
 @pytest.fixture
-def app_client(tmp_path, monkeypatch):
+def demo_app(tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
-    return TestClient(create_app(tmp_path / "journey.sqlite", as_of="2026-10-26"))
+    app = create_app(tmp_path / "journey.sqlite", as_of="2026-10-26")
+    seed_demo(app)                                                                 # what scripts/reset_demo.py makes
+    return app
 
 
-def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
-    c = app_client
+def test_the_demo_journey_matches_the_csv_at_every_step(demo_app, truth):
+    c = TestClient(demo_app)
     at_risk = truth.totals()["at_risk"]["cap_cents"]
 
-    # 0. nothing yet: the API says so plainly
-    assert c.get("/api/summary").status_code == 404
+    # 0. signed out: the sign-in page's answers only, no shop data anywhere
+    assert c.get("/api/session").json()["signed_in"] is False
+    assert c.get("/api/summary").status_code == 401 and c.get("/api/profile").status_code == 401
+    s = sign_in_demo(c)                                                            # "Use demo account", then "Sign in"
+    assert s["profile"]["org_name"] == "BigDeal" and s["demo"] is True             # the welcome screen names BigDeal
+    assert c.get("/api/summary").status_code == 404                                # nothing yet: the API says so plainly
 
     # 1. upload (the demo file goes through the same path as a real upload)
-    assert c.get("/api/demo").json() == {"enabled": True}
+    assert set(c.get("/api/demo").json()) == {"email", "password"}
     up = c.post("/api/demo/load").json()
     assert up["kept"] == len(truth.items) and up["blocked"] == up["rows"] - up["kept"] == 3
 
@@ -68,7 +75,9 @@ def test_the_demo_journey_matches_the_csv_at_every_step(app_client, truth):
     group = c.get("/api/launch/exposed").json()["groups"][0]
     exposed = truth.launch_exposed()
     assert group["n"] == len(exposed) and group["cap_cents"] == sum(i["cap"] for i in exposed)
-    assert group["help_requested"] is False and group["source"] == {"attached": False, "status": "no dated source attached"}
+    assert group["help_requested"] is False
+    src = group["source"]                                                         # in demo mode the alert is never unsourced and never unlabelled
+    assert src["attached"] and src["label"] == "Demo article (synthetic)" and src["origin"] == "demo_synthetic" and src["published"] and src["fetched"]
     assert c.get(f"/api/alerts/{group['alert_id']}").json()["recommendations"] == {}
     assert c.post(f"/api/alerts/{group['alert_id']}/plan").status_code == 409
 
@@ -112,13 +121,13 @@ def test_a_poisoned_article_changes_no_number_and_is_shown_as_data(tmp_path, mon
     monkeypatch.setenv("LOREG_DEMO", "1")
     poison = dict(POISONS)["ignore previous instructions"]
     web = FakeWeb(rss([article(title="SYNTHETIC <img src=x onerror=alert(1)> Samsung QN90D Neo QLED refresh", html=poison)]))
-    c = TestClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=web.factory()))
+    c = AuthedClient(create_app(tmp_path / "p.sqlite", as_of="2026-10-26", http_factory=web.factory()))
     c.post("/api/demo/load")
     before = c.get("/api/summary").json()
     scan = c.post("/api/watch/scan").json()
     assert scan["network"] == "ok"
-    item = c.get("/api/watch/items").json()["items"][0]
+    item = next(i for i in c.get("/api/watch/items").json()["items"] if i["origin"] == "feed")        # not items[0]: the demo article is dated two days before the real clock
     assert "<" not in item["title"] and ">" not in item["title"]                       # markup is stripped from the title
     assert item["flagged"] is True and all(not e["attachable"] for e in item["events"])
     assert c.get("/api/summary").json() == before                                     # no number moved
-    assert c.get("/api/launch/exposed").json()["groups"][0]["source"]["attached"] is False
+    assert c.get("/api/launch/exposed").json()["groups"][0]["source"]["origin"] == "demo_synthetic"       # the poisoned article attached nothing

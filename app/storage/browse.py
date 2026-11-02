@@ -12,7 +12,7 @@ from app.core.classify import AT_RISK
 from app.core.explain import why_flagged
 from app.core.thresholds import Thresholds
 
-STATUS_FILTERS = ("all", "dead", "slow", "healthy", "new")
+STATUS_FILTERS = ("all", "at_risk", "dead", "slow", "healthy", "new")      # at_risk = dead or slow, with something on the shelf
 # Each sort is a fixed fragment; the key the caller sends only selects one of these. Every sort ends with the SKU so pages never overlap.
 SORTS = {
     "tied_up": "s.capital_cents DESC, s.sku",
@@ -109,7 +109,10 @@ def _where(shop_id: int, category: str | None, status: str | None, tokens: list[
     if category:
         parts.append("p.category = ?")
         params.append(category)
-    if status and status != "all":
+    if status == "at_risk":
+        parts.append(f"s.qty > 0 AND s.status IN ({RISK})")
+        params.extend(AT_RISK)
+    elif status and status != "all":
         parts.append("s.status = ?")
         params.append(status)
     for t in tokens:
@@ -137,7 +140,8 @@ def products(conn: sqlite3.Connection, shop_id: int, th: Thresholds, *, category
     free_where, free_params = _where(shop_id, category, None, tokens)
     counts = {r["status"]: r["n"] for r in conn.execute(
         f"SELECT s.status AS status, COUNT(*) AS n {base} WHERE {free_where} GROUP BY s.status", free_params)}
-    status_counts = {"all": sum(counts.values()), **{k: counts.get(k, 0) for k in STATUS_FILTERS if k != "all"}}
+    status_counts = {"all": sum(counts.values()), "at_risk": counts.get("dead", 0) + counts.get("slow", 0),
+                     **{k: counts.get(k, 0) for k in STATUS_FILTERS if k not in ("all", "at_risk")}}
     rows = conn.execute(
         f"SELECT {ROW_COLUMNS} {base} WHERE {where} ORDER BY {SORTS[sort]} LIMIT ? OFFSET ?",
         (*params, page_size, (page - 1) * page_size)).fetchall()

@@ -17,6 +17,7 @@ import json
 import re
 import sqlite3
 import time
+import uuid
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -37,6 +38,7 @@ from app.schemas.outputs import NOT_ENOUGH_DATA, DailyBrief, Recommendation, Rou
 from app.storage import repo, repo_ai
 
 AGENT_TIMEOUT_S = 20.0
+REQUEST_TIMEOUT_S = 45.0        # a whole answer: no agent is waited for past this, whatever its own limit (LOREG_REQUEST_TIMEOUT_S)
 PIPELINES = ("launch_clear", "sku_question", "daily_brief")        # the only pipelines that exist
 PIPELINE_FOR_INTENT = {"launch_risk": "launch_clear", "plan_request": "launch_clear", "stock_question": "sku_question", "daily": "daily_brief"}
 ASK_PROMPT = "Want me to plan what to do with them?"
@@ -47,10 +49,11 @@ _SKU_LIKE = re.compile(r"\b[A-Za-z]{2}-[A-Za-z0-9]{2,5}-\d{3,5}\b")
 
 # ------------------------------------------------------------------------------ plumbing
 class ResultCache:
-    """Agent results keyed by a hash of their facts, so the same question returns instantly. Fallbacks are never cached."""
+    """Agent results keyed by a hash of their facts and the shop, so the same question returns instantly. Fallbacks are never cached.
+    A shop's entries are dropped whenever its numbers change (an upload, an accept, a decline or an undo)."""
 
     def __init__(self, size: int = 512):
-        self._data: OrderedDict[str, AgentResult] = OrderedDict()
+        self._data: OrderedDict[str, tuple[int | None, AgentResult]] = OrderedDict()
         self._size, self._lock = size, Lock()
         self.hits = self.misses = 0
 
@@ -59,18 +62,30 @@ class ResultCache:
             if key in self._data:
                 self._data.move_to_end(key)
                 self.hits += 1
-                return self._data[key]
+                return self._data[key][1]
             self.misses += 1
             return None
 
-    def put(self, key: str, value: AgentResult) -> None:
+    def put(self, key: str, value: AgentResult, shop_id: int | None = None) -> None:
         if value.source not in ("model", "mock"):
             return
         with self._lock:
-            self._data[key] = value
+            self._data[key] = (shop_id, value)
             self._data.move_to_end(key)
             while len(self._data) > self._size:
                 self._data.popitem(last=False)
+
+    def drop_shop(self, shop_id: int) -> int:
+        """Forget every cached result for one shop. Returns how many were dropped."""
+        with self._lock:
+            gone = [k for k, (shop, _) in self._data.items() if shop == shop_id]
+            for k in gone:
+                del self._data[k]
+            return len(gone)
+
+    def count_shop(self, shop_id: int) -> int:
+        with self._lock:
+            return sum(1 for shop, _ in self._data.values() if shop == shop_id)
 
 
 @dataclass
@@ -78,12 +93,20 @@ class Ctx:
     conn: sqlite3.Connection
     shop_id: int
     th: Thresholds
-    as_of: date
+    as_of: date                                   # the stock list's date
+    today: date                                   # the clock's date: news is aged against this
     llm: LLMClient
     cache: ResultCache
     executor: ThreadPoolExecutor
     timeout_s: float = AGENT_TIMEOUT_S
-    timings: list = field(default_factory=list)   # (agent, source, ms, cached): for the done event and the latency report
+    deadline: float | None = None                 # time.perf_counter() value: the whole request's limit
+    timings: list = field(default_factory=list)   # (agent, source, ms, cached, outcome): for the done event and the fallback-rate metric
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    recorded: list = field(default_factory=list)  # timings already written to agent_calls
+
+    @property
+    def backend(self) -> str:
+        return getattr(self.llm, "backend", None) or ("mock" if getattr(self.llm, "is_mock", True) else "unknown")
 
 
 def facts_hash(agent: str, facts: list[Fact], extra: str = "") -> str:
@@ -96,7 +119,7 @@ class AgentCall:
 
     def __init__(self, ctx: Ctx, name: str, run: Callable[[], AgentResult], fallback: Callable[[], AgentResult], facts: list[Fact], extra: str = ""):
         self.ctx, self.name, self.fallback = ctx, name, fallback
-        self.key = facts_hash(name, facts, extra)
+        self.key = facts_hash(name, facts, f"shop {ctx.shop_id}|{extra}")
         self.started = time.perf_counter()
         self.cached = ctx.cache.get(self.key)
         self.future: Future | None = None if self.cached else ctx.executor.submit(run)
@@ -106,15 +129,18 @@ class AgentCall:
             res, was_cached = self.cached, True
         else:
             was_cached = False
-            remaining = max(0.0, self.ctx.timeout_s - (time.perf_counter() - self.started))
+            now = time.perf_counter()
+            remaining = max(0.0, self.ctx.timeout_s - (now - self.started))
+            whole = None if self.ctx.deadline is None else max(0.0, self.ctx.deadline - now)
             try:
-                res = self.future.result(timeout=remaining)
+                res = self.future.result(timeout=remaining if whole is None else min(remaining, whole))
             except FutureTimeout:
-                res = AgentResult(self.fallback().output, "fallback", [f"timed out after {self.ctx.timeout_s:g}s"])
+                why = "the request's time limit was reached" if whole is not None and whole < remaining else f"timed out after {self.ctx.timeout_s:g}s"
+                res = AgentResult(self.fallback().output, "fallback", [why])
             except Exception as e:  # noqa: BLE001 - an agent must never take the whole answer down
                 res = AgentResult(self.fallback().output, "fallback", [f"failed: {type(e).__name__}"])
-            self.ctx.cache.put(self.key, res)
-        self.ctx.timings.append((self.name, res.source, round(1000 * (time.perf_counter() - self.started)), was_cached))
+            self.ctx.cache.put(self.key, res, self.ctx.shop_id)
+        self.ctx.timings.append((self.name, res.source, round(1000 * (time.perf_counter() - self.started)), was_cached, res.outcome))
         return res
 
 
@@ -134,10 +160,19 @@ def _strip_marks(text: str) -> str:
     return re.sub(r"\s*\[[A-Za-z0-9:_\-.]+\]", "", text).strip()
 
 
+def record_run(ctx: Ctx, pipeline: str | None) -> None:
+    """Store every agent call this run made (outcome and latency), for the fallback-rate metric. Each call is written once."""
+    calls, ctx.timings[:] = list(ctx.timings), []
+    repo_ai.record_agent_calls(ctx.conn, ctx.shop_id, ctx.run_id, pipeline or "none", ctx.backend, [(a, o, ms, c) for a, _s, ms, c, o in calls])
+    ctx.recorded.extend(calls)
+
+
 def done(ctx: Ctx, pipeline: str | None, started: float, **extra) -> dict:
     mar = repo.money_at_risk(ctx.conn, ctx.shop_id)
+    record_run(ctx, pipeline)
+    calls = ctx.recorded
     return ev("done", pipeline=pipeline, total_ms=round(1000 * (time.perf_counter() - started)), money_at_risk_cents=mar["money_at_risk_cents"],
-              agents=[{"agent": a, "source": s, "ms": ms, "cached": c} for a, s, ms, c in ctx.timings], **extra)
+              backend=ctx.backend, agents=[{"agent": a, "source": s, "ms": ms, "cached": c, "outcome": o} for a, s, ms, c, o in calls], **extra)
 
 
 def _item_card(row, explanation: str, th: Thresholds) -> dict:
@@ -165,24 +200,74 @@ def _recommender_call(ctx: Ctx, row) -> AgentCall:
 def alert_text(g: dict) -> str:
     """The alert in plain sentences, from stored figures only: how many items, how much money, and the real source or its absence."""
     src = g["source"]
-    when = (f" Source: {src['name']}, published {str(src['published'])[:10]}. Launch date: {src['launch_date']} (as written in the article)."
-            if src["attached"] and src["launch_date"] else
-            f" Source: {src['name']}, published {str(src['published'])[:10]}. Announced, no launch date given in the article."
-            if src["attached"] else f" {g['source_note']}")
-    if src["attached"] and src["freshness"] != "fresh":
-        old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
-        when += f" Caution: this source is {old_note}, so it is not fresh news."
+    if src["attached"]:
+        who = f"Source: {src['name']}" + (f" ({src['label']})" if src["label"] else "")
+        launch = (f"Launch date: {src['launch_date']} (as written in the article)." if src["launch_date"]
+                  else "Announced, no launch date given in the article.")
+        when = f" {who}, published {str(src['published'])[:10]}, fetched {str(src['fetched'])[:10]}. {launch}"
+        if src["cached"] and src["cache_note"]:
+            when += f" {src['cache_note']}"
+        if src["freshness"] != "fresh":
+            old_note = f"{src['age_days']} days old" if src["age_days"] is not None else "of unknown age"
+            when += f" Caution: this source is {old_note}, so it is not fresh news."
+        if g.get("pace"):
+            when += f" {g['pace']['text']}"
+    else:
+        when = f" {g['source_note']}"
     return f"{g['title']}. {g['n']} of your {g['label']} are dead or slow, with {money(g['cap_cents'])} tied up.{when}"
 
 
 def _alert_card(g: dict) -> dict:
     return {"type": "alert", "alert_id": g["alert_id"], "title": g["title"], "n": g["n"], "cap_cents": g["cap_cents"],
-            "source": g["source"], "help_requested": g["help_requested"], "question": ASK_PROMPT}
+            "source": g["source"], "pace": g.get("pace"), "help_requested": g["help_requested"], "question": ASK_PROMPT}
+
+
+def _rules_say_ok(opts, rec: Recommendation) -> str:
+    """"" if the rules allow this answer, else the reason they do not. Worked out from the rules, never from the facts the model was shown."""
+    if rec.option not in opts.options():
+        return f"{rec.option} is not allowed for this item (allowed: {', '.join(opts.options())})"
+    if rec.option == "discount" and rec.discount_pct not in opts.discounts_pct:
+        return f"a {rec.discount_pct}% discount is not allowed (allowed steps: {list(opts.discounts_pct) or 'none'})"
+    if rec.option != "discount" and rec.discount_pct != 0:
+        return "a discount percentage came with an option that is not a discount"
+    return ""
+
+
+def plan_alert(ctx: Ctx, alert_id: int, limit: int) -> Iterator[dict]:
+    """The one place a plan is made, for the chat and for the Watch page alike. Returns the stored plans (a generator: it yields tool events).
+
+    1. The rules plan is stored first, for every item (the floor).
+    2. The Recommender is asked once per item that still has only the rules plan. Its answer must pass its own checks and then the rules
+       again here; if either fails, the rules plan stays and the refusal is audited.
+    3. Whatever is stored is what everyone sees. An item that already has an answer is never asked again, so the chat and Watch
+       cannot disagree, today or after a restart. A decided plan is never rewritten.
+    """
+    plans = repo.plan(ctx.conn, ctx.shop_id, alert_id, limit, ctx.th)                       # raises Conflict until help was asked for
+    state = repo_ai.plan_state(ctx.conn, alert_id)
+    todo = [p["sku"] for p in plans if state.get(p["sku"], ("", ""))[0] == "rules" and state[p["sku"]][1] == "proposed"]
+    rows = {sku: repo_ai.item_row(ctx.conn, ctx.shop_id, sku) for sku in todo}
+    calls = [(sku, _recommender_call(ctx, rows[sku])) for sku in todo]                       # started together, collected in order
+    as_of = ctx.as_of
+    for sku, call in calls:
+        res = call.result()
+        rec: Recommendation = res.output
+        problem = _rules_say_ok(repo.item_options(rows[sku], as_of, ctx.th), rec)
+        if problem:
+            repo_ai.reject_agent_answer(ctx.conn, ctx.shop_id, alert_id, sku, rec.option, rec.discount_pct, problem)
+            yield ev("tool", name="recommender_agent", sku=sku, source="fallback", option=repo.item_plan(ctx.conn, alert_id, sku)["action"], refused=problem)
+            continue
+        stored = repo.item_plan(ctx.conn, alert_id, sku)
+        if res.source in ("fallback", "mock") and (rec.option, rec.discount_pct) == (stored["action"], stored["discount_pct"]):
+            repo_ai.mark_plan_source(ctx.conn, alert_id, sku, res.source)      # the rules' own answer: keep its plain-language reasons
+        else:
+            repo_ai.apply_agent_recommendation(ctx.conn, ctx.shop_id, alert_id, sku, rec.option, rec.discount_pct, rec.reasons, res.source)
+        yield ev("tool", name="recommender_agent", sku=sku, source=res.source, option=rec.option)
+    return repo.plan(ctx.conn, ctx.shop_id, alert_id, limit, ctx.th)
 
 
 def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
     yield ev("status", message="Checking your stored launch news")
-    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today)
     if not groups:
         yield from tokens(f"{NOT_ENOUGH_DATA}: none of your launch-family items is dead or slow right now.")
         yield ev("cards", cards=[])
@@ -209,14 +294,7 @@ def launch_clear(ctx: Ctx, started: float) -> Iterator[dict]:
         return
 
     yield ev("status", message="You asked for help, so I am planning one option per item")
-    repo.plan(ctx.conn, ctx.shop_id, g["alert_id"], len(rows), ctx.th)           # the rule-based plan is the floor
-    rec_calls = [(r, _recommender_call(ctx, r)) for r in rows]                   # the Recommender runs only now, after help
-    for row, call in rec_calls:
-        res = call.result()
-        rec: Recommendation = res.output
-        repo_ai.apply_agent_recommendation(ctx.conn, ctx.shop_id, g["alert_id"], row["sku"], rec.option, rec.discount_pct, rec.reasons, res.source)
-        yield ev("tool", name="recommender_agent", sku=row["sku"], source=res.source, option=rec.option)
-    plans = repo.plan(ctx.conn, ctx.shop_id, g["alert_id"], len(rows), ctx.th)
+    plans = yield from plan_alert(ctx, g["alert_id"], len(rows))
     yield from tokens(f"{text} Here is one option for each item. You decide: nothing changes until you accept.")
     yield ev("cards", cards=[{"type": "plan", **p} for p in plans])
     yield done(ctx, "launch_clear", started, alert_id=g["alert_id"], help_requested=True)
@@ -229,16 +307,21 @@ def not_enough_data(ctx: Ctx, started: float, question: str) -> Iterator[dict]:
     what = " or ".join({"price": "a price", "date": "a date"}[k] for k in kinds) or "that information"
     text = (f"{NOT_ENOUGH_DATA}: I don't have {what} for that. Loreg only knows your own stock numbers and the dated news it has stored, "
             "so it cannot say what a product will cost, when it will ship or what a rival charges.")
-    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th)
+    groups = repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today)
     if groups:
         g = groups[0]
         yield ev("tool", name="stored_alert", source=g["source"])
         src = g["source"]
-        if kinds == ["date"] and src["attached"] and src["launch_date"]:      # a stored, dated article does answer a date question
-            yield from tokens(f"From your stored news only: {alert_text(g)} I have no other source for launch dates. {ASK_PROMPT}")
+        synthetic = src["attached"] and src["origin"] == "demo_synthetic"
+        said = " This source is a synthetic demo article, not real news." if synthetic else ""
+        if kinds == ["date"] and src["attached"]:                              # a stored article is the only thing that can answer a date question
+            ending = ("I have no other source for launch dates." if src["launch_date"]
+                      else "That article gives no launch date, so I cannot say when.")
+            yield from tokens(f"From your stored news only:{said} {alert_text(g)} {ending} {ASK_PROMPT}")
             yield ev("cards", cards=[_alert_card(g)])
             yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
             return
+        text += said
         yield from tokens(f"{text} What is stored: {alert_text(g)} {ASK_PROMPT}")
         yield ev("cards", cards=[_alert_card(g)])
         yield done(ctx, None, started, intent="unknown_fact", alert_id=g["alert_id"], help_requested=g["help_requested"])
@@ -273,7 +356,7 @@ def daily_brief(ctx: Ctx, started: float) -> Iterator[dict]:
         yield ev("cards", cards=[])
         yield done(ctx, "daily_brief", started)
         return
-    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th))
+    facts = summary_facts(summary, repo.launch_exposed(ctx.conn, ctx.shop_id, ctx.th, ctx.today))
     yield ev("tool", name="shop_facts", facts=len(facts))
     res = AgentCall(ctx, "daily", lambda: daily.brief(ctx.llm, facts), lambda: AgentResult(daily._fallback(facts), "fallback"), facts).result()
     brief: DailyBrief = res.output
@@ -295,8 +378,10 @@ def choose(ctx: Ctx, question: str, skus: set[str]) -> RouteDecision:
         return RouteDecision(intent="unclear", agent="none", sku="")
     if router.unknown_fact_kinds(question):                      # a future price or date is not in anything we store
         return RouteDecision(intent="unknown_fact", agent="none", sku="")
-    call = AgentCall(ctx, "router", lambda: AgentResult(router.route(ctx.llm, question, skus), "mock" if ctx.llm.is_mock else "model"),
-                     lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=question[:300])
+    up = repo.latest_upload(ctx.conn, ctx.shop_id)
+    stock = f"shop {ctx.shop_id}, upload {up['id'] if up else 0}"     # a route names a SKU, so it is only reused for the same stock list
+    call = AgentCall(ctx, "router", lambda: router.route_result(ctx.llm, question, skus),
+                     lambda: AgentResult(router._keyword_route(question, skus), "fallback"), [], extra=f"{stock}: {question[:300]}")
     return call.result().output
 
 

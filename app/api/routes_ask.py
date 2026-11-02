@@ -8,14 +8,15 @@ import json
 import time
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_shop_id
 from app.api.deps_ai import get_llm
 from app.ingest import now_text
-from app.pipelines import Ctx, daily_brief, answer
+from app.facts import summary_facts
+from app.pipelines import Ctx, answer, daily_brief, facts_hash
 from app.storage import repo, repo_ai
 from app.storage.db import connect
 
@@ -35,12 +36,14 @@ def make_ctx(request: Request, conn, shop_id: int, llm) -> Ctx:
     s = request.app.state
     up = repo.latest_upload(conn, shop_id)
     as_of = date.fromisoformat(up["as_of"]) if up else (s.default_as_of or date.today())
-    return Ctx(conn=conn, shop_id=shop_id, th=s.th, as_of=as_of, llm=llm, cache=s.cache, executor=s.executor, timeout_s=s.agent_timeout_s)
+    return Ctx(conn=conn, shop_id=shop_id, th=s.th, as_of=as_of, today=s.clock().date(), llm=llm, cache=s.cache, executor=s.executor, timeout_s=s.agent_timeout_s,
+               deadline=time.perf_counter() + s.request_timeout_s)
 
 
 @router.post("/ask")
-def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), llm=Depends(get_llm)):
-    """Ask Loreg a question. Returns text/event-stream."""
+def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), llm=Depends(get_llm), stream: bool = Query(True)):
+    """Ask Loreg a question. Returns text/event-stream; with ?stream=false the same events come back at once as {"events": [...]},
+    for a network that buffers or breaks streamed replies."""
     state = request.app.state
     if body.sku:
         check = connect(state.db_path)
@@ -50,7 +53,14 @@ def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), ll
         finally:
             check.close()
 
-    def stream():
+    if not stream:
+        conn = connect(state.db_path)
+        try:
+            return {"events": list(answer(make_ctx(request, conn, shop_id, llm), body.question, body.sku.strip() if body.sku else None))}
+        finally:
+            conn.close()
+
+    def events():
         conn = connect(state.db_path)   # its own connection: the response outlives the request's dependencies
         try:
             ctx = make_ctx(request, conn, shop_id, llm)
@@ -61,14 +71,21 @@ def ask(body: AskBody, request: Request, shop_id: int = Depends(get_shop_id), ll
         finally:
             conn.close()
 
-    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/daily")
 def get_daily(shop_id: int = Depends(get_shop_id), request: Request = None):
-    conn = connect(request.app.state.db_path)
+    """The latest stored brief. `stale` is true when the shop's numbers have changed since it was written (an accept, an undo or an
+    upload): the page then says so instead of showing old figures as current. Working this out uses code only, never a model."""
+    state = request.app.state
+    conn = connect(state.db_path)
     try:
         brief = repo_ai.latest_brief(conn, shop_id)
+        if brief is not None:
+            summary = repo.summary(conn, shop_id)
+            now = facts_hash("daily", summary_facts(summary, repo.launch_exposed(conn, shop_id, state.th, state.clock().date()))) if summary else ""
+            brief["stale"] = brief["facts_hash"] != now
     finally:
         conn.close()
     if brief is None:
@@ -88,6 +105,6 @@ def run_daily(request: Request, shop_id: int = Depends(get_shop_id), llm=Depends
         if brief is None:
             raise HTTPException(409, "there is nothing to summarise yet: upload a stock list first")
         end = events[-1]["data"]
-        return {**brief, "agents": end["agents"], "total_ms": end["total_ms"]}
+        return {**brief, "stale": False, "agents": end["agents"], "total_ms": end["total_ms"]}
     finally:
         conn.close()

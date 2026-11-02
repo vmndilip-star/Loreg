@@ -8,13 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import create_app
-from app.api.routes_demo import DEMO_FILE
+from app.api.routes_demo import DEMO_FILE, DEMO_SALES_FILE
+from auth import AuthedClient
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def make(tmp_path, name="t.sqlite"):
-    return TestClient(create_app(tmp_path / name, as_of="2026-10-26"))
+    return AuthedClient(create_app(tmp_path / name, as_of="2026-10-26"))
 
 
 def test_demo_routes_answer_404_when_the_flag_is_unset(tmp_path, monkeypatch):
@@ -34,10 +35,13 @@ def test_only_the_exact_value_1_turns_the_demo_on(tmp_path, monkeypatch, value):
 def test_demo_load_gives_the_same_result_as_uploading_the_same_file(tmp_path, monkeypatch):
     monkeypatch.setenv("LOREG_DEMO", "1")
     demo, real = make(tmp_path, "a.sqlite"), make(tmp_path, "b.sqlite")
-    assert demo.get("/api/demo").json() == {"enabled": True}
+    assert set(demo.get("/api/demo").json()) == {"email", "password"}             # the demo credential, and nothing else
     loaded = demo.post("/api/demo/load").json()
+    sales = loaded.pop("sales")                                     # the demo loads its synthetic sales history too, through the same path
     uploaded = real.post("/api/upload", files={"file": (DEMO_FILE.name, DEMO_FILE.read_bytes(), "text/csv")}).json()
     assert loaded == uploaded
+    uploaded_sales = real.post("/api/sales/upload", files={"file": (DEMO_SALES_FILE.name, DEMO_SALES_FILE.read_bytes(), "text/csv")}).json()
+    assert sales == {**uploaded_sales, "synthetic": True} and uploaded_sales["synthetic"] is False
     assert loaded["blocked"] == 3 and loaded["rows"] == 200        # the data checks ran: 3 seeded errors are quarantined
     assert demo.get("/api/summary").json() == real.get("/api/summary").json()
     assert demo.get(loaded["issues_url"]).json() == real.get(uploaded["issues_url"]).json()
@@ -59,3 +63,21 @@ def test_the_bundled_demo_file_is_what_the_generator_makes(tmp_path):
     assert r.returncode == 0, r.stderr[-500:]
     norm = lambda b: b.replace(b"\r\n", b"\n")      # git may check the file out with CRLF on Windows
     assert norm((out / "upload_demo_200.csv").read_bytes()) == norm(DEMO_FILE.read_bytes())
+
+
+def test_a_local_env_file_is_read_before_the_app_is_created(tmp_path, monkeypatch):
+    """LOREG_AS_OF and LOREG_DEMO written in .env must take effect: the app reads them when it is created. (Values here are not secrets.)"""
+    from app.api.main import load_env
+    env = tmp_path / ".env"
+    env.write_text("LOREG_AS_OF=2026-10-26\nLOREG_DEMO=1\n", encoding="utf-8")
+    for key in ("LOREG_AS_OF", "LOREG_DEMO"):          # load_env writes into os.environ directly, so register the clean-up first
+        monkeypatch.setenv(key, "x")
+        monkeypatch.delenv(key)
+    load_env(env)
+    c = AuthedClient(create_app(tmp_path / "e.sqlite"))
+    assert c.get("/api/demo").status_code == 200
+    assert c.post("/api/demo/load").json()["as_of"] == "2026-10-26"
+    monkeypatch.setenv("LOREG_AS_OF", "2026-11-01")               # a value already in the environment wins over the file
+    load_env(env)
+    import os
+    assert os.environ["LOREG_AS_OF"] == "2026-11-01"

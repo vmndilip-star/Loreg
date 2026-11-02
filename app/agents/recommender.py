@@ -14,7 +14,11 @@ from app.schemas.outputs import DISCOUNT_LADDER, NOT_ENOUGH_DATA, Recommendation
 SYSTEM = (
     "You help a small US electronics and appliance shop owner decide what to do with one slow or dead "
     "stock item. Choose exactly ONE option from the allowed options and give one to three short reasons. "
-    "Present it as a suggestion; the owner decides. If the option is not 'discount', discount_pct must be 0."
+    "Present it as a suggestion; the owner decides. If the option is not 'discount', discount_pct must be 0. "
+    "\"Stock\" means shelf inventory, never securities or investments. "
+    "Copy every number exactly as it appears in the FACTS. Never compute, round, convert or invent a number. "
+    "Choose only from the allowed options given. If the facts are not enough to justify any action, choose \"hold\" "
+    f"and start the reason with exactly '{NOT_ENOUGH_DATA}'."    # hold is always allowed (app.core.actions.OptionSet, allowed_options below)
 )
 
 
@@ -47,12 +51,17 @@ def _fallback(sku: str, facts: list[Fact]) -> Recommendation:
         return Recommendation(sku=sku, option="hold", discount_pct=0,
                               reasons=[NOT_ENOUGH_DATA], citations=[])
     options, pcts = allowed_options(facts), allowed_discounts(facts)
-    if "return" in options:
-        option, pct = "return", 0
-    elif "discount" in options and _flag(facts, "status_dead"):
-        option, pct = "discount", min(p for p in pcts if p >= min(10, max(pcts))) if pcts else 0
-    elif "discount" in options:
+    below_cost = _flag(facts, "discount_below_cost")
+    # the same order as app.core.actions.default_option, so the fallback and the rules plan never disagree:
+    # smallest profitable discount, return, below-cost discount, bundle, hold
+    if "discount" in options and not below_cost:
         option, pct = "discount", min(pcts)
+    elif "return" in options:
+        option, pct = "return", 0
+    elif "discount" in options:
+        option, pct = "discount", max(pcts)
+    elif "bundle" in options:
+        option, pct = "bundle", 0
     else:
         option, pct = "hold", 0
     cited = facts[:3]

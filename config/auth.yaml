@@ -1,0 +1,17 @@
+# Accounts and sessions. Every value is an assumption chosen for this prototype, not taken from a standard or a rule.
+session_hours: 168                 # a session lasts 7 days from sign-in; then the owner signs in again
+
+cookies:
+  session: loreg_session           # HttpOnly, SameSite=Lax, Secure when the page is served over https
+  csrf: loreg_csrf                 # signed-out pages only: the token a sign-in or signup must send back in X-CSRF-Token
+
+# Kept in memory: they reset when the app restarts.
+signup_limit:
+  max_per_ip: 5                    # account creations tried from one address
+  window_s: 900                    # per 15 minutes
+
+login_backoff:                     # per address and per email, counted separately
+  free_failures: 5                 # failed sign-ins allowed before any wait
+  base_wait_s: 30                  # then 30 s, 60 s, 120 s ... after each further failure
+  max_wait_s: 900                  # never more than 15 minutes
+  window_s: 900                    # failures older than this are forgotten

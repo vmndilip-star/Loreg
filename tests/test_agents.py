@@ -78,6 +78,50 @@ def test_inventory_rejects_claims_with_no_citation():
     assert inventory.explain(FakeModel(bad), SKU, FACTS).source == "fallback"
 
 
+class SeqModel(FakeModel):
+    """Answers with each output in turn (an exception in the list is raised), and keeps every user message it was sent."""
+
+    def __init__(self, *outputs):
+        self.outputs, self.sent = list(outputs), []
+
+    def complete_json(self, *, system, user, schema, mock_output=None, max_completion_tokens=0):
+        self.sent.append(user)
+        out = self.outputs.pop(0)
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+
+def test_a_rejected_answer_is_retried_once_and_a_good_second_answer_is_used():
+    bad = InventoryExplanation(sku=SKU, summary="No sale in 300 days.", citations=["m1"])
+    good = InventoryExplanation(sku=SKU, summary="No sale in 241 days.", citations=["m1"])
+    model = SeqModel(bad, good)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.source == "model" and r.retried and r.outcome == "retried_ok" and r.output == good
+    assert len(model.sent) == 2 and "REJECTED" in model.sent[1] and "300" in model.sent[1]      # the problem is named in the retry
+
+
+def test_two_rejected_answers_fall_back_to_the_rules():
+    bad = InventoryExplanation(sku=SKU, summary="No sale in 300 days.", citations=["m1"])
+    model = SeqModel(bad, bad)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.source == "fallback" and r.outcome == "fallback" and len(model.sent) == 2
+    assert any(n.startswith("after one retry") for n in r.notes)
+
+
+def test_a_retry_that_fails_to_answer_falls_back():
+    bad = Recommendation(sku=SKU, option="return", discount_pct=0, reasons=["Send it back."], citations=["m1"])
+    r = recommender.recommend(SeqModel(bad, LLMError("down")), SKU, FACTS, help_requested=True)
+    assert r.source == "fallback" and any("retry: model unavailable" in n for n in r.notes)
+
+
+def test_a_good_first_answer_is_not_retried():
+    good = InventoryExplanation(sku=SKU, summary="No sale in 241 days.", citations=["m1"])
+    model = SeqModel(good)
+    r = inventory.explain(model, SKU, FACTS)
+    assert r.outcome == "model_ok" and len(model.sent) == 1
+
+
 def test_inventory_falls_back_when_the_model_is_down():
     r = inventory.explain(FakeModel(error=LLMError("down")), SKU, FACTS)
     assert r.source == "fallback" and r.output.citations == ["m1", "m2", "m3", "m4"]
@@ -110,7 +154,7 @@ def test_one_proposal_that_stays_proposed():
     r = recommender.recommend(LLMClient("mock"), SKU, FACTS, help_requested=True)
     rec = r.output
     assert isinstance(rec, Recommendation) and rec.status == "proposed"
-    assert rec.option == "discount" and rec.discount_pct == 10 and rec.citations
+    assert rec.option == "discount" and rec.discount_pct == 5 and rec.citations      # the rules' own first choice: the smallest allowed step
 
 
 def test_disallowed_option_is_replaced_by_the_fallback():
@@ -125,6 +169,35 @@ def test_discount_above_the_cap_is_rejected():
     bad = Recommendation(sku=SKU, option="discount", discount_pct=15, reasons=["Cut 15% off."], citations=["m1"])
     r = recommender.recommend(FakeModel(bad), SKU, capped, help_requested=True)
     assert r.source == "fallback" and r.output.discount_pct == 5
+
+
+def test_the_prompt_says_stock_is_not_securities_and_names_the_not_enough_data_constant():
+    assert "never securities or investments" in recommender.SYSTEM
+    assert f"'{NOT_ENOUGH_DATA}'" in recommender.SYSTEM and "Never compute, round, convert or invent a number" in recommender.SYSTEM
+
+
+def test_hold_with_not_enough_data_passes_the_checks_without_a_fallback():
+    honest = Recommendation(sku=SKU, option="hold", discount_pct=0, reasons=[f"{NOT_ENOUGH_DATA}: the facts do not justify an action."], citations=[])
+    r = recommender.recommend(FakeModel(honest), SKU, FACTS, help_requested=True)
+    assert r.source == "model" and r.output == honest and r.notes == []
+
+
+@pytest.mark.parametrize("extra", [[], [fact("b0", "bundle_allowed", "Bundling allowed", "no", 0)],
+                                   [fact("c0", "max_discount_pct", "Highest discount", "none", 0), fact("b0", "bundle_allowed", "Bundling allowed", "no", 0)]])
+def test_hold_is_always_an_allowed_option(extra):
+    assert "hold" in recommender.allowed_options(FACTS + extra)
+
+
+def test_the_rules_always_allow_hold():
+    from datetime import date
+    from app.core.actions import allowed_options
+    from app.core.thresholds import load_thresholds
+    th = load_thresholds()
+    for cost, sell, dsls, sold, rw, map_price in [(100, 90, 400, 0, None, None), (100, 200, 10, 50, date(2027, 1, 1), None),
+                                                  (100, 120, None, 0, None, 130), (0, 0, 0, 0, None, None)]:
+        opts = allowed_options(qty=3, unit_cost=cost, sell_price=sell, dsls=dsls, units_sold_90d=sold, category="tv", seasonal=False,
+                               return_window_end=rw, as_of=date(2026, 10, 26), th=th, map_price=map_price)
+        assert opts.hold_allowed and "hold" in opts.options()
 
 
 def test_a_discount_needs_a_ladder_value():

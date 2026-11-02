@@ -13,6 +13,7 @@ below-cost discount, bundle, hold.
 """
 
 from dataclasses import dataclass, field, replace
+import math
 from datetime import date
 
 from app.core.metrics import days_of_stock
@@ -86,3 +87,33 @@ def default_option(opts: OptionSet) -> tuple:
     if opts.bundle_allowed:
         return "bundle", 0
     return "hold", 0
+
+
+@dataclass(frozen=True)
+class DiscountHeadroom:
+    """How far a discount may go, and what stops the next step. Money is in the unit of the prices passed in (cents in the app)."""
+    largest_pct: int | None            # the largest allowed ladder step; None when no step is allowed
+    largest_price: int | None          # the shelf price at that step
+    next_pct: int | None               # the next ladder step after it; None when the ladder is used up
+    next_price: int | None             # the shelf price at that step
+    blocked_by: str | None             # "cost" or "map": what the next step would go below; None when there is no next step
+    floor: int | None                  # the cost or the minimum advertised price that the next step would go below
+
+
+def discount_headroom(opts: OptionSet, *, sell_price: int, unit_cost: int, map_price: int | None, th: Thresholds) -> DiscountHeadroom:
+    """The largest allowed discount step, the next ladder step and why it is blocked. Read-only: it never changes what is allowed,
+    it only restates what `allowed_options` decided (`opts`). If the next step would go below both cost and MAP, the higher of the two
+    is named (on a tie, cost); with no MAP on the item, or one that could not be read, only cost can be named."""
+    # The price at a step, rounded DOWN to the cent with the very expression allowed_options tests, so 'below cost' is never shown
+    # next to a price that equals the cost.
+    at = lambda pct: math.floor(sell_price * (1 - pct / 100.0))          # noqa: E731
+    ladder = th.discount_ladder_pct
+    largest = max(opts.discounts_pct) if opts.discounts_pct else None
+    later = [p for p in ladder if largest is None or p > largest]
+    nxt = later[0] if later else None
+    blocked = floor = None
+    if nxt is not None:
+        price = sell_price * (1 - nxt / 100.0)                          # the same test allowed_options applies
+        by_map = bool(map_price) and price < map_price and (map_price > unit_cost or price >= unit_cost)
+        blocked, floor = ("map", map_price) if by_map else ("cost", unit_cost)
+    return DiscountHeadroom(largest, None if largest is None else at(largest), nxt, None if nxt is None else at(nxt), blocked, floor)

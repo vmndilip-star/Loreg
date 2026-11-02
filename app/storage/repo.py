@@ -5,7 +5,7 @@ import sqlite3
 from datetime import date
 
 from app.catalog import CATEGORY_LABEL
-from app.core import actions, metrics
+from app.core import actions, exposure, metrics, pace
 from app.core.classify import AT_RISK
 from app.core.explain import DQ_TEXT, money, plan_reasons, why_flagged
 from app.core.quality import CODES, SEVERITY
@@ -33,15 +33,16 @@ def _name(row) -> str:
 
 # ---------------------------------------------------------------------------------------- money at risk
 def money_at_risk(conn: sqlite3.Connection, shop_id: int) -> dict:
-    """At-risk capital, minus what the owner has accepted a plan for. Integer cents."""
-    at_risk = conn.execute(
-        f"SELECT COALESCE(SUM(capital_cents),0) AS c, COUNT(*) AS n FROM skus WHERE shop_id = ? AND qty > 0 AND status IN ({RISK_MARKS})",
-        (shop_id, *AT_RISK)).fetchone()
-    accepted = conn.execute(
-        "SELECT COALESCE(SUM(capital_cents),0) AS c, COUNT(*) AS n FROM recommendations WHERE shop_id = ? AND status = 'accepted'",
-        (shop_id,)).fetchone()
-    return {"at_risk_cents": at_risk["c"], "at_risk_n": at_risk["n"], "accepted_cents": accepted["c"], "accepted_n": accepted["n"],
-            "money_at_risk_cents": at_risk["c"] - accepted["c"]}
+    """Dead and slow capital split by app.core.exposure: at risk (no accepted plan) and action in progress (an accepted plan). Integer cents.
+
+    The older names stay for the web page and the tests: at_risk_cents is everything dead or slow, accepted_* is the action-in-progress
+    bucket and money_at_risk_cents is what is still at risk."""
+    items = [(r["sku"], r["capital_cents"]) for r in conn.execute(
+        f"SELECT sku, capital_cents FROM skus WHERE shop_id = ? AND qty > 0 AND status IN ({RISK_MARKS})", (shop_id, *AT_RISK))]
+    accepted = [r["sku"] for r in conn.execute("SELECT sku FROM recommendations WHERE shop_id = ? AND status = 'accepted'", (shop_id,))]
+    e = exposure.compute_exposure(items, accepted)
+    return {"at_risk_cents": e.total_cents, "at_risk_n": e.total_n, "accepted_cents": e.action_in_progress_cents, "accepted_n": e.action_in_progress_n,
+            "money_at_risk_cents": e.at_risk_cents, "exposure": e.as_dict()}
 
 
 # ---------------------------------------------------------------------------------------- summary
@@ -70,7 +71,7 @@ def summary(conn: sqlite3.Connection, shop_id: int) -> dict | None:
                    "at_risk": blk(*AT_RISK), "new": blk("new"), "insufficient": blk("insufficient_data"), "zero_qty": total["zero"] or 0},
         # money_at_risk_cents: dead or slow stock with no accepted plan yet. at_risk_all_cents: everything dead or slow.
         "money_at_risk_cents": mar["money_at_risk_cents"], "at_risk_all_cents": mar["at_risk_cents"],
-        "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"],
+        "accepted_cents": mar["accepted_cents"], "accepted_n": mar["accepted_n"], "exposure": mar["exposure"],
         "by_category": [{"key": c["key"], "label": CATEGORY_LABEL.get(c["key"], c["key"]), "n": c["n"], "cap_cents": c["cap"],
                          "pct": round(100 * c["cap"] / top)} for c in cats],
         "needs_look": {"count": nl["count"], "unsorted": nl["unsorted"]},
@@ -100,25 +101,75 @@ def _group_items(conn, brand: str, category: str, shop_id: int):
 
 
 DEFAULT_STALE_DAYS = 30
+DEMO_LABEL = "Demo article (synthetic)"
+_WHY_NOT_CHECKED = {"robots_unavailable": "the site's robots.txt could not be read", "network_error": "the site could not be reached",
+                    "blocked_by_robots": "the site's robots.txt does not allow it", "blocked_host": "the address is not on the allowed list",
+                    "blocked_redirect": "a redirect left the allowed list", "too_large": "the feed was too large", "bad_feed": "the answer was not a readable feed"}
 
 
-def _freshness(published: str | None, as_of: date | None, stale_after_days: int) -> dict:
-    """How old the source is on the stock list's as-of date. A missing or unreadable date is "unknown", never "fresh"."""
+def _freshness(published: str | None, today: date | None, stale_after_days: int, as_of: date | None = None) -> dict:
+    """How old the source is today (the clock), and, secondarily, on the stock list's date. An unreadable date is "unknown", never "fresh"."""
     try:
-        age = (as_of - date.fromisoformat(str(published)[:10])).days
+        pub = date.fromisoformat(str(published)[:10])
+        age = (today - pub).days
     except (TypeError, ValueError):
-        return {"freshness": "unknown", "age_days": None, "stale_after_days": stale_after_days}
-    return {"freshness": "stale" if age > stale_after_days else "fresh", "age_days": age, "stale_after_days": stale_after_days}
+        return {"freshness": "unknown", "age_days": None, "age_at_stock_date_days": None, "stale_after_days": stale_after_days}
+    at_stock = (as_of - pub).days if as_of else None
+    return {"freshness": "stale" if age > stale_after_days else "fresh", "age_days": age, "age_at_stock_date_days": at_stock,
+            "stale_after_days": stale_after_days}
 
 
-def _source(a, as_of: date | None = None, stale_after_days: int = DEFAULT_STALE_DAYS) -> dict:
-    """The real, dated source behind an alert, or a plain statement that there is none."""
+def _day(stamp: str | None) -> str:
+    return str(stamp)[:10] if stamp else ""
+
+
+def _source(conn: sqlite3.Connection, a, today: date | None = None, as_of: date | None = None, stale_after_days: int = DEFAULT_STALE_DAYS) -> dict:
+    """The real, dated source behind an alert, with where and when it came from, or a plain statement that there is none."""
     if a["source_item_id"] is None:
         return {"attached": False, "status": "no dated source attached"}
-    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "title": a["source_title"], "published": a["source_published"],
+    today = today or date.today()
+    it = conn.execute("SELECT i.*, s.last_ok_at, s.last_fetch_at, s.last_status FROM market_items i JOIN market_sources s ON s.id = i.source_id"
+                      " WHERE i.id = ?", (a["source_item_id"],)).fetchone()
+    origin = it["origin"] if it else "feed"
+    cached, note = False, ""
+    if origin == "stored_copy":
+        cached, note = True, f"Stored copy of an article fetched on {_day(it['fetched_at'])}. It was not fetched again here."
+    elif origin == "feed" and it is not None and it["last_status"] not in ("ok", "not_modified"):
+        why = _WHY_NOT_CHECKED.get(it["last_status"] or "", "it has not been checked yet")
+        cached = True
+        note = (f"Stored copy. Published {_day(a['source_published'])}, fetched {_day(it['fetched_at'])}. "
+                f"Could not check for newer news on {_day(it['last_fetch_at'])} ({why}).")
+    return {"attached": True, "name": a["source_name"], "url": a["source_url"], "domain": it["domain"] if it else None, "title": a["source_title"],
+            "published": a["source_published"], "fetched": it["fetched_at"] if it else None, "checked": it["last_ok_at"] if it and origin == "feed" else None,      # only a feed article is re-checked; a stored or synthetic one never is
+            
+            "excerpt": it["excerpt"] if it else "", "origin": origin, "label": DEMO_LABEL if origin == "demo_synthetic" else ("Stored copy" if cached else ""),
+            "cached": cached, "cache_note": note,
             "launch_date": a["launch_date"] if a["date_stated"] else None,
+            "launch_iso": _launch_iso(conn, a),
             "launch_date_status": "stated in the article, as written" if a["date_stated"] else "announced, no date",
-            **_freshness(a["source_published"], as_of, stale_after_days)}
+            **_freshness(a["source_published"], today, stale_after_days, as_of)}
+
+
+def _launch_iso(conn: sqlite3.Connection, a) -> str | None:
+    """The attached launch date as YYYY-MM-DD, when the article gave a year; the text the article used is kept apart, as written."""
+    if a["source_item_id"] is None or not a["date_stated"] or not a["launch_date"]:
+        return None
+    row = conn.execute("SELECT launch_iso FROM market_events WHERE item_id = ? AND date_stated = 1 AND launch_date = ? ORDER BY id LIMIT 1",
+                       (a["source_item_id"], a["launch_date"])).fetchone()
+    return row["launch_iso"] if row else None
+
+
+def _pace(source: dict, units: int, today: date | None) -> dict | None:
+    """The required pace to the stated launch date, or None when no date with a year is attached. Not a forecast."""
+    if not source.get("attached") or not source.get("launch_iso") or not source.get("launch_date"):
+        return None
+    try:
+        launch = date.fromisoformat(source["launch_iso"])
+    except ValueError:
+        return None
+    p = pace.required_pace(units, launch, today or date.today())
+    return {"status": p.status, "units": p.units, "days_until": p.days_until, "per_day": p.per_day, "launch_date": source["launch_date"],
+            "text": pace.pace_text(p, source["launch_date"], synthetic=source.get("origin") == "demo_synthetic")}
 
 
 def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
@@ -126,16 +177,18 @@ def _shop_as_of(conn: sqlite3.Connection, shop_id: int) -> date | None:
     return date.fromisoformat(up["as_of"]) if up else None
 
 
-def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None) -> list[dict]:
+def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None, today: date | None = None) -> list[dict]:
     """Launch-family items that are dead or slow, per alert. Deliberately no options: plans come only after the owner asks."""
     out = []
     as_of, stale = _shop_as_of(conn, shop_id), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
     for a in conn.execute("SELECT * FROM alerts WHERE shop_id = ? AND kind = 'launch_family' ORDER BY capital_cents DESC, id", (shop_id,)):
         items = _group_items(conn, a["brand"], a["category"], shop_id)
         top3 = items[:3]
+        source = _source(conn, a, today, as_of, stale)
         out.append({
             "alert_id": a["id"], "label": f"{a['brand']} {CATEGORY_LABEL.get(a['category'], a['category'])}", "brand": a["brand"],
-            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale),
+            "category": a["category"], "title": a["title"], "source_note": a["source_note"], "source": source,
+            "pace": _pace(source, sum(i["qty"] for i in items), today),
             "n": len(items), "cap_cents": sum(i["capital_cents"] for i in items),
             "top": [{"sku": i["sku"], "name": _name(i), "shelf": i["qty"], "cap_cents": i["capital_cents"]} for i in top3],
             "rest_n": len(items) - len(top3), "rest_cap_cents": sum(i["capital_cents"] for i in items[3:]),
@@ -143,54 +196,75 @@ def launch_exposed(conn: sqlite3.Connection, shop_id: int, th=None) -> list[dict
     return out
 
 
-def get_alert(conn: sqlite3.Connection, alert_id: int):
-    a = conn.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,)).fetchone()
+def get_alert(conn: sqlite3.Connection, alert_id: int, shop_id: int):
+    """The shop's own alert. Another shop's alert is "not found", exactly like one that does not exist."""
+    a = conn.execute("SELECT * FROM alerts WHERE id = ? AND shop_id = ?", (alert_id, shop_id)).fetchone()
     if a is None:
         raise NotFound(f"alert {alert_id} not found")
     return a
 
 
-def alert_state(conn: sqlite3.Connection, alert_id: int, th=None) -> dict:
-    a = get_alert(conn, alert_id)
-    as_of, stale = _shop_as_of(conn, a["shop_id"]), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
-    recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? GROUP BY status", (alert_id,)).fetchall()
-    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(a, as_of, stale), "n_items": a["n_items"],
+def alert_state(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None, today: date | None = None) -> dict:
+    a = get_alert(conn, alert_id, shop_id)
+    as_of, stale = _shop_as_of(conn, shop_id), getattr(th, "stale_source_days", DEFAULT_STALE_DAYS)
+    recs = conn.execute("SELECT status, COUNT(*) AS n FROM recommendations WHERE alert_id = ? AND shop_id = ? GROUP BY status",
+                        (alert_id, shop_id)).fetchall()
+    return {"alert_id": a["id"], "title": a["title"], "source_note": a["source_note"], "source": _source(conn, a, today, as_of, stale), "n_items": a["n_items"],
             "cap_cents": a["capital_cents"],
             "help_requested": a["help_requested_at"] is not None, "help_requested_at": a["help_requested_at"],
             "recommendations": {r["status"]: r["n"] for r in recs}}
 
 
-def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None) -> dict:
-    a = get_alert(conn, alert_id)
+def request_help(conn: sqlite3.Connection, shop_id: int, alert_id: int, th=None, today: date | None = None) -> dict:
+    a = get_alert(conn, alert_id, shop_id)
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
     try:
         if a["help_requested_at"] is None:  # idempotent: the first request is the one on record
-            conn.execute("UPDATE alerts SET help_requested_at = ? WHERE id = ?", (ts, alert_id))
+            conn.execute("UPDATE alerts SET help_requested_at = ? WHERE id = ? AND shop_id = ?", (ts, alert_id, shop_id))
             conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id) VALUES (?,?,?,?,?,?)",
                          (shop_id, ts, "owner", "help_requested", "alert", str(alert_id)))
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
         raise
-    return alert_state(conn, alert_id, th)
+    return alert_state(conn, shop_id, alert_id, th, today)
 
 
-def _rec_json(rec, item) -> dict:
+def item_options(it, as_of: date, th: Thresholds) -> actions.OptionSet:
+    """What the rules allow for one stocked item (a skus row joined with its product). The only place this is worked out for a plan:
+    the rules plan, the agent's allowed set and the check on the agent's answer all use it."""
+    rw = date.fromisoformat(it["return_window_end"]) if it["return_window_end"] else None
+    return actions.allowed_options(qty=it["qty"], unit_cost=it["unit_cost_cents"], sell_price=it["sell_price_cents"], dsls=it["dsls"],
+                                   units_sold_90d=it["units_sold_90d"], category=it["category"], seasonal=bool(it["is_seasonal"]),
+                                   return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])        # money in cents, like cost and price
+
+
+def _headroom_json(opts: actions.OptionSet, item, th: Thresholds) -> dict:
+    """Read at the moment a card is built, never stored: how far a discount may go and what stops the next step (money in cents)."""
+    h = actions.discount_headroom(opts, sell_price=item["sell_price_cents"], unit_cost=item["unit_cost_cents"], map_price=item["map_cents"], th=th)
+    return {"largest_pct": h.largest_pct, "largest_price_cents": h.largest_price, "next_pct": h.next_pct, "next_price_cents": h.next_price,
+            "blocked_by": h.blocked_by, "floor_cents": h.floor, "map_blocked": opts.map_blocked}
+
+
+def _rec_json(rec, item, as_of: date, th: Thresholds) -> dict:
     reasons = json.loads(rec["reasons_json"])
     d = rec["discount_pct"]
     label = {"discount": f"Discount {d}%", "bundle": "Bundle", "return": "Return", "hold": "Hold"}[rec["action"]]
     dos = metrics.days_of_stock(item["qty"], item["units_sold_90d"])
+    opts = item_options(item, as_of, th)
     chips = [f"SKU {rec['sku']}", "Days of stock " + (str(round(dos)) if dos is not None else "no sales in 90 days")]
     return {"id": rec["id"], "alert_id": rec["alert_id"], "sku": rec["sku"], "name": _name(item), "shelf": item["qty"],
             "tied_cents": rec["capital_cents"], "option": rec["action"], "option_label": label, "discount_pct": d,
             "margin_impact_cents": rec["margin_impact_cents"], "reasons": reasons, "chips": chips,
-            "citations": json.loads(rec["citations_json"]), "status": rec["status"], "decided_at": rec["decided_at"]}
+            "citations": json.loads(rec["citations_json"]), "status": rec["status"], "decided_at": rec["decided_at"],
+            "source": rec["source"],
+            "headroom": _headroom_json(opts, item, th) if rec["action"] == "discount" or opts.map_blocked else None}       # discount and MAP-blocked cards only
 
 
 def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: Thresholds) -> list[dict]:
     """One proposed option per item for the top `limit` items of the alert. Refused (Conflict) until the owner asked for help."""
-    a = get_alert(conn, alert_id)
+    a = get_alert(conn, alert_id, shop_id)
     if a["help_requested_at"] is None:
         raise Conflict("Loreg only plans after you ask for help on this alert")
     as_of = date.fromisoformat(latest_upload(conn, shop_id)["as_of"])
@@ -200,9 +274,7 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
     try:
         for it in items:
             rw = date.fromisoformat(it["return_window_end"]) if it["return_window_end"] else None
-            opts = actions.allowed_options(qty=it["qty"], unit_cost=it["unit_cost_cents"], sell_price=it["sell_price_cents"], dsls=it["dsls"],
-                                           units_sold_90d=it["units_sold_90d"], category=it["category"], seasonal=bool(it["is_seasonal"]),
-                                           return_window_end=rw, as_of=as_of, th=th, map_price=it["map_cents"])               # cents, like cost and price
+            opts = item_options(it, as_of, th)
             option, pct = actions.default_option(opts)
             dos = metrics.days_of_stock(it["qty"], it["units_sold_90d"])
             reasons = plan_reasons(option=option, discount_pct=pct, qty=it["qty"], cost_cents=it["unit_cost_cents"], sell_cents=it["sell_price_cents"],
@@ -223,14 +295,20 @@ def plan(conn: sqlite3.Connection, shop_id: int, alert_id: int, limit: int, th: 
         conn.execute("ROLLBACK")
         raise
     by_sku = {it["sku"]: it for it in items}
-    recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? ORDER BY capital_cents DESC, sku", (alert_id,)).fetchall()
-    return [_rec_json(r, by_sku[r["sku"]]) for r in recs if r["sku"] in by_sku]
+    recs = conn.execute("SELECT * FROM recommendations WHERE alert_id = ? AND shop_id = ? ORDER BY capital_cents DESC, sku",
+                        (alert_id, shop_id)).fetchall()
+    return [_rec_json(r, by_sku[r["sku"]], as_of, th) for r in recs if r["sku"] in by_sku]
+
+
+def item_plan(conn: sqlite3.Connection, alert_id: int, sku: str):
+    """The stored plan row for one item."""
+    return conn.execute("SELECT * FROM recommendations WHERE alert_id = ? AND sku = ?", (alert_id, sku)).fetchone()
 
 
 def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) -> dict:
     """Save the owner's decision. Needs a recorded help request. Returns the recomputed money at risk."""
-    rec = conn.execute("SELECT r.*, a.help_requested_at AS help_at FROM recommendations r JOIN alerts a ON a.id = r.alert_id WHERE r.id = ?",
-                       (rec_id,)).fetchone()
+    rec = conn.execute("SELECT r.*, a.help_requested_at AS help_at FROM recommendations r JOIN alerts a ON a.id = r.alert_id AND a.shop_id = r.shop_id"
+                       " WHERE r.id = ? AND r.shop_id = ?", (rec_id, shop_id)).fetchone()
     if rec is None:
         raise NotFound(f"recommendation {rec_id} not found")
     if rec["help_at"] is None:
@@ -242,7 +320,7 @@ def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) ->
         ts = now_text()
         conn.execute("BEGIN IMMEDIATE")
         try:
-            conn.execute("UPDATE recommendations SET status = ?, decided_at = ? WHERE id = ?", (target, ts, rec_id))
+            conn.execute("UPDATE recommendations SET status = ?, decided_at = ? WHERE id = ? AND shop_id = ?", (target, ts, rec_id, shop_id))
             conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                          (shop_id, ts, "owner", "accepted" if accept else "declined", "recommendation", str(rec_id),
                           json.dumps({"sku": rec["sku"], "capital_cents": rec["capital_cents"]})))
@@ -255,7 +333,7 @@ def decide(conn: sqlite3.Connection, shop_id: int, rec_id: int, accept: bool) ->
 
 def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
     """Take back an accepted or declined decision: the plan goes back to 'proposed'. Money at risk is recomputed."""
-    rec = conn.execute("SELECT * FROM recommendations WHERE id = ?", (rec_id,)).fetchone()
+    rec = conn.execute("SELECT * FROM recommendations WHERE id = ? AND shop_id = ?", (rec_id, shop_id)).fetchone()
     if rec is None:
         raise NotFound(f"recommendation {rec_id} not found")
     if rec["status"] not in ("accepted", "rejected"):
@@ -263,7 +341,7 @@ def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
     ts = now_text()
     conn.execute("BEGIN IMMEDIATE")
     try:
-        conn.execute("UPDATE recommendations SET status = 'proposed', decided_at = NULL WHERE id = ?", (rec_id,))
+        conn.execute("UPDATE recommendations SET status = 'proposed', decided_at = NULL WHERE id = ? AND shop_id = ?", (rec_id, shop_id))
         conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
                      (shop_id, ts, "owner", "undone", "recommendation", str(rec_id),
                       json.dumps({"sku": rec["sku"], "was": "accepted" if rec["status"] == "accepted" else "declined",
@@ -276,15 +354,16 @@ def undo(conn: sqlite3.Connection, shop_id: int, rec_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------------------- uploads and needs-a-look
-def upload_issues(conn: sqlite3.Connection, upload_id: int, row_limit: int = 200) -> dict:
-    up = conn.execute("SELECT * FROM uploads WHERE id = ?", (upload_id,)).fetchone()
+def upload_issues(conn: sqlite3.Connection, shop_id: int, upload_id: int, row_limit: int = 200) -> dict:
+    up = conn.execute("SELECT * FROM uploads WHERE id = ? AND shop_id = ?", (upload_id, shop_id)).fetchone()
     if up is None:
         raise NotFound(f"upload {upload_id} not found")
-    counts = conn.execute("SELECT code, COUNT(*) AS n FROM dq_issues WHERE upload_id = ? GROUP BY code", (upload_id,)).fetchall()
+    counts = conn.execute("SELECT code, COUNT(*) AS n FROM dq_issues WHERE upload_id = ? AND shop_id = ? GROUP BY code",
+                          (upload_id, shop_id)).fetchall()
     by_code = {c["code"]: c["n"] for c in counts}
     issues = [{"code": c, "n": by_code[c], "level": SEVERITY[c], "text": DQ_TEXT[c].format(n=by_code[c])} for c in CODES if c in by_code]
-    rows = conn.execute("SELECT row_number, sku, code, severity, quarantined FROM dq_issues WHERE upload_id = ? ORDER BY row_number, code LIMIT ?",
-                        (upload_id, row_limit)).fetchall()
+    rows = conn.execute("SELECT row_number, sku, code, severity, quarantined FROM dq_issues WHERE upload_id = ? AND shop_id = ?"
+                        " ORDER BY row_number, code LIMIT ?", (upload_id, shop_id, row_limit)).fetchall()
     return {"upload": {"id": up["id"], "file": up["filename"], "as_of": up["as_of"], "rows": up["rows"], "ok": up["rows"] - up["blocked"] - up["look"],
                        "look": up["look"], "blocked": up["blocked"], "kept": up["kept"], "zero_qty": up["zero_qty"], "unsorted": up["unsorted"]},
             "issues": issues,
@@ -303,3 +382,27 @@ def needs_look(conn: sqlite3.Connection, shop_id: int, limit: int = 100) -> dict
                 " WHERE s.shop_id = ? AND s.needs_look = 1 ORDER BY p.matched, s.sku LIMIT ?", (shop_id, limit)):
             items.append({"sku": r["sku"], "name": _name(r), "line": r["line"], "status": r["status"], "reasons": (r["look_reason"] or "").split(",")})
     return {"count": count, "unsorted": unsorted, "items": items}
+
+
+# ---------------------------------------------------------------------------------------- agent quality (read-only)
+OUTCOMES = ("model_ok", "retried_ok", "fallback", "mock")
+
+
+def _rates(outcomes: list[str]) -> dict:
+    counts = {o: outcomes.count(o) for o in OUTCOMES}
+    asked = len(outcomes) - counts["mock"]               # calls a real model was asked to answer
+    return {"calls": len(outcomes), **counts, "fallback_rate": round(counts["fallback"] / asked, 4) if asked else None}
+
+
+def agent_quality(conn: sqlite3.Connection, shop_id: int, last_n: int = 500) -> dict:
+    """How often the agents' answers were used, retried or replaced by the rules, over this shop's last `last_n` agent calls, and how many
+    of the current plan's items carry a rules-based option. Counts only; nothing here calls a model."""
+    recent = conn.execute("SELECT agent, outcome, backend FROM agent_calls WHERE shop_id = ? ORDER BY id DESC LIMIT ?", (shop_id, last_n)).fetchall()
+    by_agent: dict[str, list] = {}
+    for r in recent:
+        by_agent.setdefault(r["agent"], []).append(r["outcome"])
+    plans = conn.execute("SELECT COUNT(*) AS n, COALESCE(SUM(source IN ('rules', 'fallback')), 0) AS rules FROM recommendations WHERE shop_id = ?",
+                         (shop_id,)).fetchone()
+    return {"window": last_n, "backends_seen": sorted({r["backend"] for r in recent}), **_rates([r["outcome"] for r in recent]),
+            "per_agent": {a: _rates(o) for a, o in sorted(by_agent.items())},
+            "plan_items": {"items": plans["n"], "rules_based": plans["rules"]}}

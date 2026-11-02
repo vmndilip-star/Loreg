@@ -70,9 +70,12 @@ export async function mount(root, ctx) {
         else if (event === 'done') {
           status.textContent = '';
           moneyNumber.textContent = money(data.money_at_risk_cents);   // the server's figure, sent with the end of the stream
-          foot.textContent = `Answered in ${(data.total_ms / 1000).toFixed(1)} s.`;
+          const byRules = (data.agents || []).filter((a) => a.outcome === 'fallback').length;
+          foot.textContent = `Answered in ${(data.total_ms / 1000).toFixed(1)} s.`
+            + (byRules ? ` Using rules-based fallback for ${byRules} of ${data.agents.length} steps (the model was slow or its answer failed a check).` : '');
           if (data.pipeline === 'launch_clear' && !data.help_requested) launchQuestion = question;
           ctx.announce('Answer ready');
+          ctx.refreshQuality();
         } else if (event === 'error') {
           status.textContent = '';
           append(cards, [el('div', { class: 'banner banner-error' }, data.message)]);
@@ -113,7 +116,7 @@ export async function mount(root, ctx) {
     no.addEventListener('click', () => { answer.textContent = 'Okay. I will not plan anything until you ask.'; clear(actions); });
     append(actions, [yes, no]);
     append(holder, [el('div', { class: 'chip chip-amber mb-2' }, 'Alert'), el('div', { class: 'fw-bold' }, c.title),
-      el('div', { class: 'soft mb-2' }, `${count(c.n)} items, ${money(c.cap_cents)} tied up.`), sourceBlock(c.source),
+      el('div', { class: 'soft mb-2' }, `${count(c.n)} items, ${money(c.cap_cents)} tied up.`), sourceBlock(c.source, '', c.pace),
       el('div', { class: 'label mt-3 mb-2' }, c.question), actions, answer]);
     return holder;
   }

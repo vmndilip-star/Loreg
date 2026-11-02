@@ -16,13 +16,15 @@ export async function mount(root, ctx) {
   const t = summary.totals;
   const groups = (await api('/launch/exposed', { signal: ctx.signal })).groups;
 
-  const alertSlot = el('div', { class: 'col-12', 'data-testid': 'alert' });
+  // On a wide screen the alert is on the left and the three totals sit beside it, so the first screen shows the dead and slow amounts
+  // above the fixed dock. On a narrow screen everything stacks: alert, money, dead, slow.
+  const alertSlot = el('div', { class: 'col-12 col-lg-7', 'data-testid': 'alert' });
   const briefSlot = el('div', { class: 'col-12 col-lg-6', 'data-testid': 'brief' });
   const grid = el('div', { class: 'row g-3' },
     alertSlot,
-    el('div', { class: 'col-12 col-lg-6' }, moneyTile('Money at risk', summary.money_at_risk_cents,
-      el('div', { class: 'fw-bold' }, `${count(t.at_risk.n)} of ${count(t.skus)} items are dead or slow.`))),
-    el('div', { class: 'col-12 col-lg-6' }, el('div', { class: 'row g-3 h-100' },
+    el('div', { class: 'col-12 col-lg-5' }, el('div', { class: 'row g-3' },
+      el('div', { class: 'col-12' }, moneyTile('Money at risk', summary.money_at_risk_cents,
+        el('div', { class: 'fw-bold' }, `${count(t.at_risk.n)} of ${count(t.skus)} items are dead or slow.`))),
       el('div', { class: 'col-6' }, el('section', { class: 'tile glass h-100 d-flex flex-column justify-content-center', 'aria-label': 'Dead items' },
         el('div', { class: 'num num-lg' }, `${count(t.dead.n)} dead`), el('div', { class: 'soft fw-semibold' }, `${money(t.dead.cap_cents)} tied up`))),
       el('div', { class: 'col-6' }, el('section', { class: 'tile glass h-100 d-flex flex-column justify-content-center', 'aria-label': 'Slow items' },
@@ -55,7 +57,7 @@ function renderAlert(slot, g, ctx) {
   const body = el('div', { class: 'd-flex flex-column gap-3' });
   const draw = () => {
     clear(body);
-    append(body, [el('div', { class: 'num num-lg' }, g.title), el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note)]);
+    append(body, [el('div', { class: 'num num-lg' }, g.title), el('div', { class: 'fw-semibold' }, alertSummary(g)), sourceBlock(g.source, g.source_note, g.pace)]);
     if (g.help_requested) {
       append(body, [el('div', { class: 'soft' }, 'You asked for help with this. The plan is waiting for your decision.'),
         el('a', { class: 'btn-pill btn-go d-inline-flex align-items-center text-decoration-none align-self-start', href: '#watch' }, 'Open the plan')]);
@@ -94,6 +96,10 @@ async function renderBrief(slot, ctx) {
       append(card, [el('div', { class: 'fw-bold fs-5', 'data-testid': 'brief-headline' }, brief.headline),
         el('ul', { class: 'mb-1' }, brief.bullets.map((b) => el('li', {}, b))),
         el('div', { class: 'soft small' }, `${sourceNote(brief.source)} Written ${date(brief.generated_at)}.`)]);
+      if (brief.stale) {
+        append(card, [el('div', { class: 'banner banner-info', role: 'note', 'data-testid': 'brief-stale' },
+          'Written before your latest decision or upload, so its figures may be out of date. The money figures on this page are current.')]);
+      }
     }
     const run = el('button', { type: 'button', class: 'btn-pill btn-soft align-self-start mt-auto' }, brief ? 'Write it again' : 'Write today’s summary');
     run.addEventListener('click', async () => {

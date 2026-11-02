@@ -1,9 +1,16 @@
 """Shared plumbing for agents: one grounded model call with a deterministic fallback.
 
 An agent never decides numbers. Code supplies Facts; the model may only explain them. After
-the model answers, code checks (1) every citation is a real fact id and (2) every number in the
-text appears in a fact. If anything fails, or the model is unavailable, the deterministic
-fallback is returned instead, so the screen is still correct without a model.
+the model answers, code checks (1) every citation is a real fact id, (2) every number in the
+text appears in a fact and (3) text with no citation starts with "Not enough data". If a check
+fails the model is asked once more, with the problems listed; if the second answer fails too, or
+the model is unavailable, the deterministic fallback is returned instead, so the screen is still
+correct without a model.
+
+Inventory, Recommender and Daily go through run_grounded. The Router writes no prose (it returns
+an intent from a fixed list, and code picks the agent and checks the SKU) and the Market agent
+cites no facts (code checks each quote and date word for word against the article), so each has
+its own code checks instead (app/agents/router.py, app/agents/market.py `_enforce`).
 """
 
 import re
@@ -33,6 +40,16 @@ class AgentResult:
     output: BaseModel
     source: str  # "model", "mock" or "fallback"
     notes: list[str] = field(default_factory=list)
+    retried: bool = False  # the model's first answer failed a check and its second one passed
+
+    @property
+    def outcome(self) -> str:
+        """model_ok | retried_ok | fallback | mock: what the fallback-rate metric counts."""
+        if self.source == "fallback":
+            return "fallback"
+        if self.source == "mock":
+            return "mock"
+        return "retried_ok" if self.retried else "model_ok"
 
 
 def _normalize(token: str) -> str:
@@ -72,21 +89,37 @@ def run_grounded(client: LLMClient, *, system: str, instruction: str, facts: lis
                  extra_allowed: Iterable[int | float | str] = (),
                  extra_checks: Callable[[T], list[str]] | None = None) -> AgentResult:
     user = f"FACTS\n{render_facts(facts)}\n\nTASK\n{instruction}"
+    system = f"{system}\n\n{GROUNDING_RULES}"
+
+    def ask(message: str):
+        return client.complete_json(system=system, user=message, schema=schema, mock_output=fallback)
+
+    def problems_of(out) -> tuple:
+        if hasattr(out, "citations"):  # models often write ids as "[m1]"; the id itself is "m1"
+            out = out.model_copy(update={"citations": [c.strip().strip("[]").strip() for c in out.citations]})
+        problems = check_grounding(texts_of(out), citations_of(out), facts, extra_allowed)
+        if extra_checks:
+            problems += extra_checks(out)
+        return out, problems
+
     try:
-        out = client.complete_json(system=f"{system}\n\n{GROUNDING_RULES}", user=user,
-                                   schema=schema, mock_output=fallback)
+        out = ask(user)
     except LLMError as e:
         return AgentResult(fallback(), "fallback", [f"model unavailable: {e}"])
     if client.is_mock:
         return AgentResult(out, "mock")
-    if hasattr(out, "citations"):  # models often write ids as "[m1]"; the id itself is "m1"
-        out = out.model_copy(update={"citations": [c.strip().strip("[]").strip() for c in out.citations]})
-    problems = check_grounding(texts_of(out), citations_of(out), facts, extra_allowed)
-    if extra_checks:
-        problems += extra_checks(out)
-    if problems:
-        return AgentResult(fallback(), "fallback", problems)
-    return AgentResult(out, "model")
+    out, problems = problems_of(out)
+    if not problems:
+        return AgentResult(out, "model")
+    retry = (f"{user}\n\nYOUR LAST ANSWER WAS REJECTED BY CODE\n" + "\n".join(f"- {p}" for p in problems)
+             + "\nAnswer again. Follow every rule; use only the FACTS above.")
+    try:
+        again, problems_again = problems_of(ask(retry))
+    except LLMError as e:
+        return AgentResult(fallback(), "fallback", problems + [f"retry: model unavailable: {e}"])
+    if problems_again:
+        return AgentResult(fallback(), "fallback", problems + [f"after one retry: {p}" for p in problems_again])
+    return AgentResult(again, "model", [f"first answer rejected: {p}" for p in problems], retried=True)
 
 
 def facts_for(facts: list[Fact], sku: str) -> list[Fact]:

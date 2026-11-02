@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 
+from app import obs
 from app.ingest import now_text
 
 _CITATION_MARKS = re.compile(r"\s*\[[A-Za-z0-9:_\-.]+\]")
@@ -60,3 +61,51 @@ def latest_brief(conn: sqlite3.Connection, shop_id: int) -> dict | None:
         return None
     return {"id": r["id"], "generated_at": r["generated_at"], "source": r["source"], "headline": r["headline"],
             "bullets": json.loads(r["bullets_json"]), "citations": json.loads(r["citations_json"]), "facts_hash": r["facts_hash"]}
+
+
+def plan_state(conn: sqlite3.Connection, alert_id: int) -> dict:
+    """sku -> (source, status) for the stored plan. source: rules | model | mock | fallback."""
+    return {r["sku"]: (r["source"], r["status"]) for r in conn.execute("SELECT sku, source, status FROM recommendations WHERE alert_id = ?", (alert_id,))}
+
+
+def reject_agent_answer(conn: sqlite3.Connection, shop_id: int, alert_id: int, sku: str, option: str, discount_pct: int, why: str) -> None:
+    """The agent proposed something the rules do not allow. The rules plan stays, is marked as the fallback (so the item is not asked again
+    on every view), and the refusal is written to the audit log."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("UPDATE recommendations SET source = 'fallback' WHERE alert_id = ? AND sku = ? AND status = 'proposed'", (alert_id, sku))
+        conn.execute("INSERT INTO audit_log (shop_id, at, actor, action, entity, entity_id, detail_json) VALUES (?,?,?,?,?,?,?)",
+                     (shop_id, now_text(), "system", "agent_answer_rejected", "alert", str(alert_id),
+                      json.dumps({"sku": sku, "option": option, "discount_pct": discount_pct, "why": why})))
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def mark_plan_source(conn: sqlite3.Connection, alert_id: int, sku: str, source: str) -> None:
+    """Record who wrote a stored plan without changing it (used when the offline or fallback answer equals the rules plan)."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("UPDATE recommendations SET source = ? WHERE alert_id = ? AND sku = ? AND status = 'proposed'", (source, alert_id, sku))
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def record_agent_calls(conn: sqlite3.Connection, shop_id: int, run_id: str, pipeline: str, backend: str, calls: list[tuple]) -> None:
+    """One row per agent call in a run: (agent, outcome, ms, cached). outcome: model_ok | retried_ok | fallback | mock."""
+    if not calls:
+        return
+    for agent, outcome, ms, cached in calls:                 # names, codes and numbers only: never a prompt or an answer
+        obs.event("agent_call", run_id=run_id, pipeline=pipeline, agent=agent, backend=backend, outcome=outcome, ms=int(ms), cached=bool(cached))
+    at = now_text()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.executemany("INSERT INTO agent_calls (shop_id, run_id, at, pipeline, agent, backend, outcome, ms, cached) VALUES (?,?,?,?,?,?,?,?,?)",
+                         [(shop_id, run_id, at, pipeline, agent, backend, outcome, int(ms), 1 if cached else 0) for agent, outcome, ms, cached in calls])
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise

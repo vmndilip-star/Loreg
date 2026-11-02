@@ -8,6 +8,8 @@ for help on that alert.
 
 import re
 
+from app.agents.base import AgentResult
+from app.agents.base import AgentResult
 from app.llm.client import LLMClient, LLMError
 from app.schemas.outputs import RouteDecision
 
@@ -67,15 +69,21 @@ def _keyword_route(question: str, known_skus: set[str]) -> RouteDecision:
     return RouteDecision(intent=intent, agent=AGENT_FOR_INTENT[intent], sku=sku)
 
 
-def route(client: LLMClient, question: str, known_skus: set[str]) -> RouteDecision:
+def route_result(client: LLMClient, question: str, known_skus: set[str]) -> AgentResult:
+    """The routing decision and where it came from: "model", "mock", or "fallback" (keywords, when the model could not answer or when
+    code decides before any model is asked)."""
     fallback = _keyword_route(question, known_skus)
     if fallback.intent == "unknown_fact":              # decided by code; no model is asked
-        return fallback
+        return AgentResult(fallback, "fallback", ["decided by code: the question asks for a fact Loreg does not store"])
     try:
         d = client.complete_json(system=SYSTEM, user=f"QUESTION\n{question[:1000]}", schema=RouteDecision,
                                  mock_output=lambda: fallback, max_completion_tokens=4000)
-    except LLMError:
-        return fallback
+    except LLMError as e:
+        return AgentResult(fallback, "fallback", [f"model unavailable: {e}"])
     # Code has the last word: the intent decides the agent, and the SKU must exist.
-    return RouteDecision(intent=d.intent, agent=AGENT_FOR_INTENT[d.intent],
-                         sku=d.sku if d.sku in known_skus else "")
+    return AgentResult(RouteDecision(intent=d.intent, agent=AGENT_FOR_INTENT[d.intent], sku=d.sku if d.sku in known_skus else ""),
+                       "mock" if client.is_mock else "model")
+
+
+def route(client: LLMClient, question: str, known_skus: set[str]) -> RouteDecision:
+    return route_result(client, question, known_skus).output

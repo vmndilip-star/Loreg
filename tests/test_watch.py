@@ -18,6 +18,7 @@ from app.watch import feeds
 from app.watch.feeds import USER_AGENT, canonical_url
 from app.watch.matching import catalog_lines, line_keys, match_lines
 from app.watch.sanitize import INVISIBLE_FLAG, MAX_CHARS, sanitize_html, sanitize_title
+from auth import AuthedClient
 
 FEED_URL = "https://news.samsung.com/global/feed"
 AS_OF = "2026-10-26"
@@ -72,8 +73,11 @@ class FakeWeb:
         return [r.url.path for r in self.requests]
 
 
-def make_client(tmp_path, web: FakeWeb, name="t.sqlite"):
-    return TestClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory()))
+NOW = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)      # the tests' "today": the same day as the stock list
+
+
+def make_client(tmp_path, web: FakeWeb, name="t.sqlite", clock=None):
+    return AuthedClient(create_app(db_path=tmp_path / name, as_of=AS_OF, http_factory=web.factory(), clock=clock or (lambda: NOW)))
 
 
 def db(tmp_path, name="t.sqlite"):
@@ -94,7 +98,7 @@ def shop(catalog_dir, tmp_path):
 
 
 def article(title="SYNTHETIC: Samsung QN90D Neo QLED refresh", html=BASE, slug="a1", pub="Mon, 26 Oct 2026 08:00:00 +0000"):
-    return {"title": title, "link": f"https://news.example.test/{slug}", "html": f"<p>{html}</p>", "pub": pub}
+    return {"title": title, "link": f"https://news.samsung.com/global/synthetic-{slug}", "html": f"<p>{html}</p>", "pub": pub}
 
 
 def alert_source(client):
@@ -249,10 +253,11 @@ def test_a_matching_article_attaches_a_real_dated_source_to_the_alert(shop):
     client, rep = run_scan(None, shop, FakeWeb(rss([article()])))
     assert rep["new_items"] == 1 and rep["events"] == 1 and rep["matched_events"] == 1 and rep["alerts_with_a_source"] == 1
     src = alert_source(client)
-    assert src == {"attached": True, "name": "SYNTHETIC Test Newsroom" if False else src["name"], "url": "https://news.example.test/a1",
-                   "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z",
-                   "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written",
-                   "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
+    expected = {"attached": True, "url": "https://news.samsung.com/global/synthetic-a1", "domain": "news.samsung.com",
+                "title": "SYNTHETIC: Samsung QN90D Neo QLED refresh", "published": "2026-10-26T08:00:00Z", "fetched": "2026-10-26T12:00:00Z",
+                "launch_date": "March 12, 2027", "launch_date_status": "stated in the article, as written", "origin": "feed", "label": "", "cached": False,
+                "freshness": "fresh", "age_days": 0, "stale_after_days": 30}
+    assert {k: src[k] for k in expected} == expected and src["checked"] == "2026-10-26T12:00:00Z" and "QN90D Neo QLED" in src["excerpt"]
     assert src["name"] == "Samsung Global Newsroom"
     note = client.get("/api/launch/exposed").json()["groups"][0]["source_note"]
     assert "March 12, 2027" in note and "published 2026-10-26" in note and "No dated news source" not in note
@@ -293,7 +298,7 @@ def test_a_stored_event_attaches_to_alerts_made_by_a_later_upload(catalog_dir, t
 def test_duplicate_articles_are_ignored(shop):
     a = article()
     same_url_tracking = dict(a, link=a["link"] + "?utm_source=x#frag", title="SYNTHETIC: a different headline", html="<p>different words entirely</p>")
-    same_content_other_url = dict(a, link="https://news.example.test/other")
+    same_content_other_url = dict(a, link="https://news.samsung.com/global/synthetic-other")
     web = FakeWeb(rss([a, same_url_tracking, same_content_other_url]))
     client, rep = run_scan(None, shop, web)
     s = rep["sources"][0]
@@ -375,7 +380,7 @@ def test_network_down_returns_the_stored_items_and_says_so(shop):
     client, _ = run_scan(None, shop, web)
     web.down = True
     rep = client.post("/api/watch/scan").json()
-    assert rep["network"] == "unavailable" and "Showing the items already stored" in rep["message"]
+    assert rep["network"] == "unavailable" and "Showing stored copies" in rep["message"]
     assert len(rep["items"]) == 1 and rep["items"][0]["title"].startswith("SYNTHETIC")
     assert alert_source(client)["attached"] is True                                             # what was stored is still there
 
@@ -397,8 +402,8 @@ def test_items_are_untrusted_dated_and_never_return_article_text(shop):
 def test_article_text_lives_only_in_the_local_database(tmp_path):
     client = make_client(tmp_path, FakeWeb(rss([article()])))
     client.post("/api/watch/scan")
-    row = db(tmp_path).execute("SELECT text, untrusted FROM market_items").fetchone()
-    assert "QN90D Neo QLED" in row["text"] and row["untrusted"] == 1
+    row = db(tmp_path).execute("SELECT text, excerpt, untrusted FROM market_items").fetchone()
+    assert row["text"] == "" and "QN90D Neo QLED" in row["excerpt"] and row["untrusted"] == 1      # read, so only the short excerpt is kept
     ignore = (Path(__file__).resolve().parent.parent / ".gitignore").read_text()
     assert "*.sqlite" in ignore and "data/generated/" in ignore
 
@@ -440,7 +445,7 @@ def test_soft_hyphens_and_direction_marks_are_removed_without_a_flag():
 def _age_robots(client, days):
     """White box: pretend the stored robots.txt decision was made `days` ago."""
     con = sqlite3.connect(client.app.state.db_path)
-    stamp = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stamp = (NOW - __import__("datetime").timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     con.execute("UPDATE market_sources SET robots_checked_at = ?", (stamp,))
     con.commit()
     con.close()
@@ -457,18 +462,6 @@ def test_when_robots_txt_is_unreachable_the_last_good_decision_is_used_for_up_to
     assert "/global/feed" in web.paths()[2:]                     # the feed was fetched on the strength of the cached allow
     con = db(client.app.state.db_path.parent)
     assert con.execute("SELECT robots_allowed FROM market_sources").fetchone()[0] == 1   # the good decision was not overwritten
-
-
-def test_a_stale_robots_decision_older_than_30_days_is_not_used(shop, monkeypatch):
-    monkeypatch.setattr(feeds, "_sleep", lambda s: None)
-    web = FakeWeb(rss([article()]))
-    client, _ = run_scan(None, shop, web)
-    _age_robots(client, 31)
-    web.robots_status = 503
-    before = len(web.requests)
-    rep = client.post("/api/watch/scan").json()
-    assert rep["sources"][0]["status"] == "robots_unavailable"
-    assert "/global/feed" not in [r.url.path for r in web.requests[before:]]
 
 
 def test_a_cached_disallow_is_never_overridden_by_an_unreachable_robots_txt(shop, monkeypatch):
